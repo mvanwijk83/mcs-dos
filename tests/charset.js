@@ -14,16 +14,7 @@ function defaultfont(){
  for(let y=0;y<8;y++){font[96*8+y]=rom[77*8+y];font[224*8+y]=rom[77*8+y]^255;}
  return font;
 }
-async function command(text){
- if(text==='x'){socket.write('x\n');await delay(80);return '';}
- return new Promise((resolve,reject)=>{
-  let out='',timer;
-  const data=d=>{out+=d;clearTimeout(timer);timer=setTimeout(()=>{socket.off('data',data);resolve(out)},80)};
-  socket.on('data',data);
-  timer=setTimeout(()=>{socket.off('data',data);reject(Error('Monitor timeout: '+text))},3000);
-  socket.write(text+'\n');
- });
-}
+const command=require('./vice-command')(()=>socket);
 async function memory(a,b=a,ram=false){
  if(ram)await command('bank ram');
  const out=await command(`m ${a.toString(16)} ${b.toString(16)}`),bytes=[];
@@ -69,6 +60,7 @@ async function boot(font,autoexec,fontname){
  for(let i=0;i<25&&!rows.some(s=>/^[AB]:>$/.test(s));i++){
   await command('x');await delay(500);rows=await screen();
  }
+ if(!rows.some(s=>/^[AB]:>$/.test(s)))console.log('CPU',await command('r'),'ZP',await command('m 0000 009f'));
  assert(rows.some(s=>/^[AB]:>$/.test(s)),rows.join('\n'));return rows;
 }
 async function backslashscreen(name){

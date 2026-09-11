@@ -7,16 +7,7 @@ const standard=process.argv.includes('--ntsc')?'ntsc':'pal';
 const root=path.resolve('.').replaceAll('\\','/');
 const disk=root+'/build/test-help-prompt.d64';
 const c1541=root+'/tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe';
-async function command(text){
- if(text==='x'){socket.write('x\n');await delay(80);return '';}
- return new Promise((resolve,reject)=>{
-  let out='',timer;
-  const data=d=>{out+=d;clearTimeout(timer);timer=setTimeout(()=>{socket.off('data',data);resolve(out)},80)};
-  socket.on('data',data);
-  timer=setTimeout(()=>{socket.off('data',data);reject(Error('Monitor timeout: '+text))},3000);
-  socket.write(text+'\n');
- });
-}
+const command=require('./vice-command')(()=>socket);
 async function memory(a,b=a,ram=false){
  if(ram)await command('bank ram');
  const out=await command(`m ${a.toString(16)} ${b.toString(16)}`),bytes=[];
@@ -124,13 +115,16 @@ async function run(){
  await command(`attach "${disk}" 8`);await enter('exit');
  console.log('PASS real PROMPT help first/last pages, /? form, RUN/STOP cancellation, subsequent help and exact unpaginated redirection');
 
+ const commands=[...fs.readFileSync('src/mcsdos.c','utf8').match(/static const char \* const commands\[\]=\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
+ const topic=commands.indexOf('PROMPT');assert(topic>=0);
  const original=fs.readFileSync('build/COMMANDS.HLP');let offset=5;
- for(let i=0;i<original[4]-1;i++)offset=original.indexOf(0,offset)+1;
- // PROMPT is the last topic. This body crosses several disk-read boundaries,
+ for(let i=0;i<topic;i++)offset=original.indexOf(0,offset)+1;
+ const after=original.indexOf(0,offset)+1;
+ // Replace PROMPT regardless of subsequently added topics. Cross read boundaries,
  // has blank lines, and needs two pauses due to automatic 40-column wrapping.
  const body='begin\n\n'+'W'.repeat(40*44)+'\nend';
- await boot(null,Buffer.concat([original.subarray(0,offset),petscii(body),Buffer.from([0])]));
- rows=await fresh('help prompt');assert(rows.includes('begin'));let pages=0;
+ await boot(null,Buffer.concat([original.subarray(0,offset),petscii(body),Buffer.from([0]),original.subarray(after)]));
+ rows=await fresh('help prompt');assert(rows.includes('begin'),rows.join('\n'));let pages=0;
  while(rows.includes(pager)){assert(++pages<=3);rows=await settled(await keys('\\x20',1000));}
  assert.equal(pages,2);assert(rows.includes('end'));ends(rows,'A:>');
  rows=await fresh('help prompt');assert(rows.includes(pager));await keys('\\x03',1000);

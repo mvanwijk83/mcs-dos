@@ -283,22 +283,27 @@ The generated PRG, D64, linker map and labels are in `build/`. Source is in `src
 `MCS-DOS.txt` is the original discussion draft and is preserved unchanged; the
 behavior described here incorporates the subsequent decisions.
 
-Dependencies: Windows cc65, VICE's `c1541`, and Node.js for generating PETSCII
+This isolated `oscar64-migration` branch defaults to Oscar64 `-Os -Oo`.
+See [OSCAR64.md](OSCAR64.md) for RAM comparisons, fixes and qualification.
+
+Dependencies: Windows Oscar64, cc65's assemblers, VICE's `c1541`, and Node.js for generating PETSCII
 example files. The project-local tool copies are in `tools/` and are ignored by Git.
 
 ```powershell
 .\build.ps1
+.\build.ps1 -Release  # No personal AUTOEXEC on the disk
+.\build.ps1 -Compiler cc65  # Original compiler fallback
 # Or supply existing installations:
 .\build.ps1 -Cc65 C:\cc65 -Vice C:\VICE
 ```
 
-The build uses cc65's standard C64 RAM range through $CFFF, with a reserved 2 KiB C
+The build uses RAM through $CFFF, with a reserved 2 KiB C
 stack at $C800–$CFFF. BASIC ROM stays out while the shell runs; the loader restores the standard
 ROM mapping before launching a program. The loader is copied to the cassette
 buffer before loading over the shell.
-The current build uses 47,032 bytes for code and static workspace, leaving 2,119 bytes
-before the reserved stack. MEM obtains the ceiling and stack size from linker
-symbols. This layout adds 12 KiB beyond the former $A000 ceiling on a stock C64.
+The Oscar64 candidate leaves 7.75 KiB before the reserved stack, versus
+356 bytes in this branch's cc65 baseline. See OSCAR64.md for exact measurements.
+MEM uses the BSS end; Oscar64's aligned heap can start up to seven bytes later.
 `VERSION` in `src/mcsdos.c` supplies the startup banner, VER, and generated example README.
 The underscore uses sprite 0 and 64 bytes of cassette-buffer RAM; it is disabled
 before execution leaves the input loop. `src/reu.s` contains the capacity probe.
@@ -318,8 +323,9 @@ the existing 256-byte buffer, and DISKCOPY keeps separate data channels open
 on both drives until completion or cancellation.
 
 Tool sources: [cc65](https://cc65.github.io/getting-started.html) and
-[VICE](https://vice-emu.sourceforge.io/). cc65 and VICE retain their own licenses;
-the generated program links cc65's runtime.
+[VICE](https://vice-emu.sourceforge.io/), and
+[Oscar64](https://github.com/drmortalwombat/oscar64). Tools retain their own licenses;
+the generated program links the selected compiler's runtime.
 
 REBOOT resets settings, variables and command history, then runs AUTOEXEC.BAT
 from the original startup drive.

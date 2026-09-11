@@ -5,8 +5,8 @@ const cc65 = process.argv[2] || 'tools/cc65';
 const out = 'build/oscar64';
 fs.mkdirSync(out, {recursive:true});
 let c = fs.readFileSync('src/mcsdos.c', 'utf8');
-c = c.replace('#include <cbm.h>', '#include "../../src/oscar64/compat.h"')
-     .replace('#include "bootsplash.h"', '#include "../../src/bootsplash.h"')
+c = c.replace('#include <cbm.h>', '#include "'+path.resolve('src/oscar64/compat.h').replaceAll('\\','/')+'"')
+     .replace('#include "bootsplash.h"', '#include "'+path.resolve('src/bootsplash.h').replaceAll('\\','/')+'"')
      .replace('int main(void) {', 'int main(void) {\n    POKE(1,0x36); giocharmap=IOCHM_TRANSPARENT; textcursor(false); POKE(207,0);')
      .replace('static char *decimal(', '#pragma optimize(push, 0)\nstatic char *decimal(')
      .replace('static char *allocated(', '#pragma optimize(pop)\nstatic char *allocated(')
@@ -55,5 +55,7 @@ c += 'void launch(void) { __asm { jsr display_reset\n sei }\n memcpy((void*)0x03
 for(const [label,value] of Object.entries({len:'launchlength',dev:'launchdevice',absolute:'launchabsolute',secondary:'launchabsolute^1',addresslo:'launchaddress',addresshi:'launchaddress>>8',jump:'launchaddress'}))
   c += `POKE(${labels[label]+1},${value});\n`;
 c += `POKE(${labels.jump+2},launchaddress>>8);\n __asm { jmp 0x0334 } }\n`;
-c += 'void basic_exit(void) { __asm { jsr 0xffcc\n jsr 0xffe7\n jsr display_reset\n lda #0x37\n sta 1 } exit(0); }\n';
+// Return through main and CRT: its normal epilogue also restores BASIC's
+// temporary-string pointer ($16), which Oscar64's exit(0) skips.
+c += 'void basic_exit(void) { __asm { jsr 0xffcc\n jsr 0xffe7\n jsr display_reset\n lda #0x37\n sta 1 } }\n';
 fs.writeFileSync(out+'/mcsdos.c',c);

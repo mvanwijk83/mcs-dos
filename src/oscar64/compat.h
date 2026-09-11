@@ -5,13 +5,20 @@
 #include <string.h>
 #include <ctype.h>
 typedef const char * StringPtr;
+static char *strpbrk(const char *s,const char *accept) {
+    while(*s) { if(strchr(accept,*s)) return (char *)s; ++s; }
+    return 0;
+}
 static int stricmp(const char *a,const char *b) {
-    while(*a && toupper(*a)==toupper(*b)) { ++a; ++b; }
-    return (int)(unsigned char)toupper(*a)-(unsigned char)toupper(*b);
+    /* Fold each byte once; this form also works in aggressively inlined builds. */
+    unsigned char x,y;
+    do { x=toupper(*a++); y=toupper(*b++); if(x!=y) return (int)x-(int)y; } while(x);
+    return 0;
 }
 static int strnicmp(const char *a,const char *b,unsigned int n) {
-    while(n && *a && toupper(*a)==toupper(*b)) { ++a; ++b; --n; }
-    return n?(int)(unsigned char)toupper(*a)-(unsigned char)toupper(*b):0;
+    unsigned char x,y;
+    while(n--) { x=toupper(*a++); y=toupper(*b++); if(x!=y) return (int)x-(int)y; if(!x) break; }
+    return 0;
 }
 #pragma region(main, 0x0a00, 0xd000, , , {code, data, bss, heap, stack})
 #pragma stacksize(2048)
@@ -68,7 +75,8 @@ static int cbm_read(char f,void *p,unsigned int n) {
 static int cbm_write(char f,const void *p,unsigned int n) {
     unsigned int i=0; const char *s=p;
     if(!krnio_chkout(f)) return -1;
-    while(i<n) { if(!krnio_chrout(s[i]) || krnio_status()) break; ++i; }
+    /* CHROUT returns the character in A, not a success flag: zero is data. */
+    while(i<n) { krnio_chrout(s[i]); if(krnio_status()) break; ++i; }
     krnio_clrchn(); return i;
 }
 struct cbm_dirent { char name[17]; unsigned int size; unsigned char type; };

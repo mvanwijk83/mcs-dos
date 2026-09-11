@@ -1,127 +1,107 @@
-# Oscar64 compilation experiment — 2026-09-08
+# Oscar64 migration branch — 2026-09-11
 
-The 2026-09-11 current-source size comparison is recorded in
-`build/optimization-20260911/ASSESSMENT.md`. With the 512-byte environment,
-O0 fits again; O1/O2/Os offer 2382/4395/5413 bytes of static RAM savings versus
-the current cc65 -O build. These new builds are not runtime-qualified. The
-older measurements and runtime findings below remain historical evidence.
+The parent folder had no Git repository. This isolated checkout snapshots its
+current source at baseline commit `85deaad`, then branches as `oscar64-migration`.
+The parent project's sources and release artifacts are unchanged. The local
+`tools` junction shares the parent's installed tools; no compiler libraries were edited.
 
-Oscar64 produces smaller PRGs, but the optimized experimental port has runtime
-failures. Keep cc65 as the release compiler for now.
+## RAM result
 
-## Reproduce
+Both compilers use memory through $CFFF and retain the complete 2048-byte stack
+reservation at $C800–$CFFF. Environment, history, editor, resident messages,
+external help, and other feature buffers retain their baseline sizes.
 
-The official [Oscar64 v1.32.273 Windows ZIP](https://github.com/drmortalwombat/oscar64/releases/tag/v1.32.273)
-is extracted at `tools/oscar64/oscar64`. Its SHA-256 is
-`a68d255ab63f6aac12acd234689f6f4e4e5ebe6a04cae06a69072c9792d08ac8`, matching
-the release asset digest. No system installation is needed.
+| Compiler options | PRG bytes in comparison | Available RAM | RAM recovered vs cc65 |
+| --- | ---: | ---: | ---: |
+| cc65 `-O` | 39,669 | 356 | — |
+| Oscar64 `-Os` | 33,811 | 6,208 | 5,852 |
+| Oscar64 `-O2` | 35,072 | 5,008 | 4,652 |
+| Oscar64 `-Os -Oo` | 32,080–32,082 | **7,936** | **7,580** |
+
+Compilation layout can differ by a few
+bytes between invocations. Its aligned free region is also $A900–$C7FF: **7936
+bytes (7.75 KiB)**. The comparison measures the aligned heap start, not the PRG
+length. MEM uses BSSEnd and can include up to seven bytes of alignment padding.
+This free region is breathing room for future linked code/data, not a newly
+added dynamic allocation feature. Fixed charset/screen memory is unchanged.
+
+`-Os` optimizes for size; resident code savings also free RAM on this machine.
+`-Oo` outlines repeated instruction sequences and saves substantially more here.
+`-O2` emphasizes speed and uses more RAM. A trial of `-O3` was stopped after
+several minutes without output; it is not qualified. There is no basis to assume
+the highest numbered speed setting is best for RAM.
+
+## Build
+
+The installed compiler is Oscar64 1.32.273, from the
+[official release](https://github.com/drmortalwombat/oscar64/releases/tag/v1.32.273).
+The branch defaults to native code with `-Os -Oo -psci`.
 
 ```powershell
-.\build-oscar64.ps1
-# Optional compiler locations:
-.\build-oscar64.ps1 -Oscar64 C:\oscar64 -Cc65 C:\cc65
+.\build.ps1 -Release                         # Oscar64 candidate, no AUTOEXEC
+.\build.ps1                                  # Personal development AUTOEXEC
+.\build.ps1 -Optimization Os                 # Without outliner
+.\build.ps1 -Compiler cc65 -Release           # Baseline compiler fallback
+.\build-oscar64.ps1                          # RAM comparison; preserves packaged build
+.\build-oscar64.ps1 -IncludeO3               # Optional trial; 120-second timeout per mode
 ```
 
-This builds a fresh cc65 baseline with the exact flags from `build.ps1`, then
-four native-code Oscar64 variants from the same shell source. All outputs,
-maps, assembly listings, diagnostics, hashes, and `sizes.json` are under
-`build/oscar64/`. The release PRG, D64, and normal build script are unchanged.
-The comparison script does not launch VICE or automatically validate behavior.
+`build/MCS-DOS.prg`, `build/MCS-DOS.d64`, and SHA256SUMS.txt are the deliverables.
+Map and VICE labels come from the selected compiler; older cc65-symbol-specific
+test scripts need adaptation before use with Oscar64. Comparison artifacts and
+`memory.json` live under `build/oscar64`. All generated build files are ignored.
+cc65's ca65/ld65 are still required to assemble the existing launch trampoline.
 
-The charset display routines are translated from src/charset.s by the adapter.
-Screen writes follow $0288, including the optional screen beneath KERNAL ROM.
-The unused dynamic heap reservation is zero; the 2048-byte stack is retained.
-With generalized charset filenames, the unoptimized O0 variant exceeds the
-available RAM; build-oscar64.ps1 stops at its stack-placement error. O1, O2
-and Os still compile when invoked separately on the generated source. This
-does not qualify their runtime behavior or resolve the port's existing failures.
+## Port fixes
 
-## Sizes
+- Added the missing `strpbrk` compatibility function used by newer commands.
+- Generate absolute include paths. Relative paths in this nested checkout could
+  accidentally select the parent project's old adapter, silently ignoring fixes.
+- Rewrote case-insensitive comparisons to fold each character once. This fixes
+  reproduced optimized command-dispatch failures such as DIR returning no output.
+  This is an observed compiler/adapter interaction, not a proven upstream diagnosis.
+- Fixed binary writes: KERNAL CHROUT returns the character, not a success flag.
+  Treating a zero byte as failure silently truncated raw-sector writes and broke
+  ATTRIB updates. The adapter now checks KERNAL status after output.
+- Return through main and the normal CRT epilogue on EXIT. Oscar64's exit(0)
+  skipped restoration of BASIC's temporary-string pointer at $16. Repeated
+  charset/EXIT/reload tests reproduced failure before this change and pass after it.
 
-PRG file sizes include the two-byte load address and BASIC startup stub. No
-compression, bytecode, feature removal, or disk-image padding is involved.
-The baseline compiler is cc65 V2.19, Git e11fb5c.
+The existing local no-optimization workaround for decimal conversion remains.
+Assembly translations retain their existing no-assembly-optimization setting.
+The editor warning about potentially uninitialized `n` remains: its overflow
+condition short-circuits the read. No blanket disabling of C optimization was added.
 
-| Build | PRG bytes | Bytes saved | Reduction |
-| --- | ---: | ---: | ---: |
-| cc65 `-O` (current setup) | 31,960 | — | — |
-| Oscar64 `-O0` | 30,586 | 1,374 | 4.30% |
-| Oscar64 `-O1` | 28,744 | 3,216 | 10.06% |
-| Oscar64 `-O2` | 27,720 | 4,240 | 13.27% |
-| Oscar64 `-Os` | 27,233 | 4,727 | 14.79% |
+## Validation
 
-These compare complete compiler/runtime ports, not isolated code generators:
-the disk and console implementations differ, and the Oscar64 adapter supplies
-a smaller formatter supporting the shell's actual format strings.
+VICE 3.10 tests use owned emulator processes and disposable disks. Relevant
+commands (run after a release build) are:
 
-## Port details
+```powershell
+node tests/oscar64-regression.js build/MCS-DOS.prg
+node tests/new-commands.js
+node tests/help-prompt.js
+node tests/charset.js
+node tests/charset.js --names-only
+node tests/charset.js --assets-only --ntsc
+node tests/help-prompt.js --ntsc
+node tests/redirection.js
+```
 
-An unmodified Oscar64 compile fails: it lacks cc65's `cbm.h`, `peekpoke.h`,
-directory API, several conio names, `stricmp`, and bounded printf functions.
+The harnesses now avoid delayed monitor-prompt races. Help's synthetic fixture
+finds PROMPT by command ID instead of assuming it remains the last topic.
+Redirection tests follow the relocated screen and explicitly set their prompt.
 
-`scripts/prepare-oscar64.js` generates a translation unit from the authoritative
-release source without editing it. `src/oscar64/compat.h` implements the used
-interfaces: KERNAL I/O, BASIC-directory parsing, direct screen output, PETSCII
-input, case-insensitive comparison, and bounded `%s`/`%u`/`%c` formatting with
-field widths. It is deliberately an experiment, not a general cc65 library.
+Passing checks include command dispatch and detailed help; environment values;
+editor creation/save and overwrite refusal; REBOOT; EXIT followed by BASIC
+expressions/programs and PRG launch; CONCAT, ATTRIB and CHKDSK validation;
+SPLASH state restoration; prompt initialization and paginated help boundaries;
+relocated screen/font memory and repeated charset startup/EXIT; and byte-exact
+binary redirection on one/two drives, cancellation, disk-full handling and recovery.
+The four bundled YAFF font sets also pass byte-level glyph/reverse/graphics and
+EXIT-restoration checks under NTSC. The help/prompt suite passes under both PAL
+and NTSC, including synthetic read-boundary/pagination cases.
 
-Both builds use RAM through `$CFFF` and reserve the upper 2 KiB for compiler
-stack storage. Oscar64's stack includes both its dynamic and static call-frame
-areas. The port selects `$36` memory mapping and restores `$37` on exit.
-Oscar64 linker symbols provide the MEM/CHKDSK workspace figures.
-
-The loader is assembled from the original cassette-buffer trampoline with
-ca65/ld65 and embedded as bytes; this experiment therefore still needs those
-assemblers. The REU probe is mechanically translated from `src/reu.s`, with
-its A/X return value adapted to Oscar64. Neither routine is stubbed out.
-
-The decimal conversion function is compiled with optimization disabled in all
-variants: the initial optimized build displayed blank numeric strings, while
-the unoptimized function restored them. This is an observed workaround, not a
-confirmed upstream compiler diagnosis. Oscar64 also warns about the editor's
-`n` potentially being uninitialized; that existing loop initializes it before
-use unless overflow short-circuits the subsequent check.
-
-## Runtime findings
-
-Tests used VICE 3.10 and disposable copies of the release disk. No physical
-hardware testing was performed.
-
-- `-O0`: `tests/editor-save.js` passes, including save/reload, last-row contents,
-  declining overwrite, cancellation, and invalid filename errors.
-  `tests/update.js` also passes. HELP/palette and the clean EXIT screen pass,
-  but the subsequent BASIC `PRINT 2+2` check in `tests/help.js` fails (the command
-  remains on screen without its result). This build is not release-qualified.
-- `-O1`: HELP, palette, EXIT and subsequent BASIC expressions/program execution
-  passed `tests/help.js`. `tests/update.js` passed directory sorting/layout,
-  totals, color controls, and cursor position/blinking. Initial editor saving
-  and reloading passed, but declining overwrite produced DOS error 63 because
-  a write-open was still attempted; this was reproduced in the final build.
-  MEM reported plausible allocation and no
-  REU on an unexpanded emulated C64.
-- `-Os`: the general HELP command printed `/7` instead of its help listing,
-  even after fixing decimal formatting. Do not use this build as a release.
-- `-O2`: compiled successfully; not qualified for use. Early testing encountered
-  incorrect display output before the final memory-mapping correction.
-
-The `-O0` final MEM screen reports 39,243 bytes for shell/workspace, 2,048 for
-the reserved stack area, and 9,908 free. The cc65 map ends static workspace at
-`$A61F` (exclusive), versus Oscar64 `-O0` at `$A14C`. The compiler does not emit
-zero-filled BSS into the PRG, so file size and runtime allocation are different.
-
-The initial `-O1` HELP/EXIT test preceded the final `$36` mapping change; those
-passes do not establish BASIC-return correctness for the final port. The final
-`-O0` failure reinforces the need to validate the exit ABI before migration.
-
-To repeat interactive tests, launch VICE with a remote monitor on port 6510,
-mount a **disposable** copy of the release D64, and use the monitor to load the
-chosen experimental PRG directly. Set `$BA` to 8 before `RUN`, select a scheme,
-and decline preference saving. Run the existing Node test scripts from the
-project root at a shell prompt. The editor suite expects `UI-NOTES` not to
-exist initially; use a fresh disk copy. The HELP suite ends in BASIC.
-
-Optimized failures may involve compiler optimization or assumptions in the
-adapter; no minimized upstream reproducer has been established. Full REL copy,
-DISKCOPY, printer, nonzero REU preservation, and hardware checks remain outside
-this experiment. A compiler migration needs those checks and resolution of the
-optimized failures before replacing the existing build.
+The migration is an emulator-tested development candidate. Physical C64/Ultimate,
+REU hardware, full-disk DISKCOPY and REL-copy qualification remain separate work;
+compilation alone does not establish correctness for those paths or for -O2/-O3.

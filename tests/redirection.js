@@ -3,17 +3,13 @@ const fs=require('fs'),net=require('net'),path=require('path'),assert=require('a
 const {spawn,execFileSync}=require('child_process');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 let child,socket;
-async function command(text){
- if(text==='x'){socket.write('x\n');await delay(80);return '';}
- return new Promise((resolve,reject)=>{
-  let out='',timer; const data=d=>{out+=d;clearTimeout(timer);timer=setTimeout(done,80);};
-  const done=()=>{socket.off('data',data);resolve(out);};
-  socket.on('data',data);timer=setTimeout(()=>{socket.off('data',data);reject(Error(text));},3000);
-  socket.write(text+'\n');
- });
-}
+const command=require('./vice-command')(()=>socket);
 async function screen(){
- const out=await command('m 0400 07e7'),bytes=[];
+ const pointer=await command('m 0288 0288');
+ const base=parseInt(pointer.match(/>C:0288\s+([\da-f]{2})/i)[1],16)*256;
+ await command('bank ram');
+ const out=await command(`m ${base.toString(16)} ${(base+999).toString(16)}`),bytes=[];
+ await command('bank cpu');
  for(const line of out.split('\n')){const m=line.match(/>C:([\da-f]{4})\s+(.{1,50})/i);if(m)bytes.push(...m[2].trim().split(/\s+/).filter(v=>/^[\da-f]{2}$/i.test(v)).map(v=>parseInt(v,16)));}
  return bytes.map(v=>{v&=127;return String.fromCharCode(v>=1&&v<=26?v+96:v>=65&&v<=90?v:v);}).join('');
 }
@@ -50,8 +46,12 @@ async function run(){
  child.stderr.pipe(fs.createWriteStream('build/redirection.log'));
  for(let i=0;i<200;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j);});break;}catch(e){socket.destroy();socket=null;await delay(100);}}
  assert(socket,'VICE did not start');socket.on('error',()=>{});
- await command('x');await delay(1500);await command('load "'+path.resolve('build/MCS-DOS.prg').replaceAll('\\','/')+'" 0');await command('> ba 08');const startup=await enter('run',3000);assert(startup.includes('8:>'),startup);
- async function check(cmd,expected){await enter('cls',100);const s=await enter(cmd,2000);if(expected)assert(s.includes(expected),cmd+'\n'+s);else assert(!/error|fault|not ready|not found/i.test(s),cmd+'\n'+s);assert(!s.includes('Press any key'),s);assert(s.includes('8:>'),cmd+'\n'+s);console.log('OK '+cmd);}
+ for(let i=0;i<40;i++){await command('x');await delay(300);if((await screen()).includes('ready.'))break;}
+ assert((await screen()).includes('ready.'),'BASIC startup did not complete');
+ await command('load "'+path.resolve('build/MCS-DOS.prg').replaceAll('\\','/')+'" 0');await command('> ba 08');let startup=await enter('run',3000);
+ for(let i=0;i<40 && !startup.includes('A:>');i++){await command('x');await delay(300);startup=await screen();}assert(startup.includes('A:>'),startup);
+ await enter('prompt $n$c$g');
+ async function check(cmd,expected){await enter('cls',100);let s=await enter(cmd,2000);for(let i=0;i<100&&!s.trimEnd().endsWith('8:>');i++){await command('x');await delay(250);s=await screen();}if(expected)assert(s.includes(expected),cmd+'\n'+s);else assert(!/error|fault|not ready|not found/i.test(s),cmd+'\n'+s);assert(!s.includes('Press any key'),s);assert(s.trimEnd().endsWith('8:>'),cmd+'\n'+s);console.log('OK '+cmd);}
  await check('echo first>out');await check('echo second>>out');
  await check('echo old longer text>replace');await check('echo x>replace');
  await check('echo new>>new');await check('echo.>emptyline');

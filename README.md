@@ -283,7 +283,7 @@ The generated PRG, D64, linker map and labels are in `build/`. Source is in `src
 `MCS-DOS.txt` is the original discussion draft and is preserved unchanged; the
 behavior described here incorporates the subsequent decisions.
 
-This isolated `oscar64-migration` branch defaults to Oscar64 `-Os -Oo`.
+The main project uses Oscar64 `-Os -Oo` following candidate testing and promotion.
 See [OSCAR64.md](OSCAR64.md) for RAM comparisons, fixes and qualification.
 
 Dependencies: Windows Oscar64, cc65's assemblers, VICE's `c1541`, and Node.js for generating PETSCII

@@ -1,26 +1,15 @@
-Memory savings:
-- And what net savings would moving out EDIT yield? Can we just load it in any arbitrary free space, assuming one is free? Always an option to just show an out of memory error if not. 
-
---
-
 TODO
 
-  Shed dead weight wherever we can find it to reduce program size/memory use
-
-
-
-  Spin off EDIT into a separate program? Duplicate shared code. Load into available memory space (does that even work?)
-  PAUSE should have an optional comment parameter that is displayed instead of the default message.
-   - Usage example: PAUSE Insert new disk in drive A 
-  Check 1541-II, 1571 and 1581 compatibility.
+  Merge SPLASH into VER: put it under a /SPLASH switch
   Insert new line functionality in EDIT
   Manual viewer (separate program on disk)
   Proper handling of RUNning programs without a BASIC stub? (could always refuse to run them)
   Fastloader?
   FIND/FINDSTR? (useful for piping)
   Extras
-   - see separate text file
-   - Amiga prompt: PROMPT=DF$d:, CURSOR=BLOCK,8
+   - extra charsets
+   - AUTOEXEC.BAT replacements
+  Spin off EDIT into a separate program? Duplicate shared code. Load into available memory space (does that even work?)
   SET CURSOR=LINE|SOLID[,COLOR]
   MCSD
    - separate program
@@ -30,6 +19,12 @@ TODO
    - live joystick/paddle/mouse tests
    - make it look like as much as MSD as possible including colors!
   Git repo
+
+Archive the current CC65-based baseline and store it in a .ZIP in the project folder. We will now continue on an Oscar64 
+
+Final steps for release:
+ - Check 1541-II, 1571 and 1581 compatibility & fix where possible
+ - Create a suitable filesystem structure to put in Git & publish on GitHub
 
 
 

@@ -1,3 +1,6 @@
 tools/
 src/*.o
 build/
+branches/
+MCS-DOS-cc65-*.zip
+MCS-DOS-cc65-*.zip.sha256

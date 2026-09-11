@@ -1,5 +1,11 @@
 # Development and release builds
 
+Oscar64 is the main compiler, using native code with `-Os -Oo` by default.
+The cc65-based project, including tools and build outputs, is archived in
+`MCS-DOS-cc65-2026-09-11.zip`; its SHA-256 is recorded in the adjacent `.sha256` file.
+The installed cc65 assemblers are still used for the launch trampoline.
+See `OSCAR64.md` for the RAM comparison and port validation.
+
 Run `./build.ps1` for development. It rebuilds `build/MCS-DOS.d64` and includes
 the personal startup preferences in `dev/AUTOEXEC.BAT.txt` as a PETSCII SEQ
 file named AUTOEXEC.BAT. Edit that source file to retain changes across future

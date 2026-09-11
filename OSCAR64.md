@@ -1,9 +1,15 @@
-# Oscar64 migration branch — 2026-09-11
+# Oscar64 main compiler — 2026-09-11
 
-The parent folder had no Git repository. This isolated checkout snapshots its
-current source at baseline commit `85deaad`, then branches as `oscar64-migration`.
-The parent project's sources and release artifacts are unchanged. The local
-`tools` junction shares the parent's installed tools; no compiler libraries were edited.
+Oscar64 was promoted to `main` after emulator validation and user testing of
+the candidate disk. Git history retains the original snapshot at `85deaad`
+and the migration at `5dbe6ba`. The main folder now contains that repository;
+the original experimental checkout remains under `branches/oscar64-migration`.
+
+The complete cc65-based project is preserved in `MCS-DOS-cc65-2026-09-11.zip`,
+including source, build outputs, notes, and bundled tools. Its 2475 files were
+individually verified against the originals using SHA-256. The separate Oscar64
+checkout is excluded. The ZIP's checksum is in the adjacent `.sha256` file.
+The newer main-folder `todo.txt` was retained during promotion.
 
 ## RAM result
 
@@ -35,7 +41,7 @@ the highest numbered speed setting is best for RAM.
 
 The installed compiler is Oscar64 1.32.273, from the
 [official release](https://github.com/drmortalwombat/oscar64/releases/tag/v1.32.273).
-The branch defaults to native code with `-Os -Oo -psci`.
+Main defaults to native code with `-Os -Oo -psci`.
 
 ```powershell
 .\build.ps1 -Release                         # Oscar64 candidate, no AUTOEXEC
@@ -102,6 +108,7 @@ The four bundled YAFF font sets also pass byte-level glyph/reverse/graphics and
 EXIT-restoration checks under NTSC. The help/prompt suite passes under both PAL
 and NTSC, including synthetic read-boundary/pagination cases.
 
-The migration is an emulator-tested development candidate. Physical C64/Ultimate,
-REU hardware, full-disk DISKCOPY and REL-copy qualification remain separate work;
+This is the adopted main compiler after automated and user acceptance testing.
+The automated tests do not cover physical C64/Ultimate or REU hardware,
+full-disk DISKCOPY or REL-copy qualification;
 compilation alone does not establish correctness for those paths or for -O2/-O3.

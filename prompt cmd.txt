@@ -1,0 +1,25 @@
+Changes the MCS-DOS command prompt.
+
+PROMPT [text]
+
+  text   Specifies a new command prompt.
+
+Prompt can be made up of normal charac-
+ters and the following special codes:
+
+   $B  | (pipe)
+   $C  : (colon)
+   $D  Drive letter
+   $G  > (greater-than sign)
+   $H  Backslash
+   $N  Drive number
+   $P  Drive identifier according to
+       DRIVEIDS environment variable
+   $Q  = (equal sign)
+   $R  Line break (RETURN)
+   $S  Space
+   $V  MCS-DOS version number
+   $$  $ (dollar sign)
+
+Type PROMPT without parameters to reset
+the prompt to the default setting.

@@ -1,0 +1,6 @@
+@echo off
+set driveids=dos
+set charset=cga
+color /preset:2
+prompt $p$c$h$g
+ver

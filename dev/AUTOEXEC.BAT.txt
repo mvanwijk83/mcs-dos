@@ -1,6 +1,0 @@
-@echo off
-set driveids=dos
-set charset=cga
-set color=15,0,0
-set prompt=$p$c$h$g
-ver

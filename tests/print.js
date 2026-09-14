@@ -1,6 +1,7 @@
+const {tool} = require('./setup');
 // Run the production TYPE/PRINT handler with observable KERNAL I/O mocks.
 const fs=require('fs'),{execFileSync}=require('child_process');
-const source=fs.readFileSync('src/mcsdos.c','utf8');
+const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
 const harness=`
 #include <stdio.h>
@@ -40,6 +41,6 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-print.c',harness);
-execFileSync('tools/cc65/bin/cl65.exe',['-t','sim6502','-O','-o','build/test-print','build/test-print.c'],{stdio:'pipe'});
-execFileSync('tools/cc65/bin/sim65.exe',['build/test-print'],{stdio:'pipe'});
+execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-print','build/test-print.c'],{stdio:'pipe'});
+execFileSync(tool('cc65', 'sim65'),['build/test-print'],{stdio:'pipe'});
 console.log('PASS PRINT defaults, devices, aliases, raw bytes, invalid arguments and failure cleanup; redirected TYPE raw bytes');

@@ -1,0 +1,2 @@
+# Character sets are binary C64 data; never convert line endings.
+disk-content/*.[cC][pP][iI] -text

@@ -1,7 +1,8 @@
+const {tool} = require('./setup');
 // Owns a VICE process and disk; accepts any PRG for baseline/optimizer comparison.
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
-const root=path.resolve('.').replaceAll('\\','/'),prg=path.resolve(process.argv[2]||'build/oscar64/MCS-DOS-Os.prg').replaceAll('\\','/');
+const root=path.resolve('.').replaceAll('\\','/'),prg=path.resolve(process.argv[2]||'build/MCS-DOS.prg').replaceAll('\\','/');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));let child,socket;const snapshots=[];
 let monitorPort;
 async function command(text){return new Promise((resolve,reject)=>{
@@ -18,9 +19,9 @@ async function check(cmd,expected,ms=900){await enter('cls');const s=await enter
 const disk=root+'/build/test-oscar64.d64';fs.copyFileSync('build/MCS-DOS.d64',disk);
 fs.writeFileSync('build/oscar-autoexec',Buffer.from('@ECHO OFF\rSET DRIVEIDS=DOS\r'));
 fs.writeFileSync('build/oscar-existing',Buffer.from('OLD\r'));
-execFileSync('tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe',['-attach',disk,'-write','build/oscar-autoexec','autoexec.bat,s','-write','build/oscar-existing','existing,s','-write','build/DEMO.prg','demo'],{stdio:'pipe'});
+execFileSync(tool('vice', 'c1541'),['-attach',disk,'-write','build/oscar-autoexec','autoexec.bat,s','-write','build/oscar-existing','existing,s','-write','build/DEMO.prg','demo'],{stdio:'pipe'});
 const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));
-child=spawn(root+'/tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe',['-default','-sounddev','dummy','-warp','-8',disk,'-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:['ignore','ignore','pipe']});child.stderr.on('data',d=>fs.appendFileSync('build/oscar64/vice.log',d));
+child=spawn(tool('vice', 'x64sc'),['-default','-sounddev','dummy','-warp','-8',disk,'-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:['ignore','ignore','pipe']});child.stderr.on('data',d=>fs.appendFileSync('build/oscar64/vice.log',d));
 for(let i=0;i<100;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j)});break;}catch(e){socket.destroy();socket=null;await delay(100);}}assert(socket);socket.destroy();monitorPort=port;
 for(let i=0;i<40;i++){await command('x');await delay(200);if((await screen()).includes('ready.'))break;}assert((await screen()).includes('ready.'));await command('load "'+prg+'" 0');await command('> ba 08');let s=await enter('run',3000);console.log('BOOT\n'+s);assert(s.includes('A:'),s);
 if(process.argv.includes('--quick')){

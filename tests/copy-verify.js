@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 const fs=require('fs'),assert=require('assert/strict');const image=fs.readFileSync('build/test-copy-target.d64');
 function offset(t,s) {
   assert(t>=1&&t<=35);

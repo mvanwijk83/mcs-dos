@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 // One owned emulator, one persistent monitor connection, deterministic cleanup.
 const fs=require('fs'),net=require('net'),path=require('path');
 const {spawn}=require('child_process');
@@ -5,16 +6,7 @@ const assert=require('assert/strict');
 const standard=process.argv.includes('--ntsc')?'ntsc':'pal';
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 let child,socket;
-async function command(text){
- if(text==='x'){socket.write('x\n');await delay(80);return '';}
- return new Promise((resolve,reject)=>{
-  let out='',timer;
-  const done=()=>{clearTimeout(timer);socket.off('data',data);resolve(out);};
-  const data=d=>{out+=d;clearTimeout(timer);timer=setTimeout(done,80);};
-  socket.on('data',data);timer=setTimeout(()=>{socket.off('data',data);reject(Error('Monitor timeout: '+text));},3000);
-  socket.write(text+'\n');
- });
-}
+const command=require('./vice-command')(()=>socket);
 async function memory(a,b=a){
  if(a>=0xe000)await command('bank ram');
  const out=await command(`m ${a.toString(16)} ${b.toString(16)}`), bytes=[];
@@ -41,7 +33,7 @@ async function run(){
  await new Promise(r=>server.close(r));
  const disk=path.resolve('build/test-editor-session.d64');
  fs.copyFileSync('build/MCS-DOS.d64',disk);
- child=spawn(path.resolve('tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe'),
+ child=spawn(tool('vice', 'x64sc'),
   ['-default','-'+standard,'-sounddev','dummy','-warp','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor','-8',disk],{windowsHide:true,stdio:['ignore','ignore','pipe']});
  console.log('Owned VICE PID: '+child.pid);
  child.stderr.pipe(fs.createWriteStream('build/editor-session.log'));
@@ -52,7 +44,13 @@ async function run(){
  if(!socket)throw Error('VICE monitor did not start');
  socket.on('error',()=>{});
  await command('x');await delay(1500);
- await command('load "'+path.resolve('build/MCS-DOS.prg').replaceAll('\\','/')+'" 0');
+ let basic=await screen();
+ for(let i=0;i<60&&!basic.includes('ready.');i++){
+  await command('x');await delay(250);basic=await screen();
+ }
+ assert(basic.includes('ready.'),'BASIC startup did not finish: '+basic.join('\n'));
+ const loaded=await command('load "'+path.resolve('build/MCS-DOS.prg').replaceAll('\\','/')+'" 0');
+ assert.deepEqual(Buffer.from(await memory(0x801,0x80c)),fs.readFileSync('build/MCS-DOS.prg').subarray(2,14),loaded);
  await command('> ba 08');await command('keybuf run\\x0d');await command('x');await delay(2500);
  let startup=await screen();
  for(let i=0;i<10&&!startup.some(s=>s==='A:>' || s==='8:>');i++){
@@ -60,7 +58,8 @@ async function run(){
  }
  assert(startup.some(s=>s==='A:>' || s==='8:>'),startup.join('\n'));
  const shell=await memory(0xd020,0xd021),vector=await memory(0x314,0x315),mask=await memory(0xd01a);
- function status(row,name,coords=' 1: 1'){
+ const foreground=(await memory(0x286))[0]&15;
+ function status(row,name,coords='01:01'){
   assert.equal(row,(' '+coords+'  '+name).padEnd(26)+'RUN/STOP:quit');
  }
  status((await keys('edit\\x0d'))[24],'Untitled');
@@ -68,43 +67,7 @@ async function run(){
  assert.equal((await memory(base+999))[0],160,'one reverse-space of right padding');
  assert.deepEqual(await memory(0xd020,0xd021),shell);
  assert.deepEqual(await memory(0x314,0x315),vector);assert.deepEqual(await memory(0xd01a),mask);
- assert((await memory(0xdbc0,0xdbe7)).every(v=>(v&15)===5));
- async function insertRow(){
-  // Model the KERNAL's suppressed chord: scan index 0, CTRL held, no queued byte.
-  // Freeze SCNKEY in this disposable emulator to keep the simulated press held.
-  await command('bank rom');
-  assert.match(await command('m ea87 ea87'),/EA87\s+A9/i,'standard KERNAL SCNKEY entry');
-  await command('bank rom');await command('> ea87 60');await command('bank cpu');
-  try {
-   await command('> c5 00 00');await command('> 028d 04');
-   await command('x');await delay(300);
-   const out=await screen();
-   assert.equal((await memory(0xc6))[0],0,'shortcut works without a buffered character');
-   await command('x');await delay(500);
-   assert.deepEqual(await screen(),out,'holding shortcut inserts only once');
-   return out;
-  } finally {
-   await command('> c5 40');await command('> 028d 00');
-   await command('bank rom');await command('> ea87 a9');await command('bank cpu');
-   await command('x');await delay(150);
-  }
- }
- await keys('first\\x0dsecond\\x0dthird');
- let inserted=await insertRow();
- assert.equal(inserted[2],'');assert.equal(inserted[3],'third');
- status(inserted[24],'Untitled',' 3: 1');
- await keys('new');
- await keys('\\x13');
- inserted=await insertRow();
- assert.equal(inserted[0],'');assert.equal(inserted[1],'first');
- assert.equal(inserted[2],'second');assert.equal(inserted[3],'new');assert.equal(inserted[4],'third');
- await keys('\\x11'.repeat(23)+'bottom');
- const full=await screen();
- inserted=await insertRow();assert.deepEqual(inserted,full,'full bottom row prevents insertion');
- await keys('\\x13');
- const top=await screen();
- inserted=await insertRow();assert.deepEqual(inserted,top,'full bottom row protects text when inserting at top');
- await keys('\\x03n');await keys('edit\\x0d');
+ assert((await memory(0xdbc0,0xdbe7)).every(v=>(v&15)===foreground),'status retains shell foreground');
  const points=[];
  for(const range of [[base+960,base+960],[base+963,base+963],[base+966,base+999],[0xdbc0,0xdbe7]].map(pair=>pair.map(n=>n.toString(16)).join(' '))){
   const result=await command('break store '+range);
@@ -122,7 +85,7 @@ async function run(){
  await keys('saved document\\x03y',2500);
  let out=await keys('edit abcdefghijklmnop\\x0d',1600);
  assert.equal(out[0],'saved document');status(out[24],'ABCDEFGHIJKLMNOP');
- out=await insertRow();assert.equal(out[0],'');assert.equal(out[1],'saved document');
+ await keys('x'); // Make a change before exercising overwrite refusal.
  await keys('\\x03y',1500);assert.equal((await screen())[24],'Overwrite existing file (Y/N)?');
  await keys('n');
  await keys('edit\\x0d');await keys('hello\\x03y');

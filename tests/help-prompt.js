@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 // Owned VICE instance: help pagination and startup-only PROMPT environment.
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
@@ -6,7 +7,7 @@ let child,socket;
 const standard=process.argv.includes('--ntsc')?'ntsc':'pal';
 const root=path.resolve('.').replaceAll('\\','/');
 const disk=root+'/build/test-help-prompt.d64';
-const c1541=root+'/tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe';
+const c1541=tool('vice', 'c1541');
 const command=require('./vice-command')(()=>socket);
 async function memory(a,b=a,ram=false){
  if(ram)await command('bank ram');
@@ -44,7 +45,7 @@ function read(name,which=disk){
 }
 
 const base=root+'/build/test-help-prompt-base.d64';
-const help=JSON.parse(fs.readFileSync('src/command-help.json','utf8'));
+const help=JSON.parse(fs.readFileSync('src/command-help.json','utf8').replace(/\r\n/g, '\n'));
 const petscii=s=>Buffer.from([...s.replace(/\r?\n/g,'\r')].map(c=>{
  const n=c.charCodeAt(0);return n===124?221:n===92?160:n>=97&&n<=122?n-32:n>=65&&n<=90?n+128:n;
 }));
@@ -78,7 +79,7 @@ async function run(){
  try { execFileSync(c1541,['-attach',base,'-delete','autoexec.bat'],{stdio:'pipe'}); } catch(e) { if(hasAuto) throw e; }
  const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const port=server.address().port;await new Promise(r=>server.close(r));
- child=spawn(root+'/tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe',
+ child=spawn(tool('vice', 'x64sc'),
   ['-default','-'+standard,'-sounddev','dummy','-warp','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],
   {windowsHide:true,stdio:['ignore','pipe','pipe']});
  let launchLog='';child.stdout.on('data',d=>launchLog+=d);child.stderr.on('data',d=>launchLog+=d);
@@ -124,7 +125,7 @@ async function run(){
  console.log('PASS PROMPT applied after AUTOEXEC, batch precedence, interactive SET storage only, removed commands, REBOOT, 32-byte value, removed and absent values');
 
  rows=await fresh('help set');
- assert(rows.includes('Displays, sets, or removes MCS-DOS'),'help heading remains visible on first page');
+ assert(rows.includes(help.SET.split('\n')[0]),'help heading remains visible on first page: '+rows.join('\n'));
  await screenshot('help-prompt-page1');
  while(rows.includes(pager)) rows=await settled(await keys('\\x20',1500));ends(rows,'8:>');
  await screenshot('help-prompt-page2');
@@ -136,7 +137,7 @@ async function run(){
  await command(`attach "${disk}" 8`);await enter('exit');
  console.log('PASS real SET help first/last pages, /? form, RUN/STOP cancellation, subsequent help and exact unpaginated redirection');
 
- const commands=[...fs.readFileSync('src/mcsdos.c','utf8').match(/static const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
+ const commands=[...fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n').match(/static const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
  const topic=commands.indexOf('SET');assert(topic>=0);
  const original=fs.readFileSync('build/COMMANDS.HLP');let offset=5;
  for(let i=0;i<topic;i++)offset=original.indexOf(0,offset)+1;

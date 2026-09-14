@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 // Owned VICE instance: FIND disk cursors and switch integration.
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
@@ -6,7 +7,7 @@ let child,socket;
 const standard=process.argv.includes('--ntsc')?'ntsc':'pal';
 const root=path.resolve('.').replaceAll('\\','/');
 const disk=root+'/build/test-help-prompt.d64';
-const c1541=root+'/tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe';
+const c1541=tool('vice', 'c1541');
 async function command(text){
  if(text==='x'){socket.write('x\n');await delay(80);return '';}
  return new Promise((resolve,reject)=>{
@@ -44,7 +45,7 @@ async function run(){
  execFileSync(c1541,['-attach','build/test-find.d64','-write','build/find-fixture','findtest,s'],{stdio:'pipe'});
  const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const port=server.address().port;await new Promise(r=>server.close(r));
- child=spawn(root+'/tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe',
+ child=spawn(tool('vice', 'x64sc'),
  ['-default','-sounddev','dummy','-warp','-8',root+'/build/test-find.d64','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:'ignore'});
  for(let i=0;i<100;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j)});break;}catch(e){socket.destroy();socket=null;await delay(100);}}
  assert(socket);socket.on('error',()=>{});await command('x');await delay(2000);

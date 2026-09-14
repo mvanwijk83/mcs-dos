@@ -1,7 +1,8 @@
+const {tool} = require('./setup');
 // Exercise the production formatter and screen writer with Oscar64 in VICE.
 const fs = require('fs');
 const {execFileSync} = require('child_process');
-const source = fs.readFileSync('src/c64-support.c', 'utf8');
+const source = fs.readFileSync('src/c64-support.c', 'utf8').replace(/\r\n/g, '\n');
 const formatter = source.slice(source.indexOf('int vsnprintf('))
     .replace(/\bvsnprintf\b/g, 'test_vsnprintf').replace(/\bsnprintf\b/g, 'test_snprintf');
 const screen = source.slice(source.indexOf('void screen_reverse('), source.indexOf('void screen_puts('));
@@ -92,7 +93,7 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-c64-support.c', harness);
-execFileSync('tools/oscar64/oscar64/bin/oscar64.exe', ['-n', '-Os', '-Oo', '-psci', '-o=build/test-c64-support.prg', 'build/test-c64-support.c'], {stdio: 'pipe'});
+execFileSync(tool('oscar64', 'oscar64'), ['-n', '-Os', '-Oo', '-psci', '-o=build/test-c64-support.prg', 'build/test-c64-support.c'], {stdio: 'pipe'});
 require('./vice-harness')('build/test-c64-support.prg').then(() => {
     console.log(`PASS ${count} bounded formatting cases, all 256 PETSCII bytes in both reverse modes, screen addresses and cursor wrapping`);
 }).catch(error => { console.error(error); process.exitCode = 1; });

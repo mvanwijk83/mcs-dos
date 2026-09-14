@@ -1,5 +1,6 @@
+const {tool} = require('./setup');
 const fs=require('fs'),{execFileSync}=require('child_process'),assert=require('assert/strict');
-const s=fs.readFileSync('src/mcsdos.c','utf8');
+const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const env=s.slice(s.indexOf('static char *envget('),s.indexOf('static unsigned char dosdrives('));
 const drives=s.slice(s.indexOf('static unsigned char dosdrives('),s.indexOf('static void showprompt('));
 const set=s.slice(s.indexOf('static void setcmd('),s.indexOf('static unsigned char path('));
@@ -59,7 +60,7 @@ int main(void){
  return 0;
 }`;
 fs.writeFileSync('build/test-startup-settings.c',code);
-execFileSync('tools/cc65/bin/cl65.exe',['-t','sim6502','-O','-o','build/test-startup-settings','build/test-startup-settings.c']);
-execFileSync('tools/cc65/bin/sim65.exe',['build/test-startup-settings']);
+execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-startup-settings','build/test-startup-settings.c']);
+execFileSync(tool('cc65', 'sim65'),['build/test-startup-settings']);
 assert(s.includes('#define LINE 65'));assert(s.includes('#define MAXARGS 33'));
 console.log('PASS startup colors/prompt, atomic invalid colors, 8/32 limits exact 512-byte capacity, aligned usage statistics deferred DRIVEIDS and exact screen recoloring');

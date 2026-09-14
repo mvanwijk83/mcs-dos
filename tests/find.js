@@ -1,5 +1,6 @@
+const {tool} = require('./setup');
 const fs=require('fs'),{execFileSync}=require('child_process');
-const source=fs.readFileSync('src/mcsdos.c','utf8');
+const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const code=source.slice(source.indexOf('static int findbyte('),source.indexOf('static void renderedit('));
 const fixtures=['DOS\r\ndos\n\rno DOS here\rfinal','', '\r\n\r\n','a'.repeat(1100)+'DOS\nlast','x'.repeat(37)+'DOS\nDOS','ababa\naba\nno'];
 let checks='';let id=0;
@@ -49,6 +50,6 @@ reset("x\\n\\n","",2);findcmd();if(strcmp(out,"---- MANUAL.TXT: 2\\n"))return 6;
 return 0;}
 `;
 fs.writeFileSync('build/test-find.c',harness);
-execFileSync('tools/cc65/bin/cl65.exe',['-t','sim6502','-O','-o','build/test-find','build/test-find.c'],{stdio:'pipe'});
-execFileSync('tools/cc65/bin/sim65.exe',['build/test-find'],{stdio:'inherit'});
+execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-find','build/test-find.c'],{stdio:'pipe'});
+execFileSync(tool('cc65', 'sim65'),['build/test-find'],{stdio:'inherit'});
 console.log('PASS FIND: 96 switch/line fixtures, empty string, and invalid arguments');

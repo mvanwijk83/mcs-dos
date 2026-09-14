@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 // Run a small Oscar64 test PRG in its own VICE process, without a disk.
 // The PRG writes 2 (pass) or 3 (fail) to $02a7 and then waits.
 const fs = require('fs');
@@ -12,7 +13,7 @@ module.exports = async function runTest(prg) {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const port = server.address().port;
     await new Promise(resolve => server.close(resolve));
-    const child = spawn('tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe', [
+    const child = spawn(tool('vice', 'x64sc'), [
         '-default', '-sounddev', 'dummy', '-warp', '-remotemonitor',
         '-remotemonitoraddress', '127.0.0.1:' + port
     ], {windowsHide: true, stdio: ['ignore', 'ignore', 'pipe']});

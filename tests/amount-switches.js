@@ -1,5 +1,6 @@
+const {tool} = require('./setup');
 const fs=require('fs'),{execFileSync}=require('child_process');
-const s=fs.readFileSync('src/mcsdos.c','utf8');
+const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 let code=s.slice(s.indexOf('static unsigned char noseparators;'),s.indexOf('static void volumeheader('))+s.slice(s.indexOf('static unsigned char validate;'),s.indexOf('static void labelcmd('));
 code=code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,"static unsigned char deletable(void *p) { return 1; }");
 code=code.replace(/static unsigned int freememory\(void\)\s*\{[\s\S]*?\n\}/,'static unsigned int freememory(void) { return 2000; }');
@@ -63,6 +64,6 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-amount-switches.c',harness);
-execFileSync('tools/cc65/bin/cl65.exe',['-t','sim6502','-O','-o','build/test-amount-switches','build/test-amount-switches.c'],{stdio:'pipe'});
-execFileSync('tools/cc65/bin/sim65.exe',['build/test-amount-switches'],{stdio:'pipe'});
+execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-amount-switches','build/test-amount-switches.c'],{stdio:'pipe'});
+execFileSync(tool('cc65', 'sim65'),['build/test-amount-switches'],{stdio:'pipe'});
 console.log('PASS full MEM/CHKDSK reports, removed switch rejection, drive arguments and DEL confirmation');

@@ -1,7 +1,8 @@
+const {tool} = require('./setup');
 // Owns VICE and disposable images only. Run after build.ps1 -Release.
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
-const root=path.resolve('.').replaceAll('\\','/'),bin=root+'/tools/vice/GTK3VICE-3.10-win64/bin/';
+const root=path.resolve('.').replaceAll('\\','/');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 let child,socket;
 const command=require('./vice-command')(()=>socket);
@@ -22,7 +23,7 @@ async function check(cmd,text,ms=500){
  for(let i=0;i<80&&!matches();i++){await command('x');await delay(1000);out=await screen();}
  assert(matches(),cmd+'\n'+out);console.log('PASS '+cmd+' => '+text);return out;
 }
-function image(file,type){execFileSync(bin+'c1541.exe',['-format','compat,ct',type,file],{stdio:'pipe'});}
+function image(file,type){execFileSync(tool('vice', 'c1541'),['-format','compat,ct',type,file],{stdio:'pipe'});}
 function files(file){
  const b=fs.readFileSync(file),d81=b.length===819200,entries=new Map();
  function offset(t,s){let n=0;for(let i=1;i<t;i++){const k=(i-1)%35+1;n+=d81?40:k<=17?21:k<=24?19:k<=30?18:17;}return(n+s)*256;}
@@ -35,7 +36,7 @@ function files(file){
 }
 async function start(type,source,target,other=type){
  const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));
- child=spawn(bin+'x64sc.exe',['-default','-sounddev','dummy','-speed','1000','-warp','-drive8type',String(type),'-drive9type',String(other),'-8',source,'-9',target,'-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:['ignore','pipe','pipe']});
+ child=spawn(tool('vice', 'x64sc'),['-default','-sounddev','dummy','-speed','1000','-warp','-drive8type',String(type),'-drive9type',String(other),'-8',source,'-9',target,'-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',d=>fs.appendFileSync('build/compat-vice-'+type+'.log',d));
  child.stderr.on('data',d=>fs.appendFileSync('build/compat-vice-'+type+'.log',d));
  for(let i=0;i<300;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j)});break;}catch(e){socket.destroy();socket=null;await delay(100);}}
@@ -58,11 +59,11 @@ async function run(){
    const payload=root+'/build/compat-payload';fs.writeFileSync(payload,'last file\r');
    const args=['-attach',source];
    for(let i=295;i>=0;i--)args.push('-write',payload,'f'+String(i).padStart(3,'0')+',s');
-   execFileSync(bin+'c1541.exe',args,{stdio:'pipe'});
+   execFileSync(tool('vice', 'c1541'),args,{stdio:'pipe'});
   }
   if(process.argv.includes('--rel')&&type===1571) {
    fs.writeFileSync('build/compat-filler',Buffer.alloc(175000,0x55));
-   execFileSync(bin+'c1541.exe',['-attach',source,'-write',root+'/build/compat-filler','filler,s'],{stdio:'pipe'});
+   execFileSync(tool('vice', 'c1541'),['-attach',source,'-write',root+'/build/compat-filler','filler,s'],{stdio:'pipe'});
   }
   try{
    const mismatch=process.argv.includes('--mismatch');
@@ -91,7 +92,7 @@ async function run(){
     assert(completed.includes('"F000"'),'completion at index 295\n'+completed);
     await enter('');
     await check('dir f00* /o','10 File(s)');
-    await check('chkdsk /s','296 files');
+    await check('chkdsk','296 files');
     await check('copy f000* 9:','1 file(s) copied.',3000);
     await check('dir /b /o >9:listing','8:>',5000);
     assert((await memory(0xc800,0xc8ff)).every(b=>b===0xa5),'256-byte stack margin');
@@ -120,7 +121,7 @@ async function run(){
     await enter('native');let out=await enter('nf',10000);
     for(let i=0;i<30&&!out.includes('Format complete.');i++){await command('x');await delay(5000);out=await screen();}
     assert(out.includes('Format complete.'),out);
-    await check('chkdsk /s',type===1541?'664':type===1571?'1328':'3160');
+    await check('chkdsk',type===1541?'664':type===1571?'1,328':'3,160');
     console.log('PASS native-capacity format');continue;
    }
    if(!process.argv.includes('--copyonly')&&!process.argv.includes('--single')){

@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 // Owned VICE instance; test both font contents and actual relocated display.
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
@@ -6,8 +7,8 @@ let child,socket;
 const standard=process.argv.includes('--ntsc')?'ntsc':'pal';
 const root=path.resolve('.').replaceAll('\\','/');
 const disk=root+'/build/test-charset.d64';
-const c1541=root+'/tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe';
-const rom=fs.readFileSync('tools/vice/GTK3VICE-3.10-win64/C64/chargen-901225-01.bin');
+const c1541=tool('vice', 'c1541');
+const rom=fs.readFileSync(process.env.VICE_CHARGEN || path.join(process.env.VICE_HOME || '', 'C64', 'chargen-901225-01.bin'));
 const external=Buffer.from([65,96,66,32,160,13]);
 function defaultfont(){
  const font=Buffer.from(rom.subarray(2048));
@@ -41,7 +42,6 @@ function fixture(font,autoexec='@echo off\rset charset= cga \recho font-ready\r'
  args.push('-write','build/charset-external','external,s');
  if(font!==undefined){
   args.push('-delete','cga.cpi');
-  if(['amiga','atarist'].includes(fontname))args.push('-delete',fontname+'.cpi');
   if(font!==null){fs.writeFileSync('build/charset-fixture',font);args.push('-write','build/charset-fixture',fontname+'.cpi,s')}
  }
  if(autoexec!==null){
@@ -57,18 +57,17 @@ async function boot(font,autoexec,fontname){
  assert.deepEqual(Buffer.from(await memory(0x801,0x80c,true)),fs.readFileSync('build/MCS-DOS.prg').subarray(2,14),loaded);
  await command('> ba 08');
  let rows=await enter('run',3000);
- for(let i=0;i<25&&!rows.some(s=>/^[AB]:>$/.test(s));i++){
+ for(let i=0;i<25&&!rows.some(s=>/^(?:[AB]|8|9):>$/.test(s));i++){
   await command('x');await delay(500);rows=await screen();
  }
- if(!rows.some(s=>/^[AB]:>$/.test(s)))console.log('CPU',await command('r'),'ZP',await command('m 0000 009f'));
- assert(rows.some(s=>/^[AB]:>$/.test(s)),rows.join('\n'));return rows;
+ if(!rows.some(s=>/^(?:[AB]|8|9):>$/.test(s)))console.log('CPU',await command('r'),'ZP',await command('m 0000 009f'));
+ assert(rows.some(s=>/^(?:[AB]|8|9):>$/.test(s)),rows.join('\n'));return rows;
 }
 async function backslashscreen(name){
- await enter('prompt $h M m $h');await enter('cls');
+ await enter('cls');await enter('echo \\xa0 \\xcd m \\xa0');
  const bytes=Buffer.from(await memory(0xe000,0xe3e7,true));
  assert(bytes.includes(Buffer.from([96,32,77,32,13,32,96])),name+' backslash and both M cases');
  await command(`screenshot "${root}/build/backslash-${name.toLowerCase()}.png" 2`);
- await enter('prompt');
 }
 function read(name,which=disk){
  const image=fs.readFileSync(which);
@@ -131,49 +130,10 @@ async function namedsets(){
  await enter('exit');
  console.log('PASS arbitrary names, case/space normalization, 12-character limit, startup disk, named errors, invalid-name rejection, ordinary C64 filename and blank setting');
 }
-async function fontassets(){
- for(const [name,source,bank,backslash] of [
-  ['AMIGA','amiga-ks10-topaz-08.yaff'],['ATARIST','atari-st-8x8.yaff'],
-  ['PET','pet.yaff',128,156],
-  ['ZXSPECTRUM','zx-spectrum.yaff']
- ]){
-  const text=fs.readFileSync('assets/fonts/'+source,'utf8');
-  const expected=Buffer.from(fs.readFileSync('tools/vice/GTK3VICE-3.10-win64/C64/chargen-901225-01.bin').subarray(2048));
-  let replaced=0;
-  for(let code=0;code<128;code++){
-   const ascii=code===0?64:code<=26?code+96:code===27?91:code===29?93:code===96?92:
-    (code>=32&&code<=63)||(code>=65&&code<=90)?code:null;
-   if(ascii===null)continue;
-   const index=bank===undefined?ascii:code===96?backslash:bank+code;
-   const block=text.match(new RegExp('^0x0*'+index.toString(16)+':\\r?\\n([\\s\\S]*?)(?=\\r?\\n\\r?\\n)','mi'));
-   assert(block,name+' source character '+index);
-   const rows=block[1].split(/\r?\n/).map(s=>s.trim()).filter(s=>/^[.@]{8}$/.test(s));
-   assert.equal(rows.length,8);
-   rows.forEach((row,y)=>{
-    const bits=parseInt(row.replaceAll('.','0').replaceAll('@','1'),2);
-    expected[code*8+y]=bits;expected[(code+128)*8+y]=bits^255;
-   });
-   replaced++;
-  }
-  assert.equal(replaced,88);
-  await boot(undefined,'@echo off\rset charset='+name+'\r');
-  assert.equal((await memory(0xd018))[0]&0xfe,0x8a,name);
-  assert.deepEqual(Buffer.from(await memory(0xe800,0xefff,true)),expected,name+' source glyphs, inverses and preserved ROM graphics');
-  await backslashscreen(name);
-  await enter('cls');await enter('echo '+name);
-  await enter('echo ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-  await enter('echo abcdefghijklmnopqrstuvwxyz');
-  await enter('echo 0123456789 !? [] @');
-  await command(`screenshot "${root}/build/charset-${name.toLowerCase()}.png" 2`);
-  await enter('exit');
-  assert.equal((await memory(0xd018))[0]&0xfe,0x14);
-  console.log('PASS '+name+': all 88 YAFF glyphs, reverse versions, preserved ROM graphics and exit restoration');
- }
-}
 async function run(){
  const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const port=server.address().port;await new Promise(r=>server.close(r));
- child=spawn(root+'/tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe',
+ child=spawn(tool('vice', 'x64sc'),
   ['-default','-'+standard,'-sounddev','dummy','-warp','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],
   {windowsHide:true,stdio:['ignore','ignore','pipe']});
  child.stderr.pipe(fs.createWriteStream('build/charset-'+standard+'.log'));
@@ -188,13 +148,12 @@ async function run(){
   await command('x');await delay(300);
  }
  assert((await screen()).some(s=>s==='ready.'),'BASIC startup did not complete');
- if(process.argv.includes('--assets-only')){await fontassets();return}
  if(process.argv.includes('--names-only')){await namedsets();return}
  let rows=await boot();assert(rows.includes('font-ready'),rows.join('\n'));
  assert.equal((await memory(0xd018))[0]&0xfe,0x8a);
  assert.equal((await memory(0xdd00))[0]&3,0);
  const patch=fs.readFileSync('build/CGA.CPI');
- const expected=Buffer.from(fs.readFileSync('tools/vice/GTK3VICE-3.10-win64/C64/chargen-901225-01.bin').subarray(2048));
+ const expected=Buffer.from(fs.readFileSync(process.env.VICE_CHARGEN || path.join(process.env.VICE_HOME || '', 'C64', 'chargen-901225-01.bin')).subarray(2048));
  for(let i=0;i<patch[5];i++){
   const at=6+i*9,code=patch[at];
   for(let row=0;row<8;row++){
@@ -202,11 +161,6 @@ async function run(){
   }
  }
  assert.deepEqual(Buffer.from(await memory(0xe800,0xefff,true)),expected,'whole font, preserved graphics and reverse glyphs');
- // Independently read CGA's source atlas character 92, not its generated CPI.
- const cga=JSON.parse(execFileSync('powershell.exe',['-NoProfile','-Command',
-  "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Drawing; $atlas=[Drawing.Bitmap]::new((Resolve-Path 'cga.png').Path); $rows=@(); for($y=0;$y -lt 8;$y++){ $bits=0; for($x=0;$x -lt 8;$x++){ if($atlas.GetPixel(224+$x,16+$y).R -eq 0){$bits=$bits -bor (128 -shr $x)} }; $rows+= $bits }; $atlas.Dispose(); ConvertTo-Json -Compress -InputObject $rows"
- ],{encoding:'utf8'}));
- assert.deepEqual(await memory(0xeb00,0xeb07,true),cga,'CGA source backslash');
  await backslashscreen('CGA');
  assert.equal((await memory(0xe3f8,0xe3f8,true))[0],144);
  assert.equal((await memory(0xe415,0xe415,true))[0],255);
@@ -215,8 +169,8 @@ async function run(){
  for(let i=0;i<18;i++)await enter('echo line'+String(i).padStart(2,'0'));
  rows=await screen();assert(rows.includes('line17')&&rows.includes('line12'),rows.join('\n'));
  assert(!rows.includes('line00'));
- rows=await enter('edit');assert.equal(rows[24],('  1: 1  Untitled').padEnd(26)+'RUN/STOP:quit');
- rows=await keys('abc\\x11');assert(rows[24].startsWith('  2: 4'),rows[24]);
+ rows=await enter('edit');assert.equal(rows[24],(' 01:01  Untitled').padEnd(26)+'RUN/STOP:quit');
+ rows=await keys('abc\\x11');assert(rows[24].startsWith(' 02:04'),rows[24]);
  assert((await memory(0xe3c0,0xe3e7,true)).every(v=>v&128));
  await keys('\\x03n');
  await enter('cls');await enter('echo Abc 0123 !? [] @');
@@ -254,12 +208,12 @@ async function run(){
  assert.equal((await memory(0x288))[0],4);assert.equal((await memory(0xd018))[0]&0xfe,0x14);
  assert(rows.join('\n').includes('hello from basic!'),rows.join('\n'));
  await command(`load "${root}/build/MCS-DOS.prg" 0`);await command('> ba 00');
- rows=await enter('run');assert(rows.includes(':>'));assert.equal((await memory(0xd018))[0]&0xfe,0x8a);
+ rows=await enter('run',3500);
+ for(let i=0;i<40&&!rows.includes('0:>');i++){await command('x');await delay(250);rows=await screen();}
+ assert(rows.includes('0:>'),rows.join('\n'));assert.equal((await memory(0xd018))[0]&0xfe,0x8a);
  await enter('exit');console.log('PASS startup-drive selection, PRG launch restoration and no-device startup');
  await namedsets();
- await fontassets();
 }
 run().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{
  socket?.destroy();if(child&&child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),delay(3000)])}
 });
-

@@ -1,5 +1,6 @@
+const {tool} = require('./setup');
 const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process');
-const source=fs.readFileSync('src/mcsdos.c','utf8');
+const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const start=source.indexOf('                /* A full-width row already');
 const end=source.indexOf("} else if (!c)\n                ++current;",start);
 const display=source.slice(start,end);
@@ -16,6 +17,6 @@ static void reset(int r){redirected=r;ox=used=0;output[0]=0;}
 static int show(char *s){unsigned char wrapped=0,c;while((c=*s++)){${display}}return 1;}
 int main(void){${checks}return 0;}`;
 fs.writeFileSync('build/test-help-wrap.c',harness);
-execFileSync('tools/cc65/bin/cl65.exe',['-t','sim6502','-O','-o','build/test-help-wrap','build/test-help-wrap.c'],{stdio:'pipe'});
-execFileSync('tools/cc65/bin/sim65.exe',['build/test-help-wrap'],{stdio:'inherit'});
+execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-help-wrap','build/test-help-wrap.c'],{stdio:'pipe'});
+execFileSync(tool('cc65', 'sim65'),['build/test-help-wrap'],{stdio:'inherit'});
 console.log('PASS exact DIR help rows, 40/80-column wraps, intentional blank lines and byte-exact redirected help');

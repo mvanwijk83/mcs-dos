@@ -6,5 +6,13 @@ dev/
 docs-design/
 docs-internal/
 examples/
-scripts/
+scripts/*
+!scripts/build.ps1
+!scripts/build.js
+!scripts/toolchain.js
+!scripts/make-hardware.js
+!scripts/make-help.js
+!scripts/make-examples.js
+!scripts/petscii.js
+!scripts/verify-image.js
 tools/

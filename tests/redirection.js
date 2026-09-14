@@ -1,3 +1,4 @@
+const {tool} = require('./setup');
 // Owns its VICE process and disposable disks. Compare actual SEQ bytes after close.
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
@@ -15,8 +16,8 @@ async function screen(){
 }
 async function enter(s,ms=1300){await command('keybuf '+s+'\\x0d');await command('x');await delay(ms);return screen();}
 const disk=path.resolve('build/test-redirection.d64'),target=path.resolve('build/test-redirection-target.d64');
-const c1541=path.resolve('tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe');
-const longCount=Number(fs.readFileSync('src/mcsdos.c','utf8').match(/#define LINE (\d+)/)[1])-1-'echo >longline'.length;
+const c1541=path.resolve(tool('vice', 'c1541'));
+const longCount=Number(fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n').match(/#define LINE (\d+)/)[1])-1-'echo >longline'.length;
 function drive(...args){return execFileSync(c1541,args,{stdio:'pipe'});}
 function read(name,which=disk){
  const image=fs.readFileSync(which);
@@ -43,7 +44,7 @@ async function run(){
  fs.writeFileSync('build/redirect-fill',Buffer.alloc(663*254,65));
  drive('-attach','build/test-redirection-full.d64','-write','build/redirect-fill','fill,s');
  const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));
- child=spawn(path.resolve('tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe'),['-default','-sounddev','dummy','-warp','-drive9type','1541','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor','-8',disk,'-9',target],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+ child=spawn(tool('vice', 'x64sc'),['-default','-sounddev','dummy','-warp','-drive9type','1541','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor','-8',disk,'-9',target],{windowsHide:true,stdio:['ignore','ignore','pipe']});
  child.stderr.pipe(fs.createWriteStream('build/redirection.log'));
  for(let i=0;i<200;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j);});break;}catch(e){socket.destroy();socket=null;await delay(100);}}
  assert(socket,'VICE did not start');socket.on('error',()=>{});

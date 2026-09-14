@@ -16,15 +16,18 @@ async function command(text){
  });
 }
 async function memory(a,b=a){
+ if(a>=0xe000)await command('bank ram');
  const out=await command(`m ${a.toString(16)} ${b.toString(16)}`), bytes=[];
  for(const line of out.split('\n')){
   const m=line.match(/>C:([\da-f]{4})\s+(.{1,50})/i);
   if(m)bytes.push(...m[2].trim().split(/\s+/).filter(v=>/^[\da-f]{2}$/i.test(v)).map(v=>parseInt(v,16)));
  }
+ if(a>=0xe000)await command('bank cpu');
  assert.equal(bytes.length,b-a+1,out);return bytes;
 }
 async function screen(){
- const bytes=await memory(0x400,0x7e7),rows=[];
+ const base=(await memory(0x288))[0]*256;
+ const bytes=await memory(base,base+999),rows=[];
  for(let i=0;i<1000;i+=40)rows.push(bytes.slice(i,i+40).map(v=>{
   v&=127;return v>=1&&v<=26?String.fromCharCode(v+96):v>=65&&v<=90?String.fromCharCode(v):String.fromCharCode(v);
  }).join('').trimEnd());
@@ -52,23 +55,58 @@ async function run(){
  await command('load "'+path.resolve('build/MCS-DOS.prg').replaceAll('\\','/')+'" 0');
  await command('> ba 08');await command('keybuf run\\x0d');await command('x');await delay(2500);
  let startup=await screen();
- for(let i=0;i<10&&!startup.some(s=>s==='8:>');i++){
+ for(let i=0;i<10&&!startup.some(s=>s==='A:>' || s==='8:>');i++){
   await command('x');await delay(500);startup=await screen();
  }
- assert(startup.some(s=>s==='8:>'),startup.join('\n'));
- await keys('color /fore:5 /back:2 /border:7\\x0d');
+ assert(startup.some(s=>s==='A:>' || s==='8:>'),startup.join('\n'));
  const shell=await memory(0xd020,0xd021),vector=await memory(0x314,0x315),mask=await memory(0xd01a);
- assert.equal(shell[0]&15,7);assert.equal(shell[1]&15,2);
  function status(row,name,coords=' 1: 1'){
   assert.equal(row,(' '+coords+'  '+name).padEnd(26)+'RUN/STOP:quit');
  }
  status((await keys('edit\\x0d'))[24],'Untitled');
- assert.equal((await memory(0x7e7))[0],160,'one reverse-space of right padding');
+ const base=(await memory(0x288))[0]*256;
+ assert.equal((await memory(base+999))[0],160,'one reverse-space of right padding');
  assert.deepEqual(await memory(0xd020,0xd021),shell);
  assert.deepEqual(await memory(0x314,0x315),vector);assert.deepEqual(await memory(0xd01a),mask);
  assert((await memory(0xdbc0,0xdbe7)).every(v=>(v&15)===5));
+ async function insertRow(){
+  // Model the KERNAL's suppressed chord: scan index 0, CTRL held, no queued byte.
+  // Freeze SCNKEY in this disposable emulator to keep the simulated press held.
+  await command('bank rom');
+  assert.match(await command('m ea87 ea87'),/EA87\s+A9/i,'standard KERNAL SCNKEY entry');
+  await command('bank rom');await command('> ea87 60');await command('bank cpu');
+  try {
+   await command('> c5 00 00');await command('> 028d 04');
+   await command('x');await delay(300);
+   const out=await screen();
+   assert.equal((await memory(0xc6))[0],0,'shortcut works without a buffered character');
+   await command('x');await delay(500);
+   assert.deepEqual(await screen(),out,'holding shortcut inserts only once');
+   return out;
+  } finally {
+   await command('> c5 40');await command('> 028d 00');
+   await command('bank rom');await command('> ea87 a9');await command('bank cpu');
+   await command('x');await delay(150);
+  }
+ }
+ await keys('first\\x0dsecond\\x0dthird');
+ let inserted=await insertRow();
+ assert.equal(inserted[2],'');assert.equal(inserted[3],'third');
+ status(inserted[24],'Untitled',' 3: 1');
+ await keys('new');
+ await keys('\\x13');
+ inserted=await insertRow();
+ assert.equal(inserted[0],'');assert.equal(inserted[1],'first');
+ assert.equal(inserted[2],'second');assert.equal(inserted[3],'new');assert.equal(inserted[4],'third');
+ await keys('\\x11'.repeat(23)+'bottom');
+ const full=await screen();
+ inserted=await insertRow();assert.deepEqual(inserted,full,'full bottom row prevents insertion');
+ await keys('\\x13');
+ const top=await screen();
+ inserted=await insertRow();assert.deepEqual(inserted,top,'full bottom row protects text when inserting at top');
+ await keys('\\x03n');await keys('edit\\x0d');
  const points=[];
- for(const range of ['07c0 07c0','07c3 07c3','07c6 07e7','dbc0 dbe7']){
+ for(const range of [[base+960,base+960],[base+963,base+963],[base+966,base+999],[0xdbc0,0xdbe7]].map(pair=>pair.map(n=>n.toString(16)).join(' '))){
   const result=await command('break store '+range);
   points.push(result.match(/(?:BREAK|WATCH):\s*(\d+)/i)[1]);
  }
@@ -84,6 +122,7 @@ async function run(){
  await keys('saved document\\x03y',2500);
  let out=await keys('edit abcdefghijklmnop\\x0d',1600);
  assert.equal(out[0],'saved document');status(out[24],'ABCDEFGHIJKLMNOP');
+ out=await insertRow();assert.equal(out[0],'');assert.equal(out[1],'saved document');
  await keys('\\x03y',1500);assert.equal((await screen())[24],'Overwrite existing file (Y/N)?');
  await keys('n');
  await keys('edit\\x0d');await keys('hello\\x03y');

@@ -1,7 +1,7 @@
 // Build the SEQ help resource in exactly the shell's command-ID order.
 const fs=require('fs'),assert=require('assert/strict');
 const source=fs.readFileSync('src/mcsdos.c','utf8');
-const commands=[...source.match(/static const char \* const commands\[\]=\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
+const commands=[...source.match(/static const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
 const help=JSON.parse(fs.readFileSync('src/command-help.json','utf8'));
 assert.deepEqual(Object.keys(help).sort(),[...commands].sort(),'Each shell command needs exactly one help topic');
 assert(commands.length<256);

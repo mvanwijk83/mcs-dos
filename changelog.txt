@@ -1,0 +1,25 @@
+                 MCS-DOS
+               Change log
+
+         Copyright (C) 2026 MCS
+
+
+  1.0 Preview (13-Sep-2026)
+----------------------------------------
+Preliminary public release.
+
+  1.0 (xx-Sep-2026)
+----------------------------------------
+* Fixed a bug where DEL did not report
+  failed deletion when a file is
+  locked.
+* Removed /S switches from MEM and
+  CHKDSK commands.
+* Small memory usage reduction by
+  various code optimizations.
+* Revised some system messages.
+* General code cleanup.
+* Finalized inline and offline docu-
+  mentation.
+* Finalized release package.
+* Source code release.

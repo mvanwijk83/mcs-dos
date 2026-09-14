@@ -9,13 +9,13 @@
   Contents
 ----------------------------------------
   0. Introduction
-  1. Development notes
-  2. Contents of the disk
-  3. Running MCS-DOS
-  4. Using the shell
-  5. Commands
-  6. Environment variables
-  7. Theming
+  1. Features and limitations
+  2. Development notes
+  3. Contents of the disk
+  4. Running MCS-DOS
+  5. Using the shell
+  6. Commands
+  7. Environment variables
   8. Output redirection
   9. EDIT tool
   A. Batch scripting
@@ -31,9 +31,8 @@ unexpanded Commodore 64, Commodore 64
 Ultimate, Commodore 128 in C64 mode,
 and on emulators. It provides familiar
 prompts, commands, syntax and system
-messages to perform disk operations, as
-well as some unique capabilities. It
-also implements rudimentary batch
+messages to perform disk operations. It
+also supports rudimentary batch
 scripting.
 
 MCS-DOS was created for fun and novelty,
@@ -56,24 +55,74 @@ on GitHub:
 https://github.com/mvanwijk83/mcs-dos
 
 
-  1. Development notes
+  1. Features and limitations
+----------------------------------------
+MCS-DOS strives to offer as much of a
+classic DOS look and feel as possible,
+while staying true to the C64 and adding
+a few features of its own:
+
+* Classic DOS look and feel.
+* Many familiar disk commands and
+  utilities are implemented.
+* Some batch file support, including
+  AUTOEXEC.BAT.
+* Supports attached multiple drives and
+  multiple models (1541, 1571, 1581).
+* Drives can be optionally displayed and
+  addressed with DOS-style drive
+  letters.
+* Simple built-in text editor.
+* Quality-of-life features such as
+  command history and filename auto-
+  completion.
+* Environment variables.
+* Output redirection to files.
+* File printing.
+* Command help easily accessible from
+  the shell.
+* Customizations including prompts,
+  colors and custom character sets.
+
+A full-featured MS-DOS clone is not
+truly possible due to C64 limitations,
+and architectural differences with IBM
+PC-compatibles. Some notable limitations
+and omissions include:
+
+* No directory support.
+* Running native C64 programs quits the
+  shell.
+* No fastloader implemented; use a
+  fastload cartridge or ROM replacement
+  to speed up disk access.
+* Batch files do not support variables,
+  conditionals, labels, or parameters.
+* No piping, output redirection does not
+  support printers.
+* Duplicating disks between different
+  drive types is currently not
+  supported.
+* Due to the shell's mixed-case mode,
+  half of PETSCII's graphics characters
+  do not display correctly.
+
+Future versions may address these and
+other shortcomings where possible.
+
+
+  2. Development notes
 ----------------------------------------
 MCS-DOS was written in C and compiled
-with CC65. It has been tested on a C64
-Ultimate and in VICE.
+with Oscar64. It has been tested on a
+C64 Ultimate and in VICE.
 
 Extensive machine help was enlisted
-from OpenAI's Codex and GPT-6 (Astra)
+through OpenAI's Codex and GPT-6 (Astra)
 LLM. Just as no claims are made as to
 the software's actual usefulness,
-neither does the author claim much
-technical prowess in creating it.
-
-Nevertheless, all features were designed
-in detail by human creativity and
-intellect. Additionally, all generated
-code was manually reviewed and modified
-where deemed necessary.
+neither does the author claim full
+technical credit in creating it.
 
 MCS-DOS started as a simple throwaway
 thing for personal entertainment and to
@@ -81,56 +130,62 @@ test GPT-6, motivated by a geeky impulse
 to see a believable DOS-style environ-
 ment running on a C64, no matter how
 simple and limited. Then things
-escalated from there.
+escalated from there as it started to
+look genuinely usable.
 
 
-  2. Contents of the disk
+  3. Contents of the disk
 ----------------------------------------
 MCS-DOS is distributed as a D64 disk
 image. Files included on a standard disk
 are:
 
-  MCS-DOS
+  MCS-DOS.EXE
     The main program.
-  CGA.CPI
-    A custom character set reproducing
-    the 8x8 IBM CGA font.
   COMMANDS.HLP
     Data file containing help text
     for shell commands.
-  LICENSE.TXT
-    Software license information.
   MANUAL.TXT
     This user manual.
+  CHANGELOG.TXT
+    A version by version list of changes
+    to MCS-DOS (features and bug fixes).
+  LICENSE.TXT
+    Software license information.
+  CGA.CPI
+    A custom character set reproducing
+    the 8x8 IBM CGA font.
+  AUTOEXEC.SAMPLE
+    Example AUTOEXEC.BAT.
 
-A stand-alone PRG containing just the
+A stand-alone PRG containing only the
 shell is also available.
 
 
-  3. Running MCS-DOS
+  4. Running MCS-DOS
 ----------------------------------------
 Write the D64 disk image to a C64
-floppy, or load it directly if your
-setup supports that.
-
-To run the shell, run the "MCS-DOS"
-program from the disk. LOAD "*",8 and
-RUN works too.
+floppy and run the "MCS-DOS.EXE"
+program. LOAD "*",8 and RUN works too.
+Or simply mount and run if your setup
+(e.g. Ultimate or emulator) allows that.
 
 If an AUTOEXEC.BAT is present, it will
 execute first before you arrive at the
 shell prompt. It is not present by
-default; it must be created by the user.
+default; create it or rename the sample.
 
 
-  4. Using the shell
+  5. Using the shell
 ----------------------------------------
   Entering commands
-See chapter 5 for a list of supported
+See chapter 6 for a list of supported
 commands. The command interpreter is
 case-insensitive, and treats spaces
 before switches as optional. For
 example, DIR/W and DIR /W both work.
+The maximum full length of a command,
+including parameters, is 64 characters.
 
 You can use CRSR LEFT/RIGHT to move
 within the command text. Typing inserts.
@@ -139,21 +194,28 @@ When specifying filenames as command
 parameters, quote them if they contain
 spaces or a slash. You can use the
 Commodore key to cycle through file
-names stored on the active disk. Rely
-on this feature especially when having
-to enter file names containing certain
-PETSCII graphics characters that do not
-display correctly in the shell's mixed-
-case mode; the auto-complete internally
-preserves the correct original filename.
+names stored on the active disk and to
+autocomplete. (Rely on this feature
+especially when having to enter file
+names containing certain PETSCII
+graphics characters that do not display
+correctly in the shell's mixed-case
+mode; the auto-complete internally
+preserves the byte-correct original
+filename.)
 
 Command history is retained for the last
 ten entries. Use CRSR UP/DOWN to cycle
 through the last ten issued commands.
 
 The appearance of the command prompt can
-be configured with the PROMPT command or
-the PROMPT environment variable.
+be configured with SET PROMPT in
+AUTOEXEC.BAT, applied at startup. See
+chapter 7 for more details.
+
+RUN/STOP aborts operations where
+possible (think of it as the Ctrl-C
+equivalent).
 
   Running programs
 MCS-DOS does not really offer a program
@@ -172,7 +234,7 @@ numbers as well as DOS-style letter
 aliases: drive 8 is A, drive 9 is B,
 etc. Display is determined by the
 DRIVEIDS environment variable (see
-chapter 6). If you have multiple drives
+chapter 7). If you have multiple drives
 attached, typing a drive number or
 letter followed by a colon (e.g. 9:, B:)
 will select that drive as the current
@@ -185,24 +247,29 @@ to refer to them.
 
   Redirection and piping
 Command output redirection to file is
-supported (see chapter 8). Input
+supported (see chapter 9). Input
 redirection, printer redirection and
 piping are not supported.
+
+  Theming
+The appearance of the shell (colors,
+character set, prompt format, drive
+identifiers) can be customized via
+environment variables. See chapter 7
+for more information.
 
   Quitting MCS-DOS
 The EXIT command ends the program and
 returns to BASIC.
 
 
-  5. Commands
+  6. Commands
 ----------------------------------------
 MCS-DOS features familiar commands from
 classic MS-DOS, as well as a few of
-its own.
-
-A list of supported commands can also
-be viewed from the shell by entering the
-HELP command. 
+its own. A list of supported commands
+can be viewed from within the shell by
+entering the HELP command. 
 
 More detailed help on a command can be
 viewed from within the shell by typing
@@ -216,6 +283,9 @@ will prompt you to insert it, so that
 the help content can be retrieved. You
 can back out by pressing RUN/STOP.
 
+Wildcards * and ? work for most file
+operations.
+
 drive:
   Switches to a drive to operate on.
   Native C64 drive numbers and DOS-style
@@ -226,40 +296,34 @@ ATTRIB [+R | -R] [[drive:]filename]
   Displays or changes file attributes.
 
 BEEP [duration]
-  Emits a SID-beep.
+  Plays a SID beep.
 
-CHKDSK [drive:] [/T[:n] /A[:n] /F[:n]]
-                [/S]
+CHKDSK [drive:] [/V]
   Checks a disk and returns a status
   report.
 
 CLS
   Clears the screen.
 
-COLOR [/FORE:n /BACK:n /BORDER:n]
-COLOR /PRESET:n
-  Sets colors for the command shell, or
-  a preset scheme.
-
-CONCAT newfile file1 file2 [file3...]
-  Creates a new file by concatenating
-  two or more existing files on the same
-  disk.
-
 COPY source destination
-  Copies a file to another location.
+COPY source1+source2[+...] destination
+  Copies a file to another location,
+  or combines files on the same disk.
 
-DEL [drive:]filename
-DELETE [drive:]filename
-ERASE [drive:]filename
+DEL [drive:]filename [/P]
+DELETE [drive:]filename [/P]
+ERASE [drive:]filename [/P]
   Deletes one or more files.
 
-DIR [drive:][pattern] [/B /L /O /W]
+DIR [drive:][pattern]
+    [/B /L /Osortorder /W]
   Displays a list of files on a disk.
 
 DISKCOPY source: destination:
   Copies the contents of a disk to
-  another.
+  another of the same drive type.
+  Source and destination drives must
+  be of the same type.
 
 DISKID [drive:] [id]
   Changes the drive's two-character ID.
@@ -276,17 +340,21 @@ EXIT
   Quits the command shell and returns to
   Commodore BASIC.
 
+FIND [/V] [/C] [/N] [/I] "string"
+     [[drive:]filename]
+  Searches for a text string in a file.
+
 FORMAT drive:
   Formats a disk.
 
 HELP [command]
   Displays help on MCS-DOS commands.
 
-LABEL [drive:][label]
+LABEL [drive:] [label]
   Creates, changes, or deletes the
   volume label of a disk.
 
-MEM [/T|/U|/F|/R] [/S]
+MEM
   Displays the amount of used and free
   memory in your system.
 
@@ -295,16 +363,13 @@ MOVE source destination
   specified destination, then deletes
   the source.
 
-PAUSE [comment]
+PAUSE
   Suspends processing of a batch program
   and waits for a key to resume.
 
 PRINT filename [4:|5:|LPT1|LPT2]
   Sends the contents of a file to a
   printer.
-
-PROMPT [text]
-  Changes the MCS-DOS command prompt.
 
 REBOOT
   Reboots the environment.
@@ -320,7 +385,8 @@ RUN filename [/A address]
   Executes a program.
 
 SET [variable=[string]]
-  Displays, sets, or removes MCS-DOS
+SET /ENV
+  Displays, sets, or removes
   environment variables.
 
 SPLASH
@@ -329,23 +395,43 @@ SPLASH
 TYPE filename
   Displays the contents of a file.
 
-VOL
-  Displays the volume label (disk name)
-  and disk ID, if they exist.
-
 VER
 VERSION
   Displays the MCS-DOS version and
   copyright information.
 
+VOL
+  Displays the volume label (disk name)
+  and disk ID, if they exist.
 
-  6. Environment variables
+
+  7. Environment variables
 ----------------------------------------
 Several environment variables are
-available to configure shell and command
-behaviour. They are useful to set in
-your AUTOEXEC.BAT if you wish to
-customize your experience.
+available to configure shell layout and
+behaviour. Set these in your
+AUTOEXEC.BAT to customize your
+experience.
+
+Syntax:
+  SET NAME=VALUE
+
+The settings are case-insensitive, and
+whitespace is ignored. Setting variables
+with unsupported names is not rejected;
+however, they will not do anything.
+
+Variable names have a maximum length of
+8 characters. Values can be up to 32
+characters long.
+
+There are 512 bytes available to store
+environment variables into. If this is
+exceeded, SET will display an error
+message.
+
+Environment variables supported out of
+the box are:
 
 CHARSET
   Specifies a custom character set to be
@@ -355,9 +441,25 @@ CHARSET
   uses the default C64 ROM font. A
   standard MCS-DOS distribution ships
   with CGA.CPI for added PC flavour.
-  Put SET CHARSET=NAME (minus file
-  extension) in your AUTOEXEC.BAT to
-  load a custom set at startup.
+  To apply a custom character set, use
+  SET CHARSET=NAME, where NAME matches
+  a .CPI file minus extension.
+
+COLORS
+  Specifies the shell colors. Use the
+  following syntax:
+    SET COLOR=c1,c2,c3
+  Where:
+    c1 = foreground (text) color
+    c2 = background color
+    c3 = border color
+
+  Possible color values are 0-15,
+  matching the standard C64 color
+  numbers. If COLORS is omitted or
+  invalid, the default is applied:
+  light grey on a black background
+  and border (15,0,0).
 
 DIRCMD
   Specifies default parameters to be
@@ -374,15 +476,14 @@ DRIVEIDS
   is B, etc. Valid values are "C64" and
   "DOS". Note that both forms are always
   accepted by shell commands, regardless
-  of the display mode.
+  of the display setting.
 
 PROMPT
   Specifies the format used for the
-  command prompt. The prompt can also be
-  modified from within the shell using
-  the PROMPT command. The format string
-  can contain literal text and the
-  following special codes:
+  command prompt after AUTOEXEC.BAT.
+  The format string can contain literal
+  text and the following special codes:
+
     $B  | (pipe symbol)
     $C  : (colon)
     $D  Drive letter
@@ -403,52 +504,10 @@ PROMPT
     READY.
     A:\>
 
-  The default setting is $D$C$G, which
-  yields A:>.
-
-The settings are case-insensitive, and
-whitespace is ignored. Setting variables
-with custom names is not rejected;
-however, they will not do anything.
-
-Variable names have a maximum length of
-16 characters. Values can be up to 64
-characters long.
-
-There are 512 bytes available to store
-environment variables into. If this is
-exceeded, SET will display an error
-message.
-
-
-  7. Theming
-----------------------------------------
-You can change the appearance of the
-shell using the COLOR command. Using
-command line switches, you can set text
-color, background color, border color,
-or choose one of the five presets:
-
-1. Classic PC 1
-   Light blue text on black background.
-2. Classic PC 2
-   Light gray text on black background.
-3. High-contrast
-   White text on black background.
-4. Terminal green
-   Green text on black background.
-5. BASIC blue
-   Light blue text on dark blue back-
-   ground.
-
-The FORE, BACK and BORDER switches of
-the COLOR command accept standard C64
-color numbers from 0 to 15. The default
-appearance is Classic PC 1.
-
-If you would like to persist your own
-preference across MCS-DOS sessions, add
-a COLOR command to your AUTOEXEC.BAT.
+  The default setting is $P$C$G, which
+  yields A:> or 8:>, depending on
+  DRIVEIDS. The format codes are case-
+  insensitive.
 
 
   8. Output redirection
@@ -487,55 +546,59 @@ The EDIT tool provides a 40 columns by
 bottom row is occupied by a status bar).
 You can freely use the cursor keys to
 navigate around the screen. Typing
-overwrites, while INST/DEL shifts
-characters within the current row.
-RETURN goes to the next row. CLR/HOME
-moves the cursor to the top left corner
-of the screen.
+overwrites.
+
+Edit keys:
+  RETURN
+    Moves to the next row.
+  INST/DEL
+    Deletes the previous character.
+  SHIFT+INST/DEL
+    Inserts a space after the current
+    position.
+  CTRL+INST/DEL
+    Inserts a blank line before the
+    current one.
+  CLR/HOME
+    Moves the cursor to the top left
+    corner.
 
 The status bar shows the current line
 and column, separated by a colon, as
 well as the filename if applicable.
 
 When you are done editing, press RUN/
-STOP. The tool will ask if you want to
-save the file to the current disk, and
+STOP. EDIT will ask if you want to save
+the file to the current disk, and
 prompts for a filename if you didn't
 already specify one when invoking the
-EDIT command.
+command.
 
 The saved file will contain carriage
-return line endings; trailing row
+return line endings, and trailing row
 spaces and unused bottom rows are
 trimmed.
-
-To create a batch file, explicitly
-provide a .BAT extension. Because this
-extension will be part of the canonical
-C64 filename, this means you effectively
-have only 12 instead of 16 characters
-available to name your file.
 
 
   A. Batch scripting
 ----------------------------------------
 Batch files can be created from within
-the shell using the EDIT tool (or any
-external text editor or even BASIC if
-you really want to). Like other
+the shell using the EDIT tool (or
+externally, if you prefer). Like other
 programs, they are executed with the RUN
-command, but unlike native C64
-programs, control is returned to the
-shell upon completion. They must have a
-.BAT extension as part of their file
-name to be recognized as such by the
-shell.
+command; but unlike native C64
+programs, execution remains fully within
+the shell, and control is returned after
+completion. They must have a .BAT
+extension as part of their file name to
+be recognized by the shell.
 
 ECHO OFF works, including "@" to
 suppress the echo of that line. There
-are no variables, conditionals, or other
-program-like constructs; batch files are
-strictly a sequence of MCS-DOS commands.
+are no variables, conditionals, labels,
+parameters, or any other program-like
+constructs; batch files are strictly a
+sequence of MCS-DOS commands.
 
 MCS-DOS supports AUTOEXEC.BAT. If it is
 present on the disk the shell is booted
@@ -544,8 +607,13 @@ from, it will be executed at startup.
 
   B. Version history
 ----------------------------------------
-1.0 (10-Sep-2026)
-  Initial public release.
+  1.0 Preview (13-Sep-2026)
+Preliminary public release
+
+  1.0 (xx-Sep-2026)
+Various small fixes and optimizations.
+Final packaging for release. Source code
+release.
 
 
   C. About the author
@@ -555,15 +623,17 @@ This project is thus a natural cross-
 over between the computer platforms that
 were both a big part of my youth. My
 early tinkering with C64 BASIC and
-QBasic was instrumental in getting into
-the software field as a professional.
+QBasic was instrumental in eventually
+becoming a professional software
+developer.
 
 Having not owned C64s since the mid-90s,
 I got into emulation during the
 noughties, and became active in the
-demoscene (albeit as a PC musician),
-where Commodore is never far away. I
-attended several editions of X.
+demoscene (albeit as a PC musician and
+under a different handle), where
+Commodore is never far away. I attended
+several editions of X.
 
 The recent resurrection of Commodore
 excited me, and I bought a C64 Ultimate.
@@ -571,38 +641,3 @@ Owning physical hardware again inspired
 me to once more become creative on the
 C64, hence this release. And who knows
 what else the future may bring.
-
-
-New commands (September 2026)
-
-CHKDSK [drive:] [/S] [/V]
-  /V  Checks and fixes errors on the disk.
-Runs the native V0 validator before reading disk statistics. Reports
-"Disk validation complete." on success, or "Disk validation failed" and
-the native drive status on error. DOS does not supply repair counts.
-Validation rebuilds allocation and removes unclosed files; it does not
-recover scratched files. Use it on standard DOS disks, not custom formats.
-
-ATTRIB [+R | -R] [[drive:]filename]
-Displays or changes the native 1541 read-only (lock) attribute. With no
-arguments, lists files with R for locked files. +R sets the lock; -R clears
-it. A missing filename means all files. Wildcards * and ? are supported.
-Requires a standard 1541 directory. The native lock protects against
-scratching/replacement; it is not general protection against in-place writes.
-
-CONCAT newfile file1 file2 [file3...]
-Creates a new file from two or more files on the same disk using native C0.
-Quote names containing spaces. All files must be on the destination disk;
-unqualified source names use that disk. Existing destinations are refused.
-The complete drive command may contain at most 40 characters; longer lists
-report "File list too long". Native file-type restrictions and errors apply.
-
-SPLASH
-Shows the boot logo without the four-second pause, then returns to the
-prompt with the shell font and colors restored.
-
-UNDELETE deferred
-Changing the deleted entry's type alone does not reserve its freed blocks.
-They may already belong to another file. A recovery implementation needs
-chain/overlap checks and allocation repair, including REL side sectors,
-before it can safely expose a restored file. No UNDELETE command was added.

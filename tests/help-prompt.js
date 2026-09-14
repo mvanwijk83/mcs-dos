@@ -59,7 +59,7 @@ async function boot(autoexec=null,resource=null){
  await command(`load "${root}/build/MCS-DOS.prg" 0`);await command('> ba 08');
  return enter('run',3500);
 }
-function ready(rows){return rows.includes(pager) || /^(A:>|env-A:>|live>)$/.test(rows.filter(Boolean).at(-1));}
+function ready(rows){return rows.includes(pager) || /^(8:>|A:>|env-A:>|live>)$/.test(rows.filter(Boolean).at(-1));}
 async function settled(rows){
  for(let i=0;i<80 && !ready(rows);i++){await command('x');await delay(250);rows=await screen();}
  assert(ready(rows),rows.join('\n'));return rows;
@@ -75,60 +75,81 @@ async function run(){
  // Fixtures always start clean, even when run after a personal dev build.
  const image=fs.readFileSync(base);let hasAuto=false;
  for(let i=0;i<image.length-16;i++)if(image.subarray(i,i+12).equals(Buffer.from('AUTOEXEC.BAT\xa0','latin1'))){hasAuto=true;break;}
- if(hasAuto)execFileSync(c1541,['-attach',base,'-delete','autoexec.bat'],{stdio:'pipe'});
+ try { execFileSync(c1541,['-attach',base,'-delete','autoexec.bat'],{stdio:'pipe'}); } catch(e) { if(hasAuto) throw e; }
  const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const port=server.address().port;await new Promise(r=>server.close(r));
  child=spawn(root+'/tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe',
   ['-default','-'+standard,'-sounddev','dummy','-warp','-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],
-  {windowsHide:true,stdio:'ignore'});
+  {windowsHide:true,stdio:['ignore','pipe','pipe']});
+ let launchLog='';child.stdout.on('data',d=>launchLog+=d);child.stderr.on('data',d=>launchLog+=d);
  for(let i=0;i<200;i++){
   try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j)});break;}
   catch(e){socket.destroy();socket=null;await delay(100);}
  }
- assert(socket);socket.on('error',()=>{});
+ assert(socket,'VICE monitor unavailable: '+launchLog);socket.on('error',()=>{});
  await command('x');await delay(1500);
  for(let i=0;i<30;i++){if((await screen()).includes('ready.'))break;await command('x');await delay(300);}
- const auto='@echo off\nset driveids=dos\nset charset=cga\nset prompt=env-$p$c$g\nprompt batch$g\necho on\necho boot-complete\n';
- let rows=await boot(auto);ends(rows,'env-A:>');assert(rows.includes('batch>echo boot-complete'),rows.join('\n'));
+ if(process.argv.includes('--recolor-only')) {
+  const rows=await boot('@echo off\nset color=0,15,15\nver\n');
+  assert(rows.some(r=>r.includes('MCS-DOS Version')),rows.join('\n'));
+  assert.equal((await memory(0xd021))[0]&15,15);
+  assert.equal((await memory(0xd020))[0]&15,15);
+  const cells=await memory(0xd800,0xdbe7);
+  assert.equal(cells.length,1000);assert(cells.every(c=>(c&15)===0));
+  console.log('PASS AUTOEXEC VER text preserved and all 1000 cells recolored black on white');
+  return;
+ }
+ const auto='@echo off\nset prompt=env-$p$c$g\nset charset=cga\nset driveids=dos\nset color=15,6,14\necho on\necho boot-complete\n';
+ let rows=await boot(auto);ends(rows,'env-A:>');assert(rows.includes('8:>echo boot-complete'),rows.join('\n'));
  assert.equal((await memory(0xd018))[0]&0xfe,0x8a,'charset initialization retained');
  ends(await enter('set prompt=later$g'),'env-A:>');
  assert((await fresh('set')).includes('PROMPT=later$g'));
- ends(await enter('prompt live$g'),'live>');ends(await enter('set prompt='),'live>');
+ assert((await enter('prompt live$g')).includes('Bad command or file name'));ends(await enter('set prompt='),'env-A:>');
+ assert.equal((await memory(0xd021))[0]&15,6);assert.equal((await memory(0xd020))[0]&15,14);
+ ends(await enter('set color=1,0,0'),'env-A:>');assert.equal((await memory(0xd021))[0]&15,6);
  ends(await enter('reboot',4000),'env-A:>');await enter('exit');
- const long='x'.repeat(58)+'$p$c$g';assert.equal(long.length,64);
+ const long='x'.repeat(26)+'$p$c$g';assert.equal(long.length,32);
  rows=await boot('@echo off\nset driveids=dos\nset prompt='+long+'\n');
- assert(rows.join('').includes('x'.repeat(58)+'A:>'),rows.join('\n'));await enter('exit');
- ends(await boot('@echo off\nset prompt=discard\nset prompt=\nprompt direct$g\n'),'direct>');await enter('exit');
- ends(await boot(),'A:>');
- console.log('PASS PROMPT applied after AUTOEXEC, batch precedence, interactive SET storage only, command updates, REBOOT, 64-byte value, removed and absent values');
+ assert(rows.join('').includes('x'.repeat(26)+'A:>'),rows.join('\n'));await enter('exit');
+ ends(await boot('@echo off\nset prompt=discard\nset prompt=\n'),'8:>');await enter('exit');
+ ends(await boot(),'8:>');
+ assert.equal((await memory(0xd021))[0]&15,0);assert.equal((await memory(0xd020))[0]&15,0);
+ assert.equal((await memory(0xd027))[0]&15,15,'default foreground/caret');
+ await enter('set aa='+ 'x'.repeat(32));await enter('set b='+ 'x'.repeat(9));
+ rows=await fresh('set /eNv');
+ for(const row of ['512 bytes total environment size',' 48 bytes used','464 bytes free'])assert(rows.includes(row),rows.join('\n'));
+ rows=await fresh('set/env');assert(rows.includes(' 48 bytes used'),rows.join('\n'));
+ await enter('set aa=');await enter('set b=');
 
- rows=await fresh('help prompt');assert(rows.includes(pager),rows.join('\n'));
- assert(rows.includes('Changes the MCS-DOS command prompt.'),'help heading remains visible on first page');
+ console.log('PASS PROMPT applied after AUTOEXEC, batch precedence, interactive SET storage only, removed commands, REBOOT, 32-byte value, removed and absent values');
+
+ rows=await fresh('help set');
+ assert(rows.includes('Displays, sets, or removes MCS-DOS'),'help heading remains visible on first page');
  await screenshot('help-prompt-page1');
- rows=await settled(await keys('\\x20',1500));assert(!rows.includes(pager));assert(rows.includes('the prompt to the default setting.'),rows.join('\n'));ends(rows,'A:>');
+ while(rows.includes(pager)) rows=await settled(await keys('\\x20',1500));ends(rows,'8:>');
  await screenshot('help-prompt-page2');
- rows=await fresh('prompt /?');assert(rows.includes(pager));rows=await settled(await keys('\\x03',1000));ends(rows,'A:>');assert(!rows.join('').includes('Insert MCS-DOS disk'));
- rows=await fresh('help ver');assert(rows.some(r=>r.includes('copyright information.')));ends(rows,'A:>');
- rows=await fresh('help prompt>hp');
- assert(!rows.includes(pager));ends(rows,'A:>');
- await command('detach 8');assert.deepEqual(read('hp'),petscii(help.PROMPT+'\n'),'redirected PROMPT help is exact');
+ rows=await fresh('set /?');if(rows.includes(pager))rows=await settled(await keys('\\x03',1000));ends(rows,'8:>');assert(!rows.join('').includes('Insert MCS-DOS disk'));
+ rows=await fresh('help ver');assert(rows.some(r=>r.includes('copyright information.')));ends(rows,'8:>');
+ rows=await fresh('help set>hp');
+ assert(!rows.includes(pager));ends(rows,'8:>');
+ await command('detach 8');assert.deepEqual(read('hp'),petscii(help.SET+'\n'),'redirected SET help is exact');
  await command(`attach "${disk}" 8`);await enter('exit');
- console.log('PASS real PROMPT help first/last pages, /? form, RUN/STOP cancellation, subsequent help and exact unpaginated redirection');
+ console.log('PASS real SET help first/last pages, /? form, RUN/STOP cancellation, subsequent help and exact unpaginated redirection');
 
- const commands=[...fs.readFileSync('src/mcsdos.c','utf8').match(/static const char \* const commands\[\]=\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
- const topic=commands.indexOf('PROMPT');assert(topic>=0);
+ const commands=[...fs.readFileSync('src/mcsdos.c','utf8').match(/static const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
+ const topic=commands.indexOf('SET');assert(topic>=0);
  const original=fs.readFileSync('build/COMMANDS.HLP');let offset=5;
  for(let i=0;i<topic;i++)offset=original.indexOf(0,offset)+1;
  const after=original.indexOf(0,offset)+1;
- // Replace PROMPT regardless of subsequently added topics. Cross read boundaries,
+ // Replace SET regardless of subsequently added topics. Cross read boundaries,
  // has blank lines, and needs two pauses due to automatic 40-column wrapping.
  const body='begin\n\n'+'W'.repeat(40*44)+'\nend';
  await boot(null,Buffer.concat([original.subarray(0,offset),petscii(body),Buffer.from([0]),original.subarray(after)]));
- rows=await fresh('help prompt');assert(rows.includes('begin'),rows.join('\n'));let pages=0;
+ rows=await fresh('help set');assert(rows.includes('begin'),rows.join('\n'));let pages=0;
  while(rows.includes(pager)){assert(++pages<=3);rows=await settled(await keys('\\x20',1000));}
- assert.equal(pages,2);assert(rows.includes('end'));ends(rows,'A:>');
- rows=await fresh('help prompt');assert(rows.includes(pager));await keys('\\x03',1000);
- ends(await fresh('help cls'),'A:>');await enter('exit');
+ assert.equal(pages,2);assert(rows.includes('end'));ends(rows,'8:>');
+ rows=await fresh('help set');assert(rows.includes(pager));await keys('\\x03',1000);
+ ends(await fresh('help cls'),'8:>');await enter('exit');
  console.log('PASS wrapped/blank rows across read boundaries, multiple pages, page-counter reset and cleanup');
 }
 run().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{

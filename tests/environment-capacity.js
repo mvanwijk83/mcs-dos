@@ -9,17 +9,17 @@ if(!process.argv.includes('--shell')){
 await waitFor(s=>s.includes('ready.'));
 await command('load "C:/dev/MCS-DOS/build/MCS-DOS.prg" 0');await command('> ba 00');await enter('run');
 }
-for(let i=0;i<7;i++)await enter('set n'+String(i).padStart(2,'0')+'='+ 'x'.repeat(64));
-// Seven 69-byte entries plus a 29-byte entry fill exactly 512 bytes.
-assert(!(await fresh('set edge='+ 'z'.repeat(23))).includes('Environment full'));
-assert((await fresh('set edge='+ 'z'.repeat(24))).includes('Environment full'));
+for(let i=0;i<13;i++)await enter('set n'+String(i).padStart(2,'0')+'='+ 'x'.repeat(32));
+// Thirteen 37-byte entries plus a 31-byte entry fill exactly 512 bytes.
+assert(!(await fresh('set edge='+ 'z'.repeat(25))).includes('Environment full'));
+assert((await fresh('set edge='+ 'z'.repeat(26))).includes('Environment full'));
 assert((await fresh('set extra=x')).includes('Environment full'));
-let s=await fresh('set');assert(s.includes('EDGE='+ 'z'.repeat(23)),s);
-assert(!(await fresh('set n00='+ 'y'.repeat(64))).includes('Environment full'));
+let s=await fresh('set');assert(s.includes('EDGE='+ 'z'.repeat(25)),s);
+assert(!(await fresh('set n00='+ 'y'.repeat(32))).includes('Environment full'));
 await enter('set edge=');
-assert(!(await fresh('set edge='+ 'z'.repeat(23))).includes('Environment full'));
+assert(!(await fresh('set edge='+ 'z'.repeat(25))).includes('Environment full'));
 await enter('set edge=');assert(!(await fresh('set extra=ok')).includes('Environment full'));
 assert((await fresh('set')).includes('EXTRA=ok'));
-assert((await fresh('set short='+ 'q'.repeat(65))).includes('Invalid value'));
-console.log('PASS exact 512-byte capacity, atomic rejected growth, full-buffer replacement, deletion/reuse, and unchanged 64-character value limit');
+assert((await fresh('set short='+ 'q'.repeat(33))).includes('Invalid value'));
+console.log('PASS exact 512-byte capacity, atomic rejected growth, full-buffer replacement, deletion/reuse, and 32-character value limit');
 })().catch(e=>{console.error(e);process.exitCode=1});

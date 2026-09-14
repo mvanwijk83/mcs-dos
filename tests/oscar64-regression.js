@@ -23,7 +23,13 @@ const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1'
 child=spawn(root+'/tools/vice/GTK3VICE-3.10-win64/bin/x64sc.exe',['-default','-sounddev','dummy','-warp','-8',disk,'-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:['ignore','ignore','pipe']});child.stderr.on('data',d=>fs.appendFileSync('build/oscar64/vice.log',d));
 for(let i=0;i<100;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j)});break;}catch(e){socket.destroy();socket=null;await delay(100);}}assert(socket);socket.destroy();monitorPort=port;
 for(let i=0;i<40;i++){await command('x');await delay(200);if((await screen()).includes('ready.'))break;}assert((await screen()).includes('ready.'));await command('load "'+prg+'" 0');await command('> ba 08');let s=await enter('run',3000);console.log('BOOT\n'+s);assert(s.includes('A:'),s);
-if(process.argv.includes('--quick')){await check('dir /b','COMMANDS.HLP',2000);return;}
+if(process.argv.includes('--quick')){
+ await check('help cls','Clears',2000);
+ await check('dir /b/on','COMMANDS.HLP',2000);
+ await check('find /i/c "set" autoexec.sample',': 4',2000);
+ await check('dir /b/o-s','AUTOEXEC.SAMPLE',2000);
+ return;
+}
 await check('echo hello','hello');await check('help','Aliases:');await check('mem','bytes free');
 await check('set custom=value','A:');await check('set','CUSTOM=value');
 await check('dir /b','COMMANDS.HLP',2000);await keys(' ');

@@ -18,17 +18,17 @@ const points=[];
   const spBytes=(await command('m 0002 0003')).match(/>C:0002\s+([\da-f]{2}) ([\da-f]{2})/i);
   const sp=parseInt(spBytes[1],16)+256*parseInt(spBytes[2],16);
   assert(sp>=top-stack&&sp<top,'runtime uses the relocated C stack');
-  assert(status(await keys('edit\\x0d')).includes(' 1: 1'));
+  assert(status(await keys('edit\\x0d')).includes('01:01'));
   for(const range of ['07c0 07c0','07c3 07c3','07c6 07e7','dbc0 dbe7']) {
     const response=await command('break store '+range);
     points.push(Number(response.match(/(?:BREAK|WATCH):\s*(\d+)/i)[1]));
   }
-  assert(status(await keys('\\x1d'.repeat(9))).includes(' 1:10'));
-  assert(status(await keys('\\x1d'.repeat(30))).includes(' 1:40'));
+  assert(status(await keys('\\x1d'.repeat(9))).includes('01:10'));
+  assert(status(await keys('\\x1d'.repeat(30))).includes('01:40'));
   assert(status(await keys('\\x11'.repeat(9))).includes('10:40'));
   assert(status(await keys('\\x11'.repeat(14))).includes('24:40'));
-  assert(status(await keys('\\x13')).includes(' 1: 1'));
-  assert(status(await keys('abc')).includes(' 1: 4'));
+  assert(status(await keys('\\x13')).includes('01:01'));
+  assert(status(await keys('abc')).includes('01:04'));
   for(const p of points) await command('delete '+p);points.length=0;
   console.log('PASS fixed status text/color cells receive no writes; only coordinates change');
   await keys('\\x03y');

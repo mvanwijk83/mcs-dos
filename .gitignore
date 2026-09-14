@@ -1,6 +1,10 @@
-tools/
-src/*.o
-build/
+archive/
+assets/
 branches/
-MCS-DOS-cc65-*.zip
-MCS-DOS-cc65-*.zip.sha256
+build/
+dev/
+docs-design/
+docs-internal/
+examples/
+scripts/
+tools/

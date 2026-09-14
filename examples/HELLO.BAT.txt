@@ -1,5 +1,0 @@
-@echo off
-echo Welcome to MCS-DOS!
-echo.
-ver
-echo Type HELP to explore.

@@ -1,44 +1,9 @@
-; Copy the loader into the cassette buffer before a PRG replaces the shell.
-; /A relocates the LOAD destination and jumps there; otherwise RUN BASIC.
-.export _launch, _basic_exit
-.import _launchname, _launchdevice, _launchlength, _launchabsolute, _launchaddress
-.import _exit
-.import _charset_default
-
+; Relocatable cassette-buffer loader. Oscar64 patches its operands before use.
+; /A jumps to the requested address; otherwise return through BASIC RUN.
 BASE = $0334
 NAME = $03e0
+.export len, dev, absolute, secondary, addresslo, addresshi, jump
 .segment "CODE"
-_launch:
-    jsr display_reset
-    sei
-    ldx #0
-@copy:
-    lda loader,x
-    sta BASE,x
-    inx
-    cpx #loader_end-loader
-    bne @copy
-    ldx #16
-@name:
-    lda _launchname,x
-    sta NAME,x
-    dex
-    bpl @name
-    lda _launchlength
-    sta BASE+len-loader+1
-    lda _launchdevice
-    sta BASE+dev-loader+1
-    lda _launchabsolute
-    sta BASE+absolute-loader+1
-    eor #1
-    sta BASE+secondary-loader+1
-    lda _launchaddress
-    sta BASE+addresslo-loader+1
-    sta BASE+jump-loader+1
-    lda _launchaddress+1
-    sta BASE+addresshi-loader+1
-    sta BASE+jump-loader+2
-    jmp BASE
 loader:
     lda #$37
     sta $01
@@ -74,26 +39,3 @@ error:
     jmp $a474             ; BASIC error / ready
 loader_end:
 .assert loader_end-loader < NAME-BASE, error, "Loader overlaps filename"
-
-_basic_exit:
-    jsr $ffcc
-    jsr $ffe7
-    jsr display_reset
-    ; Let crt0 restore its saved zero page, CPU stack and memory mapping,
-    ; and run library destructors before returning to BASIC's SYS caller.
-    ; Do not initialize BASIC RAM here: it overlaps the live C zero page.
-    lda #0
-    tax
-    jmp _exit
-display_reset:
-    jsr _charset_default
-    lda #0
-    sta $0291
-    lda $d015
-    and #$fe
-    sta $d015            ; no shell caret in BASIC
-    lda #$8e
-    jsr $ffd2            ; standard uppercase/graphics character set
-    lda #$93
-    jsr $ffd2            ; clear screen and home before READY
-    rts

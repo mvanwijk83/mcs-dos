@@ -52,17 +52,25 @@ async function run(){
  assert(socket);socket.on('error',()=>{});await command('x');await delay(2000);
  await command('load "'+root+'/build/MCS-DOS.prg" 0');await command('> ba 08');
  await enter('run',3500);
- async function check(cmd,text,ms=1000){console.log('Checking '+cmd);await enter('cls');const out=(await enter(cmd,ms)).join('\n');assert(out.includes(text),cmd+'\n'+out);}
- await check('echo one > one','A:');await check('echo two > two','A:');
- await check('concat joined one two','A:');await check('type joined','one\ntwo');
- await check('concat joined one two','file exists');
- await check('concat x 8:one 9:two','Files must be on the same disk');
- await check('concat abcdefghijklmnop abcdefghijklmnop abcdefghijklmnop','File list too long');
- await check('attrib +r one','A:');await check('attrib one','  R    ONE');
- await check('del one /p','A:');await check('type one','one');
+ async function check(cmd,text,ms=1000){console.log('Checking '+cmd);await enter('cls');let out=(await enter(cmd,ms)).join('\n');for(let i=0;i<15&&!out.includes(text);i++){await command('x');await delay(1000);out=(await screen()).join('\n');}assert(out.includes(text),cmd+'\n'+out);}
+ await check('echo one > one','8:>');await check('echo two > two','8:>');
+ await check('concat one two joined','Bad command or file name');
+ await check('copy one+two joined','1 file(s) copied.');await check('type joined','one\ntwo');
+ await check('copy one+two joined','file exists');
+ await check('copy one plain','1 file(s) copied.');await check('type plain','one');
+ await check('copy one++two invalid','Invalid file name');
+ await check('copy one+ invalid','Invalid file name');
+ await check('copy +one invalid','Invalid file name');
+ await check('copy 8:one+9:two x','Files must be on the same disk');
+ await check('copy abcdefghijklmnop+abcdefghijklmnop abcdefghijklmnop','File list too long');
+ await check('attrib +r one','8:>');await check('attrib one','  R    ONE');
+ await check('del one /p','File is locked');await check('type one','one');
+ await check('del o* /p','File is locked');await check('type one','one');
+ await check('del one','File is locked');
+ await check('mem /s','Invalid parameter');await check('chkdsk /s','Invalid parameter');
  await check('attrib','TWO');
- await check('attrib -r one','A:');await check('attrib one','       ONE');
- await check('del one /p','A:');await check('type one','File not found');
+ await check('attrib -r one','8:>');await check('attrib one','       ONE');
+ await check('del one /p','8:>');await check('type one','File not found');
  await check('chkdsk /v','Disk validation complete.',25000);
  await command('detach 8');
  assert(fs.readFileSync('build/test-new-commands.d64')[bam+3]&1,'V0 repairs orphan allocation');
@@ -78,7 +86,7 @@ async function run(){
  await check('splash','MCS-DOS version',350);
  assert.deepEqual(await memory(0x288),bank);assert.deepEqual(await memory(0xd021),bg);
  await check('echo ready','ready');
- console.log('PASS native CONCAT contents/errors, ATTRIB lock/unlock/delete protection, CHKDSK validation, SPLASH state and immediate prompt');
+ console.log('PASS COPY concatenation contents/errors, ATTRIB lock/unlock/delete protection, CHKDSK validation, SPLASH state and immediate prompt');
 }
 run().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{socket?.destroy();if(child&&child.exitCode===null)child.kill();});
 

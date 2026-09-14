@@ -1,7 +1,7 @@
 // Run the production TYPE/PRINT handler with observable KERNAL I/O mocks.
 const fs=require('fs'),{execFileSync}=require('child_process');
 const source=fs.readFileSync('src/mcsdos.c','utf8');
-const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static void renderedit('));
+const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
 const harness=`
 #include <stdio.h>
 #include <string.h>
@@ -10,9 +10,9 @@ static int argc,p1,pos,length,device,secondary,opened,closed,errors,failopen,fai
 static char *args[4],input[600],output[600];
 static int path(char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
-static int cbm_open(int a,int b,int c,char *s) { device=b;secondary=c;++opened;return failopen; }
-static void cbm_close(int n) { closed|=1<<n; }
-static int cbm_write(int a,void *b,int n) { if(failwrite)return -1;memcpy(output+written,b,n);written+=n;return n; }
+static int channel_open(int a,int b,int c,char *s) { device=b;secondary=c;++opened;return failopen; }
+static void krnio_close(int n) { closed|=1<<n; }
+static int channel_write(int a,void *b,int n) { if(failwrite)return -1;memcpy(output+written,b,n);written+=n;return n; }
 static void error(char *s) { ++errors; }
 static void outputbyte(unsigned char c) { output[written++]=c; }
 static void stop(void) {}

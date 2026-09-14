@@ -16,6 +16,7 @@ async function screen(){
 async function enter(s,ms=1300){await command('keybuf '+s+'\\x0d');await command('x');await delay(ms);return screen();}
 const disk=path.resolve('build/test-redirection.d64'),target=path.resolve('build/test-redirection-target.d64');
 const c1541=path.resolve('tools/vice/GTK3VICE-3.10-win64/bin/c1541.exe');
+const longCount=Number(fs.readFileSync('src/mcsdos.c','utf8').match(/#define LINE (\d+)/)[1])-1-'echo >longline'.length;
 function drive(...args){return execFileSync(c1541,args,{stdio:'pipe'});}
 function read(name,which=disk){
  const image=fs.readFileSync(which);
@@ -49,8 +50,7 @@ async function run(){
  for(let i=0;i<40;i++){await command('x');await delay(300);if((await screen()).includes('ready.'))break;}
  assert((await screen()).includes('ready.'),'BASIC startup did not complete');
  await command('load "'+path.resolve('build/MCS-DOS.prg').replaceAll('\\','/')+'" 0');await command('> ba 08');let startup=await enter('run',3000);
- for(let i=0;i<40 && !startup.includes('A:>');i++){await command('x');await delay(300);startup=await screen();}assert(startup.includes('A:>'),startup);
- await enter('prompt $n$c$g');
+ for(let i=0;i<40 && !startup.trimEnd().endsWith('8:>');i++){await command('x');await delay(300);startup=await screen();}assert(startup.trimEnd().endsWith('8:>'),startup);
  async function check(cmd,expected){await enter('cls',100);let s=await enter(cmd,2000);for(let i=0;i<100&&!s.trimEnd().endsWith('8:>');i++){await command('x');await delay(250);s=await screen();}if(expected)assert(s.includes(expected),cmd+'\n'+s);else assert(!/error|fault|not ready|not found/i.test(s),cmd+'\n'+s);assert(!s.includes('Press any key'),s);assert(s.trimEnd().endsWith('8:>'),cmd+'\n'+s);console.log('OK '+cmd);}
  await check('echo first>out');await check('echo second>>out');
  await check('echo old longer text>replace');await check('echo x>replace');
@@ -58,7 +58,7 @@ async function run(){
  await check('echo "a>b">"quoted name"');
  await check('type raw>rawcopy');await check('type raw>9:cross');
  await check('type raw>>rawcopy');await check('echo letter>B:letter');
- await check('echo '+'x'.repeat(55)+'>longline');
+ await check('echo '+'x'.repeat(longCount)+'>longline');
  await check('dir/b>files');await check('dir>listing');await check('chkdsk>stats');await check('mem>memory');await check('help>commands');
  await check('type raw>raw','Cannot redirect TYPE onto itself');
  await check('type raw>>8:raw','Cannot redirect TYPE onto itself');
@@ -94,7 +94,7 @@ function verify(){
  assert.equal(read('replace').toString(),'X\r');assert.equal(read('new').toString(),'NEW\r');
  assert.equal(read('emptyline').toString(),'\r');assert.equal(read('quoted name').toString(),'"A>B"\r');
  assert.deepEqual(read('rawcopy'),Buffer.concat([raw,raw]));assert.deepEqual(read('raw'),raw);assert.deepEqual(read('cross',target),raw);
- assert.equal(read('letter',target).toString(),'LETTER\r');assert.equal(read('longline').toString(),'X'.repeat(55)+'\r');
+ assert.equal(read('letter',target).toString(),'LETTER\r');assert.equal(read('longline').toString(),'X'.repeat(longCount)+'\r');
  assert.deepEqual(read('errors'),read('empty'));assert.equal(read('recovered').toString(),'RECOVERED\r');
  assert.equal(read('bt').toString(),'BATCH\rAPPEND\r');
  const partial=read('partial');assert(partial.length<raw.length);assert.deepEqual(partial,raw.subarray(0,partial.length));

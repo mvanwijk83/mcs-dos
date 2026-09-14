@@ -18,16 +18,16 @@ async function register(address) {
   console.log('PASS alphabetic HELP');
   await enter('cls');
   const dir=await enter('dir/o',1500);
-  assert(/MCS-DOS\s+PRG\s+[0-9,]+ \(\s*\d+ blks\)/.test(dir));
-  assert(/HELLO.BAT\s+SEQ\s+256 \(  1 blks\)/.test(dir));
+  assert(/MCS-DOS\s+PRG\s+[0-9,]+ \(\s*\d+ bl\)/.test(dir));
+  assert(/AUTOEXEC\.(?:BAT|SAMPLE)\s+SEQ\s+256 \(  1 bl\)/.test(dir));
   assert(dir.includes(' Volume in drive 8: is MCS-DOS'));
   assert(dir.includes(' Disk ID is MC'));
-  assert(/^  \d File\(s\) +[\d,]+ bytes \( *\d+ blks\)$/m.test(dir));
+  assert(/^  \d File\(s\) +[\d,]+ bytes \( *\d+ bl\)$/m.test(dir));
   assert(!dir.includes('allocated'));
   assert(!dir.includes('Name             Typ'));
-  assert(/^ +[\d,]+ bytes free \( *\d+ blks\)$/m.test(dir));
-  for(const row of dir.split('\n').filter(s=>s.endsWith('blks)'))) {
-    assert.equal(row.length,39);assert.equal(row.lastIndexOf('('),29);
+  assert(/^ +[\d,]+ bytes free \( *\d+ bl\)$/m.test(dir));
+  for(const row of dir.split('\n').filter(s=>s.endsWith('bl)'))) {
+    assert.equal(row.length,37);assert.equal(row.lastIndexOf('('),29);
   }
   assert(dir.includes('\n\n8:>'));
   console.log('PASS DIR/O, block/byte rows, totals, prompt whitespace');

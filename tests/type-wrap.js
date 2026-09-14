@@ -1,7 +1,7 @@
 // Execute the actual TYPE implementation under sim65 with mocked disk/screen I/O.
 const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process');
 const source=fs.readFileSync('src/mcsdos.c','utf8');
-const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static void renderedit('));
+const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
 const harness=`
 #include <stdio.h>
 #include <string.h>
@@ -10,9 +10,9 @@ static int argc=2,p1,rows,pages,pos,length;
 static char *args[2],input[4096];
 static int path(char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
-static int cbm_open(int a,int b,int c,char *s) { return 0; }
-static void cbm_close(int n) {}
-static int cbm_write(int a,void *b,int n) { return n; }
+static int channel_open(int a,int b,int c,char *s) { return 0; }
+static void krnio_close(int n) {}
+static int channel_write(int a,void *b,int n) { return n; }
 static void say(char *s) {}
 static void error(char *s) {}
 static void outputbyte(unsigned char c) {}

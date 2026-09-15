@@ -2,7 +2,7 @@ const fs=require('fs');
 const petscii=require('./petscii');
 const version=fs.readFileSync('src/mcsdos.c','utf8').match(/^#define VERSION "([^"]+)"/m)[1];
 // Ship the 40-column documents as PETSCII sequential files.
-for(const name of ['MANUAL.TXT','LICENSE.TXT']) fs.writeFileSync('build/'+name,petscii(fs.readFileSync(name.toLowerCase(),'utf8')));
+for(const name of ['MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT']) fs.writeFileSync('build/'+name,petscii(fs.readFileSync(name.toLowerCase(),'utf8')));
 // 10 PRINT "HELLO FROM BASIC!":20 END (tokenized BASIC V2).
 const text=Buffer.from('HELLO FROM BASIC!');
 const body=Buffer.concat([Buffer.from([10,0,0x99,0x20,0x22]),text,Buffer.from([0x22,0])]);

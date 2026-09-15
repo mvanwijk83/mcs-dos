@@ -156,7 +156,8 @@ are:
     A custom character set reproducing
     the 8x8 IBM CGA font.
   AUTOEXEC.SAMPLE
-    Example AUTOEXEC.BAT.
+    Example AUTOEXEC.BAT. Rename to
+    apply.
 
 A stand-alone PRG containing only the
 shell is also available.
@@ -610,7 +611,7 @@ from, it will be executed at startup.
   1.0 Preview (13-Sep-2026)
 Preliminary public release
 
-  1.0 (xx-Sep-2026)
+  1.0 (15-Sep-2026)
 Various small fixes and optimizations.
 Final packaging for release. Source code
 release.
@@ -641,3 +642,10 @@ Owning physical hardware again inspired
 me to once more become creative on the
 C64, hence this release. And who knows
 what else the future may bring.
+
+"MCS" is an alias I used in my early
+days for my hobby programming. It only
+seemed suitable to bring it back. It
+also makes for a nice pun to refer to
+to this software's relationship to
+MS-DOS.

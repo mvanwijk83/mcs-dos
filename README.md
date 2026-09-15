@@ -2,9 +2,9 @@
 
 MCS-DOS is a simple MS-DOS-inspired command shell designed to work on an
 unexpanded Commodore 64, Commodore 64 Ultimate, Commodore 128 in C64 mode, and
-on emulators. It provides familiar prompts, commands, and syntax to perform
+on emulators. It provides familiar commands, syntax, and prompts to perform
 disk operations. It also supports rudimentary batch scripting. It is otherwise
-**not** a true execution environment for native programs.
+*not* a true execution environment for native programs.
 
 The author makes no claims as to its real-life usefulness and emphasizes that
 this was made for fun and novelty.
@@ -14,7 +14,7 @@ this was made for fun and novelty.
 * Classic DOS look and feel.
 * Many familiar disk commands and utilities are implemented.
 * Some batch file support, including `AUTOEXEC.BAT`.
-* Supports attached multiple drives and multiple models (1541, 1571, 1581).
+* Supports multiple attached drives and multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and addressed with DOS-style drive letters.
 * Simple built-in text editor.
 * Command history of up to 10 entries.
@@ -31,11 +31,11 @@ this was made for fun and novelty.
 * Running native C64 programs quits the shell.
 * No fastloader implemented in software; use a fastload cartridge or ROM replacement to speed up disk access.
 * Batch files do not support variables, conditionals, labels, or parameters.
-* No piping, output redirection does not support printers.
-* `DISKCOPY` does not currently support duplicating disks between different drive types.
+* No piping (`|` syntax); output redirection does not support printers.
+* Duplicating disks between different drive types is not currently implemented.
 * Due to the shell's mixed-case mode, half of PETSCII's graphics characters do not display correctly.
 
-Future versions may address these and other shortcomings where possible.
+Future versions may address (some of) these and other shortcomings where possible.
 
 ## Development notes
 
@@ -46,11 +46,26 @@ Ultimate and in VICE.
 ## Running the shell
 
 MCS-DOS is distributed as a D64 disk image. Write it to floppy, and load the
-main program called `MCS-DOS`. `LOAD "*",8` will work too. `RUN` to start.
-
-Or if your setup allows it, simply mount and run the disk image.
+main program called `MCS-DOS.EXE`. `LOAD "*",8` will work too. `RUN` to start. Or
+if your setup allows it, simply mount and run the disk image.
 
 Refer to `MANUAL.TXT` for more extensive information.
 
+## Repository layout
+Source code is available on https://github.com/mvanwijk83/mcs-dos.
+
+`disk-content` &ndash; Content to include on the release images.
+`extras` &ndash; Extra content to customize your MCS-DOS shell.
+`releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.
+`screenshots` &ndash; Assorted screenshots.
+`src` &ndash; Source code.
+`tests` &ndash; Automated tests.
+
+The root contains various documentation. Aside from this `README.md`, they are
+also included on the release image (hence the 40 character width).
+
 ## Version history
-* **1.0** Initial public release (12-Sep-2026)
+See `CHANGELOG.TXT` for a full overview of changes.
+
+* **1.0 Preview** (13-Sep-2026) - preliminary limited public release
+* **1.0 RTM** (15-Sep-2026) - definitive first public release

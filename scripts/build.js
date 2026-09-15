@@ -17,12 +17,15 @@ run(process.execPath, ['scripts/make-examples.js']);
 const disk = 'build/MCS-DOS.d64';
 const version = fs.readFileSync('src/mcsdos.c', 'utf8').match(/^#define VERSION "([^"]+)"/m)[1];
 const args = ['-format', `mcs-dos ${version},mc`, 'd64', disk, '-attach', disk,
-    '-write', 'build/MCS-DOS.prg', 'mcs-dos',
+    '-write', 'build/MCS-DOS.prg', 'mcs-dos.exe',
+    '-write', 'build/COMMANDS.HLP', 'commands.hlp,s',
     '-write', 'build/MANUAL.TXT', 'manual.txt,s',
-    '-write', 'build/LICENSE.TXT', 'license.txt,s',
-    '-write', 'build/COMMANDS.HLP', 'commands.hlp,s'];
-const names = new Set(['MCS-DOS', 'MANUAL.TXT', 'LICENSE.TXT', 'COMMANDS.HLP']);
-for (const entry of fs.readdirSync('disk-content', {withFileTypes: true}).sort((a, b) => a.name.localeCompare(b.name))) {
+    '-write', 'build/CHANGELOG.TXT', 'changelog.txt,s',
+    '-write', 'build/LICENSE.TXT', 'license.txt,s'];
+const names = new Set(['MCS-DOS.EXE', 'COMMANDS.HLP', 'MANUAL.TXT', 'CHANGELOG.TXT', 'LICENSE.TXT']);
+const priority = name => ['CGA.CPI', 'AUTOEXEC.SAMPLE'].indexOf(name.toUpperCase());
+for (const entry of fs.readdirSync('disk-content', {withFileTypes: true}).sort((a, b) =>
+    (priority(a.name) < 0 ? 2 : priority(a.name)) - (priority(b.name) < 0 ? 2 : priority(b.name)) || a.name.localeCompare(b.name))) {
     if (!entry.isFile()) throw Error('disk-content must contain files only: ' + entry.name);
     if (!/^[A-Za-z0-9._-]{1,16}$/.test(entry.name)) throw Error('Invalid C64 disk filename: ' + entry.name);
     if (names.has(entry.name.toUpperCase())) throw Error('Duplicate disk filename: ' + entry.name);

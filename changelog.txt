@@ -8,7 +8,7 @@
 ----------------------------------------
 Preliminary public release.
 
-  1.0 (xx-Sep-2026)
+  1.0 (15-Sep-2026)
 ----------------------------------------
 * Fixed a bug where DEL did not report
   failed deletion when a file is

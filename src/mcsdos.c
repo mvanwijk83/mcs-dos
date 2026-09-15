@@ -1,6 +1,3 @@
-/* MCS-DOS -- stock C64 novelty command shell.
- * Built with Oscar64. Native filenames remain PETSCII; UI uses mixed-case glyphs.
- */
 #include "c64-support.h"
 #include "memory.h"
 #include <conio.h>

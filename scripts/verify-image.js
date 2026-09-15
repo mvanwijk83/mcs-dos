@@ -41,12 +41,14 @@ while(t) {
   }
   t=image[o];s=image[o+1];
 }
-const content=fs.readdirSync('disk-content').sort((a,b)=>a.localeCompare(b));
-const names=['MCS-DOS','MANUAL.TXT','LICENSE.TXT','COMMANDS.HLP',...content.map(n=>n.toUpperCase())];
+const content=fs.readdirSync('disk-content');
+const names=['MCS-DOS.EXE','COMMANDS.HLP','MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT','CGA.CPI','AUTOEXEC.SAMPLE'];
 assert.deepEqual([...entries.keys()],names,'Public image contents');
-for(const name of ['MANUAL.TXT','LICENSE.TXT','COMMANDS.HLP']) {
+for(const name of ['MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT','COMMANDS.HLP']) {
   assert.equal(entries.get(name).type,0x81);
   assert.deepEqual(entries.get(name).data,fs.readFileSync('build/'+name));
+  if(name.endsWith('.TXT')) assert.deepEqual(entries.get(name).data,
+    require('./petscii')(fs.readFileSync(name.toLowerCase(),'utf8')),'Current source document: '+name);
 }
 for(const name of content) {
   assert.equal(entries.get(name.toUpperCase()).type,0x81);
@@ -55,7 +57,7 @@ for(const name of content) {
     : fs.readFileSync('disk-content/'+name);
   assert.deepEqual(entries.get(name.toUpperCase()).data,expected);
 }
-assert.equal(entries.get('MCS-DOS').type,0x82);
-assert.deepEqual(entries.get('MCS-DOS').data,fs.readFileSync('build/MCS-DOS.prg'));
-assert.equal(entries.get('MCS-DOS').data.readUInt16LE(0),0x0801);
+assert.equal(entries.get('MCS-DOS.EXE').type,0x82);
+assert.deepEqual(entries.get('MCS-DOS.EXE').data,fs.readFileSync('build/MCS-DOS.prg'));
+assert.equal(entries.get('MCS-DOS.EXE').data.readUInt16LE(0),0x0801);
 console.log('PASS public D64 label, size, directory types, sector chains, file sizes, PRG and SEQ contents');

@@ -1,6 +1,6 @@
 // Exercise the production row-insertion branch without patching a VICE ROM.
 const {tool}=require('./setup');
-const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process');
+const fs=require('fs'),assert=require('assert/strict');
 const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g,'\n');
 const start=source.indexOf('} else if (c == 0) {'),end=source.indexOf('} else if (c == CH_DEL)',start);
 assert(start>=0&&end>start,'editor row-insertion branch must exist');
@@ -26,6 +26,6 @@ int main(void){
  return 0;
 }`;
 fs.writeFileSync('build/test-editor-lines.c',code);
-execFileSync(tool('cc65','cl65'),['-t','sim6502','-O','-o','build/test-editor-lines','build/test-editor-lines.c'],{stdio:'pipe'});
-execFileSync(tool('cc65','sim65'),['build/test-editor-lines'],{stdio:'pipe'});
+require('./simulator')('build/test-editor-lines.c');
+
 console.log('PASS editor insertion at top/middle/bottom, cursor reset and refusal to lose bottom-row text');

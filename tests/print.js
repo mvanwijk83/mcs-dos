@@ -1,6 +1,6 @@
-const {tool} = require('./setup');
+require('./setup');
 // Run the production TYPE/PRINT handler with observable KERNAL I/O mocks.
-const fs=require('fs'),{execFileSync}=require('child_process');
+const fs=require('fs');
 const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
 const harness=`
@@ -8,13 +8,13 @@ const harness=`
 #include <string.h>
 static unsigned char io[256],ox,aborted,pagelines,redirected;
 static int argc,p1,pos,length,device,secondary,opened,closed,errors,failopen,failwrite,written;
-static char *args[4],input[600],output[600];
-static int path(char *s,int *p) { return 1; }
+static const char *args[4];static char input[600],output[600];
+static int path(const char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
-static int channel_open(int a,int b,int c,char *s) { device=b;secondary=c;++opened;return failopen; }
+static int channel_open(int a,int b,int c,const char *s) { device=b;secondary=c;++opened;return failopen; }
 static void krnio_close(int n) { closed|=1<<n; }
 static int channel_write(int a,void *b,int n) { if(failwrite)return -1;memcpy(output+written,b,n);written+=n;return n; }
-static void error(char *s) { ++errors; }
+static void error(const char *s) { ++errors; }
 static void outputbyte(unsigned char c) { output[written++]=c; }
 static void stop(void) {}
 static void newline(void) {}
@@ -24,7 +24,7 @@ static int readio(int a,void *b,unsigned int size) { int n=length-pos;if(n>size)
 ${type}
 static void reset(void) { pos=written=device=secondary=opened=closed=errors=failopen=failwrite=0; }
 int main(void) {
- int i,j; char *names[5];
+ int i,j; const char *names[5];
  names[0]="4:";names[1]="5:";names[2]="LPT1";names[3]="lpt2";names[4]="6:";
  args[1]="input";length=600;for(i=0;i<length;++i)input[i]=i;
  for(i=0;i<4;++i) {
@@ -41,6 +41,6 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-print.c',harness);
-execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-print','build/test-print.c'],{stdio:'pipe'});
-execFileSync(tool('cc65', 'sim65'),['build/test-print'],{stdio:'pipe'});
+require('./simulator')('build/test-print.c');
+
 console.log('PASS PRINT defaults, devices, aliases, raw bytes, invalid arguments and failure cleanup; redirected TYPE raw bytes');

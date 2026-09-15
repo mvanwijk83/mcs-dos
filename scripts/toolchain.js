@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..');
-const groups = {cc65: 'CC65_HOME', oscar64: 'OSCAR64_HOME', vice: 'VICE_HOME'};
+const groups = {oscar64: 'OSCAR64_HOME', vice: 'VICE_HOME'};
 function tool(group, name) {
     const home = process.env[groups[group]];
     const executable = name + (process.platform === 'win32' ? '.exe' : '');

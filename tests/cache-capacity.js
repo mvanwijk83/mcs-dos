@@ -1,6 +1,6 @@
-const {tool} = require('./setup');
+require('./setup');
 // Exercise actual directory loading/lookup at both former integer limits.
-const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process');
+const fs=require('fs'),assert=require('assert/strict');
 const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 assert(source.includes('#define MAXFILES 296'));
 const code=source.slice(source.indexOf("static unsigned char directory(unsigned char dev)\n{"),source.indexOf('static unsigned char match('));
@@ -41,6 +41,6 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-cache-capacity.c',harness);
-execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-cache-capacity','build/test-cache-capacity.c'],{stdio:'pipe'});
-execFileSync(tool('cc65', 'sim65'),['build/test-cache-capacity'],{stdio:'pipe'});
+require('./simulator')('build/test-cache-capacity.c');
+
 console.log('PASS 144/256/296 entries, last-entry lookup, oversized directory refusal, failed-mode cache invalidation');

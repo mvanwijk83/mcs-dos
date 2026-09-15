@@ -19,7 +19,9 @@ async function check(cmd,expected,ms=900){await enter('cls');const s=await enter
 const disk=root+'/build/test-oscar64.d64';fs.copyFileSync('build/MCS-DOS.d64',disk);
 fs.writeFileSync('build/oscar-autoexec',Buffer.from('@ECHO OFF\rSET DRIVEIDS=DOS\r'));
 fs.writeFileSync('build/oscar-existing',Buffer.from('OLD\r'));
-execFileSync(tool('vice', 'c1541'),['-attach',disk,'-write','build/oscar-autoexec','autoexec.bat,s','-write','build/oscar-existing','existing,s','-write','build/DEMO.prg','demo'],{stdio:'pipe'});
+// Header deliberately differs from /A destination: verify forced load and jump.
+fs.writeFileSync('build/launch-absolute.prg',Buffer.from([0,0x20,0xa9,0x5a,0x8d,0xa7,2,0x4c,5,0xc0]));
+execFileSync(tool('vice', 'c1541'),['-attach',disk,'-write','build/oscar-autoexec','autoexec.bat,s','-write','build/oscar-existing','existing,s','-write','build/DEMO.prg','demo','-write','build/launch-absolute.prg','absolute'],{stdio:'pipe'});
 const server=net.createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));
 child=spawn(tool('vice', 'x64sc'),['-default','-sounddev','dummy','-warp','-8',disk,'-remotemonitoraddress','127.0.0.1:'+port,'-remotemonitor'],{windowsHide:true,stdio:['ignore','ignore','pipe']});child.stderr.on('data',d=>fs.appendFileSync('build/oscar64/vice.log',d));
 for(let i=0;i<100;i++){try{socket=net.connect(port,'127.0.0.1');await new Promise((r,j)=>{socket.once('connect',r);socket.once('error',j)});break;}catch(e){socket.destroy();socket=null;await delay(100);}}assert(socket);socket.destroy();monitorPort=port;
@@ -31,6 +33,7 @@ if(process.argv.includes('--quick')){
  await check('dir /b/o-s','AUTOEXEC.SAMPLE',2000);
  return;
 }
+if(!process.argv.includes('--launch-only')) {
 await check('echo hello','hello');await check('help','Aliases:');await check('mem','bytes free');
 await check('set custom=value','A:');await check('set','CUSTOM=value');
 await check('dir /b','COMMANDS.HLP',2000);await keys(' ');
@@ -40,5 +43,10 @@ await enter('edit existing',1600);await keys('x');s=await keys('\\x03');assert(s
 await enter('edit created',1500);await keys('abc');await keys('\\x03');s=await keys('y',2000);assert(!s.includes('error'),s);await check('type created','abc',1500);
 await enter('reboot',3000);await check('echo restarted','restarted');
 await enter('exit',700);s=await enter('print 2+2',700);assert(s.includes(' 4'),s);await enter('new');await enter('10 print 7*6');s=await enter('run');assert(s.includes(' 42'),s);console.log('PASS editor save/refusal, REBOOT, EXIT and BASIC expressions/program');
-await command('load "'+prg+'" 0');await command('> ba 08');s=await enter('run',6000);assert(s.trimEnd().endsWith('A:>'),s);s=await enter('run demo',4000);assert(s.includes('hello from basic!'),s);console.log('PASS PRG launch');
+} else { await enter('exit',700); }
+await command('load "'+prg+'" 0');await command('> ba 08');s=await enter('run',6000);assert(s.trimEnd().endsWith('A:>'),s);s=await enter('run demo',4000);assert(s.includes('hello from basic!'),s);console.log('PASS BASIC PRG launch');
+await command('load "'+prg+'" 0');await command('> ba 08');s=await enter('run',6000);assert(s.trimEnd().endsWith('A:>'),s);
+await command('> 02a7 00');await enter('run absolute /a 49152',4000);
+assert.equal((await memory(0x02a7))[0],0x5a,'Absolute PRG did not execute at the requested address');
+console.log('PASS absolute PRG load address and jump');
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{fs.writeFileSync('build/oscar64/regression-'+path.basename(prg)+'.json',JSON.stringify(snapshots,null,2));socket?.destroy();if(child&&child.exitCode===null)child.kill();});

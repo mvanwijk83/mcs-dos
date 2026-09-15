@@ -1,5 +1,5 @@
-const {tool} = require('./setup');
-const fs=require('fs'),{execFileSync}=require('child_process'),assert=require('assert/strict');
+require('./setup');
+const fs=require('fs'),assert=require('assert/strict');
 const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const options=s.slice(s.indexOf('static unsigned char diroption('),s.indexOf('/* A 12-character stem'));
 const edit=s.slice(s.indexOf('static void editnumber('),s.indexOf('static unsigned char yesno('));
@@ -17,6 +17,6 @@ for(const mode of ['N','T','S'])for(const reverse of [false,true])for(const firs
 for(const sw of ['/OX','/O-','/O-NFF','/ONX','/OSN','/O--S'])checks+=`flags=0;if(diroption("${sw}",&flags))return ${++n};\n`;
 checks+='flags=0;if(!diroption("/O",&flags)||flags!=4)return 120; if(!dirdefaults("/O-SF/ON",&flags)||flags!=4)return 121;';
 checks+='for(i=1;i<=40;++i){editnumber(0,i);if(cells[0]!=176+i/10 || cells[1]!=176+i%10)return 122;}';
-const code=`#include <string.h>\n#include <ctype.h>\n#define stricmp strcasecmp\nstruct Entry {char *name;unsigned char type;unsigned int blocks;};\nstatic struct Entry files[]={${fixtures.map(f=>`{"${f[0]}",${f[1]},${f[2]}}`).join(',')}};\nstatic char *typename(unsigned char t){static char *names[]={"DEL","PRG","REL","SEQ","USR"};return names[t];}\nstatic unsigned char cells[2];\n#define POKE(a,v) cells[a]=(v)\n${edit}\n${options}\n${compare}\nint main(void){unsigned int i,j,tmp,order[6],count=6;unsigned char flags,sort;${checks}return 0;}\n`;
-fs.writeFileSync('build/test-dir-sort.c',code);execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-dir-sort','build/test-dir-sort.c'],{stdio:'pipe'});execFileSync(tool('cc65', 'sim65'),['build/test-dir-sort'],{stdio:'inherit'});
+const code=`#include <string.h>\n#include <ctype.h>\nstruct Entry {const char *name;unsigned char type;unsigned int blocks;};\nstatic struct Entry files[]={${fixtures.map(f=>`{"${f[0]}",${f[1]},${f[2]}}`).join(',')}};\nstatic const char *typename(unsigned char t){static const char *names[]={"DEL","PRG","REL","SEQ","USR"};return names[t];}\nstatic unsigned char cells[2];\n#define POKE(a,v) cells[a]=(v)\n${edit}\n${options}\n${compare}\nint main(void){unsigned int i,j,tmp,order[6],count=6;unsigned char flags,sort;${checks}return 0;}\n`;
+fs.writeFileSync('build/test-dir-sort.c',code);require('./simulator')('build/test-dir-sort.c');
 console.log('PASS all 12 sort modes, type/size ties, unsigned sizes, first entry, DIRCMD, invalid options');

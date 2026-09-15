@@ -1,9 +1,7 @@
 // Assemble the launch trampoline and translate the shared assembly services.
 // Never read or rewrite the shell C source.
 const fs = require('fs');
-const path = require('path');
 const {tool} = require('./toolchain');
-if (process.argv[2]) process.env.CC65_HOME = path.resolve(process.argv[2]);
 const out = 'build/oscar64';
 fs.mkdirSync(out, {recursive:true});
 let c = '/* Generated C64 assembly services. Do not edit. */\n';
@@ -17,7 +15,7 @@ reu = reu.replace('beq :+', 'beq present55').replace('\n:', '\npresent55:')
 c += '\n#pragma optimize(noasm)\nstatic char saved[10], original[256], value;\nstatic unsigned int size;\n';
 c += '__asm reu_probe {\n' + asm(reu) + '\n}\n';
 c += 'unsigned int reu_size(void) { return __asm { jsr reu_probe\n sta accu\n stx accu+1\n }; }\n';
-// Expand ca65 repetitions and scoped labels for Oscar64's inline assembler.
+// Expand assembly repetitions and scoped labels for Oscar64's inline assembler.
 let charset=fs.readFileSync('src/charset.s','utf8').split('_charset_prepare:')[1];
 charset=charset.replace(/\.repeat (\d+), page\s*([\s\S]*?)\.endrepeat/g,(_,n,body)=>
  Array.from({length:Number(n)},(_,i)=>body.replaceAll('page',String(i))
@@ -31,11 +29,23 @@ for(const piece of pieces){
  c += 'void charset_'+name+'(void) { __asm { jsr cs_'+name+' } }\n';
 }
 const {execFileSync}=require('child_process');
-execFileSync(tool('cc65', 'ca65'),['src/launch.s','-o',out+'/loader.o']);
-execFileSync(tool('cc65', 'ld65'),['-C','src/launch.cfg','-o',out+'/loader.bin','-Ln',out+'/loader.lbl',out+'/loader.o']);
-const bytes=fs.readFileSync(out+'/loader.bin');
-if(bytes.length>=0x03e0-0x0334) throw Error('Loader overlaps filename');
-const labels=Object.fromEntries([...fs.readFileSync(out+'/loader.lbl','utf8').matchAll(/al ([0-9A-F]+) \.(\w+)/g)].map(m=>[m[2],parseInt(m[1],16)]));
+execFileSync(tool('oscar64', 'oscar64'), ['-n', '-O0', '-rt=', '-tf=bin',
+  '-o='+out+'/launch.bin', 'src/launch.c'], {stdio:'inherit'});
+// The separate address table exposes assembler labels without parsing listings.
+const image=fs.readFileSync(out+'/launch.bin');
+const base=0x0334, table=0x0400-base;
+if(image.length!==table+16) throw Error('Invalid launch address table');
+const end=image.readUInt16LE(table);
+if(end<=base || end>=0x03e0) throw Error('Loader overlaps filename');
+const bytes=image.subarray(0,end-base);
+const labels=Object.fromEntries(['len','dev','absolute','secondary','addresslo','addresshi','jump']
+  .map((name,i)=>[name,image.readUInt16LE(table+2+i*2)]));
+for(const [name,address] of Object.entries(labels)) {
+  const opcode={len:0xa9,dev:0xa2,absolute:0xa9,secondary:0xa0,addresslo:0xa2,addresshi:0xa0,jump:0x4c}[name];
+  if(address<base || address+(name==='jump'?2:1)>=end || bytes[address-base]!==opcode)
+    throw Error('Invalid loader patch: '+name);
+}
+fs.writeFileSync(out+'/loader.bin',bytes);
 c += 'static const unsigned char loader_bytes[]={'+[...bytes].join(',')+'};\n';
 c += '__asm display_reset { jsr cs_default\n lda #0\n sta 0x0291\n lda 0xd015\n and #0xfe\n sta 0xd015\n lda #0x8e\n jsr 0xffd2\n lda #0x93\n jsr 0xffd2\n rts\n}\n';
 c += 'void launch(void) { __asm { jsr display_reset\n sei }\n memcpy((void*)0x0334,loader_bytes,sizeof(loader_bytes));\n memcpy((void*)0x03e0,launchname,17);\n';

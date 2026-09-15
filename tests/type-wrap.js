@@ -1,6 +1,6 @@
-const {tool} = require('./setup');
-// Execute the actual TYPE implementation under sim65 with mocked disk/screen I/O.
-const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process');
+require('./setup');
+// Execute the actual TYPE implementation under Oscar64 with mocked disk/screen I/O.
+const fs=require('fs'),assert=require('assert/strict');
 const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
 const harness=`
@@ -8,14 +8,14 @@ const harness=`
 #include <string.h>
 static unsigned char io[256],ox,aborted,pagelines,redirected;
 static int argc=2,p1,rows,pages,pos,length;
-static char *args[2],input[4096];
-static int path(char *s,int *p) { return 1; }
+static const char *args[2];static char input[4096];
+static int path(const char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
-static int channel_open(int a,int b,int c,char *s) { return 0; }
+static int channel_open(int a,int b,int c,const char *s) { return 0; }
 static void krnio_close(int n) {}
 static int channel_write(int a,void *b,int n) { return n; }
-static void say(char *s) {}
-static void error(char *s) {}
+static void say(const char *s) {}
+static void error(const char *s) {}
 static void outputbyte(unsigned char c) {}
 
 static void stop(void) {}
@@ -28,7 +28,7 @@ static int readio(int a,void *b,unsigned int size) {
  int n=length-pos; if(n>size) n=size; memcpy(b,input+pos,n); pos+=n; return n;
 }
 ${type}
-static int check(int width,char *ending,int lines,int blank) {
+static int check(int width,const char *ending,int lines,int blank) {
  int i,j; length=pos=rows=pages=ox=aborted=0;
  for(i=0;i<lines;++i) {
   for(j=0;j<width;++j) input[length++]='A';
@@ -43,7 +43,7 @@ static int check(int width,char *ending,int lines,int blank) {
  return 0;
 }
 int main(void) {
- int w,e,b; char *endings[3]; int widths[5];
+ int w,e,b; const char *endings[3]; int widths[5];
  endings[0]="\\r"; endings[1]="\\n"; endings[2]="\\r\\n";
  widths[0]=39; widths[1]=40; widths[2]=41; widths[3]=80; widths[4]=15;
  for(w=0;w<5;++w) for(e=0;e<3;++e) for(b=0;b<2;++b)
@@ -52,6 +52,6 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-type-wrap.c',harness);
-execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-type-wrap','build/test-type-wrap.c'],{stdio:'pipe'});
-execFileSync(tool('cc65', 'sim65'),['build/test-type-wrap'],{stdio:'pipe'});
+require('./simulator')('build/test-type-wrap.c');
+
 console.log('PASS: TYPE wrapping, blank lines, CR/LF/CRLF, read boundaries and pagination (30 cases)');

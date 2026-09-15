@@ -1,5 +1,5 @@
-const {tool} = require('./setup');
-const fs=require('fs'),{execFileSync}=require('child_process');
+require('./setup');
+const fs=require('fs');
 const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 let code=s.slice(s.indexOf('static unsigned char noseparators;'),s.indexOf('static void volumeheader('))+s.slice(s.indexOf('static unsigned char validate;'),s.indexOf('static void labelcmd('));
 code=code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,"static unsigned char deletable(void *p) { return 1; }");
@@ -9,9 +9,8 @@ const harness=`
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
-#define stricmp strcasecmp
 static int argc,errors,prompts,deleted,answer=1;
-static char *args[12],out[1000],volume[17]="TEST",io[256];
+static char *args[12],argstore[2][20];static char out[1000],volume[17]="TEST",io[256];
 static unsigned char drive=8,redirected,idoff=162;
 static unsigned int count=2;
 static unsigned int freeblocks=660;
@@ -19,25 +18,25 @@ static char BSSEnd;
 #define SHELL_STACK_SIZE 2048U
 static struct {unsigned char dev; char name[17];} p1;
 static struct {unsigned int blocks;} files[2]={{2},{2}};
-static int path(char *s,void *p) {p1.name[0]=0;if(!strchr(s,':'))strcpy(p1.name,s);return 1;}
-static void error(char *s) {++errors;}
-static void say(char *s) {strcat(out,s);strcat(out,"\\n");}
-static void outs(char *s) {strcat(out,s);}
+static int path(const char *s,void *p) {p1.name[0]=0;if(!strchr(s,':'))strcpy(p1.name,s);return 1;}
+static void error(const char *s) {++errors;}
+static void say(const char *s) {strcat(out,s);strcat(out,"\\n");}
+static void outs(const char *s) {strcat(out,s);}
 static void newline(void) {strcat(out,"\\n");}
-static void print(char *s,...) {char b[200];va_list a;va_start(a,s);vsprintf(b,s,a);va_end(a);strcat(out,b);}
+static void print(const char *s,...) {char b[200];va_list a;va_start(a,s);vsprintf(b,s,a);va_end(a);strcat(out,b);}
 static int reu_size(void) {return 512;}
-static int yesno(char *s) {++prompts;return answer;}
+static int yesno(const char *s) {++prompts;return answer;}
 static void scratch(void *p) {++deleted;}
-static int command(int d,char *s) {return 1;}
+static int command(int d,const char *s) {return 1;}
 static int directory(int d) {return 1;}
 static int bam(int d) {return 1;}
-static void uppername(char *s,char *d) {strcpy(d,s);}
+static void uppername(const char *s,char *d) {strcpy(d,s);}
 static void volumeheader(int d) {}
 ${code}
-static void reset(char *a,char *b) {out[0]=0;errors=prompts=deleted=noseparators=0;argc=1;if(a)args[argc++]=a;if(b)args[argc++]=b;}
+static void reset(const char *a,const char *b) {out[0]=0;errors=prompts=deleted=noseparators=0;argc=1;if(a){strcpy(argstore[0],a);args[argc++]=argstore[0];}if(b){strcpy(argstore[1],b);args[argc++]=argstore[1];}}
 int main(void) {
  int i;
- char *removed[11];
+ const char *removed[11];
  removed[0]="/T";removed[1]="/U";removed[2]="/F";removed[3]="/R";
  removed[4]="/A";removed[5]="/T:0";removed[6]="/A:1";removed[7]="/F:1";removed[8]="/X";
  removed[9]="/S";removed[10]="/s";
@@ -64,6 +63,6 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-amount-switches.c',harness);
-execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-amount-switches','build/test-amount-switches.c'],{stdio:'pipe'});
-execFileSync(tool('cc65', 'sim65'),['build/test-amount-switches'],{stdio:'pipe'});
+require('./simulator')('build/test-amount-switches.c');
+
 console.log('PASS full MEM/CHKDSK reports, removed switch rejection, drive arguments and DEL confirmation');

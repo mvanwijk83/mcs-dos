@@ -1,6 +1,6 @@
-const {tool} = require('./setup');
+require('./setup');
 // Exercise production expansion and prompt rendering on the 6502 simulator.
-const fs=require('fs'),assert=require('assert/strict'),{execFileSync}=require('child_process');
+const fs=require('fs'),assert=require('assert/strict');
 const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
 const expansion=source.slice(source.indexOf('static void showprompt('),source.indexOf('static unsigned char diroption('));
 const harness=`
@@ -19,7 +19,7 @@ static const char *drivename(unsigned char d) { static char b[4];if(dos){b[0]='A
 static void help(int id) { helpid=id; }
 ${expansion}
 
-static int check(char *cmd,char *expected) { strcpy(prompttext,cmd);used=0;showprompt();return strcmp(output,expected); }
+static int check(const char *cmd,const char *expected) { strcpy(prompttext,cmd);used=0;showprompt();return strcmp(output,expected); }
 int main(void) {
  drive=8;
  if(check("$p$c$g","8:>"))return 1;
@@ -35,8 +35,8 @@ int main(void) {
 }
 `;
 fs.writeFileSync('build/test-prompt.c',harness);
-execFileSync(tool('cc65', 'cl65'),['-t','sim6502','-O','-o','build/test-prompt','build/test-prompt.c'],{stdio:'pipe'});
-execFileSync(tool('cc65', 'sim65'),['build/test-prompt'],{stdio:'pipe'});
+require('./simulator')('build/test-prompt.c');
+
 const help=JSON.parse(fs.readFileSync('src/command-help.json'));
 assert(!help.PROMPT && !help.COLOR);
 console.log('PASS prompt codes, case, graphics bytes, dynamic drives, literals, defaults, removed command help and no-device rendering');

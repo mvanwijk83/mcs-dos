@@ -54,12 +54,12 @@ Refer to `MANUAL.TXT` for more extensive information.
 ## Repository layout
 Source code is available on https://github.com/mvanwijk83/mcs-dos.
 
-`disk-content` &ndash; Content to include on the release images.
-`extras` &ndash; Extra content to customize your MCS-DOS shell.
-`releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.
-`screenshots` &ndash; Assorted screenshots.
-`src` &ndash; Source code.
-`tests` &ndash; Automated tests.
+`disk-content` &ndash; Content to include on the release images.  
+`extras` &ndash; Extra content to customize your MCS-DOS shell.  
+`releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.  
+`screenshots` &ndash; Assorted screenshots.  
+`src` &ndash; Source code.  
+`tests` &ndash; Automated tests.  
 
 The root contains various documentation. Aside from this `README.md`, they are
 also included on the release image (hence the 40 character width).

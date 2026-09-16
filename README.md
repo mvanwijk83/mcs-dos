@@ -62,7 +62,7 @@ Source code is available on https://github.com/mvanwijk83/mcs-dos.
 `src` &ndash; Source code.
 `tests` &ndash; Automated tests.
 
-The root contains various documentation. Aside from this `README.md`, they are
+The root contains various documentation. Except for this `README.md`, they are
 also included on the release image (hence the 40 character width).
 
 ## Version history

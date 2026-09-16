@@ -67,7 +67,7 @@ a few features of its own:
   utilities are implemented.
 * Some batch file support, including
   AUTOEXEC.BAT.
-* Supports attached multiple drives and
+* Supports multiple attached drives and
   multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and
   addressed with DOS-style drive
@@ -442,11 +442,16 @@ CHARSET
   uses the default C64 ROM font. A
   standard MCS-DOS distribution ships
   with CGA.CPI for added PC flavour.
-  To apply a custom character set, use
-  SET CHARSET=NAME, where NAME matches
-  a .CPI file minus extension.
+  Extra character sets can be downloaded
+  separately from the source code
+  repository. Only alphanumeric and
+  punctuation characters are replaced;
+  PETSCII graphics characters are
+  retained. To apply a custom character
+  set, use SET CHARSET=NAME, where NAME
+  matches a .CPI file minus extension.
 
-COLORS
+COLOR
   Specifies the shell colors. Use the
   following syntax:
     SET COLOR=c1,c2,c3
@@ -457,7 +462,7 @@ COLORS
 
   Possible color values are 0-15,
   matching the standard C64 color
-  numbers. If COLORS is omitted or
+  numbers. If COLOR is omitted or
   invalid, the default is applied:
   light grey on a black background
   and border (15,0,0).
@@ -481,9 +486,9 @@ DRIVEIDS
 
 PROMPT
   Specifies the format used for the
-  command prompt after AUTOEXEC.BAT.
-  The format string can contain literal
-  text and the following special codes:
+  command prompt. The format string can
+  contain literal text and the following
+  special codes:
 
     $B  | (pipe symbol)
     $C  : (colon)
@@ -587,9 +592,8 @@ Batch files can be created from within
 the shell using the EDIT tool (or
 externally, if you prefer). Like other
 programs, they are executed with the RUN
-command; but unlike native C64
-programs, execution remains fully within
-the shell, and control is returned after
+command; but unlike native C64 programs,
+they return to the shell after
 completion. They must have a .BAT
 extension as part of their file name to
 be recognized by the shell.

@@ -58,6 +58,7 @@ Source code is available on https://github.com/mvanwijk83/mcs-dos.
 `extras` &ndash; Extra content to customize your MCS-DOS shell.
 `releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.
 `screenshots` &ndash; Assorted screenshots.
+`scripts` &ndash; Build scripts.
 `src` &ndash; Source code.
 `tests` &ndash; Automated tests.
 

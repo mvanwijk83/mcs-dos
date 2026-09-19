@@ -57,14 +57,13 @@ https://github.com/mvanwijk83/mcs-dos
 
   1. Features and limitations
 ----------------------------------------
-MCS-DOS strives to offer as much of a
-classic DOS look and feel as possible,
-while staying true to the C64 and adding
-a few features of its own:
+MCS-DOS is merely a command shell, not a
+full operating system. It attempts to
+bring the classic DOS look and feel to
+the C64 as much as possible:
 
-* Classic DOS look and feel.
-* Many familiar disk commands and
-  utilities are implemented.
+* Many familiar commands and utilities
+  are implemented.
 * Some batch file support, including
   AUTOEXEC.BAT.
 * Supports multiple attached drives and
@@ -115,7 +114,9 @@ other shortcomings where possible.
 ----------------------------------------
 MCS-DOS was written in C and compiled
 with Oscar64. It has been tested on a
-C64 Ultimate and in VICE.
+C64 Ultimate and in VICE. Automated
+unit and regression testing was
+implemented with Node.js.
 
 Extensive machine help was enlisted
 through OpenAI's Codex and GPT-6 (Astra)
@@ -125,13 +126,13 @@ neither does the author claim full
 technical credit in creating it.
 
 MCS-DOS started as a simple throwaway
-thing for personal entertainment and to
-test GPT-6, motivated by a geeky impulse
-to see a believable DOS-style environ-
-ment running on a C64, no matter how
-simple and limited. Then things
-escalated from there as it started to
-look genuinely usable.
+project for personal entertainment,
+motivated by a geeky impulse to see a
+believable DOS-style environment running
+on the C64, no matter how simple and
+limited; and an opportunity to test
+GPT-6. Once things started to look
+genuinely usable, things snowballed...
 
 
   3. Contents of the disk
@@ -175,6 +176,9 @@ If an AUTOEXEC.BAT is present, it will
 execute first before you arrive at the
 shell prompt. It is not present by
 default; create it or rename the sample.
+Pressing RESTORE on the boot screen will
+run MCS-DOS in "safe mode"; it skips
+execution of AUTOEXEC.BAT.
 
 
   5. Using the shell
@@ -272,12 +276,11 @@ its own. A list of supported commands
 can be viewed from within the shell by
 entering the HELP command. 
 
-More detailed help on a command can be
-viewed from within the shell by typing
-"HELP command" or "COMMAND /?". Note
-that this help content is stored in the
-COMMANDS.HLP file on the MCS-DOS system
-disk; requesting the detailed help thus
+Help on a specific command can be
+viewed by typing "HELP command" or
+"COMMAND /?". Note that help content is
+stored in the COMMANDS.HLP file on the
+MCS-DOS system disk; accessing it thus
 imparts a small loading delay. If the
 system disk is not inserted, the shell
 will prompt you to insert it, so that
@@ -285,7 +288,7 @@ the help content can be retrieved. You
 can back out by pressing RUN/STOP.
 
 Wildcards * and ? work for most file
-operations.
+operations (where they make sense).
 
 drive:
   Switches to a drive to operate on.
@@ -306,7 +309,7 @@ CHKDSK [drive:] [/V]
 CLS
   Clears the screen.
 
-COPY source destination
+COPY source destination [/P]
 COPY source1+source2[+...] destination
   Copies a file to another location,
   or combines files on the same disk.
@@ -331,8 +334,10 @@ DISKID [drive:] [id]
 
 ECHO [ON | OFF]
 ECHO [message]
+ECHO.
   Displays messages, or turns command-
-  echoing on or off.
+  echoing on or off. Appending ; omits
+  the linebreak (;; to escape).
 
 EDIT [filename]
   Edits one screen of text.
@@ -480,9 +485,10 @@ DRIVEIDS
   C64 drive numbers, or DOS-style drive
   letters, where drive 8 is A, drive 9
   is B, etc. Valid values are "C64" and
-  "DOS". Note that both forms are always
-  accepted by shell commands, regardless
-  of the display setting.
+  "DOS". If empty or not specified, C64
+  is used. Note that both forms are
+  always accepted by shell commands,
+  regardless of the display setting.
 
 PROMPT
   Specifies the format used for the
@@ -603,15 +609,22 @@ suppress the echo of that line. There
 are no variables, conditionals, labels,
 parameters, or any other program-like
 constructs; batch files are strictly a
-sequence of MCS-DOS commands.
+sequence of MCS-DOS commands. They also
+can't call other batch files.
 
 MCS-DOS supports AUTOEXEC.BAT. If it is
 present on the disk the shell is booted
 from, it will be executed at startup.
+Pressing RESTORE on the boot screen will
+run MCS-DOS in "safe mode"; it skips
+execution of AUTOEXEC.BAT. 
 
 
   B. Version history
 ----------------------------------------
+See CHANGELOG.TXT for a full version-by-
+version list of changes.
+
   1.0 Preview (13-Sep-2026)
 Preliminary public release
 
@@ -619,6 +632,10 @@ Preliminary public release
 Various small fixes and optimizations.
 Final packaging for release. Source code
 release.
+
+  1.01 (19-Sep-2026)
+Several minor additions and improve-
+ments.
 
 
   C. About the author

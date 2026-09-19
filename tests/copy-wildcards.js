@@ -64,6 +64,7 @@ async function run(){
  await check('copy 8:cga.cpi 9:single','1 file(s) copied.',5000);
  await check('copy 8:pet.c?i 9:','Overwrite existing file',5000);
  await enter('n');
+ await check('copy 8:pet.cpi 9: /p','1 file(s) copied.',5000);
  await command('detach 9');
  execFileSync(process.execPath,['tests/copy-verify.js'],{stdio:'inherit'});
  console.log('PASS VICE wildcard COPY, exact COPY, no matches, invalid targets, question-mark matching');

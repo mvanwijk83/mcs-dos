@@ -13,7 +13,7 @@
 #define MAXARGS 33
 #define ENVVALUE 32
 #define ENVSIZE 512
-#define VERSION "1.0"
+#define VERSION "1.01"
 #include "bootsplash.h"
 #define BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS"
 #define MAXFILES 296
@@ -35,6 +35,8 @@ static unsigned char cachedev, cachevalid, drive, helpdrive;
 static unsigned int freeblocks;
 static char volume[17], diskid[3];
 static unsigned char ox, oy, fg = 15, bg = 0, bd = 0, quit, reboot, echoon = 1, batching;
+volatile unsigned char skipautoexec;
+static unsigned char copysuppress;
 static unsigned char pagelines, aborted, editprompt;
 static unsigned int screenbase = 0x0400;
 extern void charset_prepare(void);
@@ -87,6 +89,7 @@ unsigned int launchaddress;
 extern void launch(void);
 extern void basic_exit(void);
 extern unsigned int reu_size(void);
+extern unsigned int splash_nmi_address(void);
 
 static void execute(char *s);
 static const char *drivename(unsigned char dev);
@@ -975,7 +978,7 @@ static unsigned char preparewrite(const Path *p)
     if (i == -2)
         return 0;
     if (i >= 0) {
-        if (!yesno("Overwrite existing file"))
+        if (!copysuppress && !yesno("Overwrite existing file"))
             return 0;
         if (editprompt)
             editsaving();
@@ -1407,16 +1410,30 @@ static unsigned char copyfile(unsigned char moving)
 static void copycmd(unsigned char moving)
 {
     unsigned int i, limit, total = 0;
+    char *source = 0, *destination = 0;
     char pattern[17];
-    if (argc != 3) {
-        error("Syntax: COPY source destination");
+    copysuppress = 0;
+    for (i = 1; i < argc; ++i) {
+        if (!moving && !stricmp(args[i], "/P"))
+            copysuppress = 1;
+        else if (args[i][0] == '/' || (source && destination))
+            break;
+        else if (!source)
+            source = args[i];
+        else
+            destination = args[i];
+    }
+    if (i < argc || !source || !destination) {
+        error(moving ? "Syntax: MOVE source destination" : "Syntax: COPY source destination [/P]");
         return;
     }
-    if (!moving && strchr(args[1], '+')) {
+    args[1] = source;
+    args[2] = destination;
+    if (!moving && strchr(source, '+')) {
         concatcmd();
         return;
     }
-    if (!path(args[1], &p1) || !path(args[2], &p2))
+    if (!path(source, &p1) || !path(destination, &p2))
         return;
     if (!moving && strpbrk(p1.name, "*?")) {
         if (p2.name[0]) {
@@ -2261,11 +2278,14 @@ static unsigned int freememory(void)
 }
 static void memcmd(void)
 {
+    unsigned long reserved;
     if (!reportoptions(0))
         return;
+    reserved = 65536UL - ((unsigned int)&BSSEnd - 0x0801) - SHELL_STACK_SIZE - freememory();
     print("%10s bytes total memory\n", decimal(65536UL));
     print("%10s bytes shell and workspace\n", decimal((unsigned int)&BSSEnd - 0x0801));
     print("%10s bytes reserved for C stack\n", decimal(SHELL_STACK_SIZE));
+    print("%10s bytes reserved for system\n", decimal(reserved));
     print("%10s bytes free\n", decimal(freememory()));
     print("%10s bytes REU expanded memory\n", decimal((unsigned long)reu_size() * 1024UL));
 }
@@ -2687,7 +2707,7 @@ static void concatcmd(void)
         first = 0;
         source = next;
     } while (source);
-    if (command(p1.dev, request))
+    if (preparewrite(&p1) && command(p1.dev, request))
         say("        1 file(s) copied.");
 }
 static const char *const commands[] = {
@@ -2855,6 +2875,7 @@ static void executecommand(char *s)
     clock_t until;
     int id;
     aborted = 0;
+    copysuppress = 0;
     noseparators = 0;
     while (*s == ' ')
         ++s;
@@ -2889,8 +2910,17 @@ static void executecommand(char *s)
                 echoon = 0;
             else if (!stricmp(tail, "ON"))
                 echoon = 1;
-            else
-                say(tail);
+            else {
+                end = tail + strlen(tail);
+                if (end > tail && end[-1] == ';') {
+                    end[-1] = 0;
+                    if (end - tail > 1 && end[-2] == ';')
+                        say(tail);
+                    else
+                        outs(tail);
+                } else
+                    say(tail);
+            }
             return;
         }
     }
@@ -3203,7 +3233,7 @@ static void bootsplash(unsigned char wait)
 {
     static const char product[] = "MCS-DOS version " VERSION;
     static const char copyright[] = "Copyright (C) 2026 MCS";
-    unsigned char x, y;
+    unsigned char x, y, oldlo, oldhi;
     clock_t started;
     charset_default();
     bgcolor(COLOR_BLACK);
@@ -3223,9 +3253,17 @@ static void bootsplash(unsigned char wait)
     gotoxy((40 - (sizeof(copyright) - 1)) / 2, 2 + LOGO_ROWS + 5);
     screen_puts(copyright);
     if (wait) {
+        skipautoexec = 0;
+        oldlo = PEEK(0x0318);
+        oldhi = PEEK(0x0319);
+        started = splash_nmi_address();
+        POKE(0x0318, started & 255);
+        POKE(0x0319, started >> 8);
         started = clock();
-        while ((clock_t)(clock() - started) < 4 * CLOCKS_PER_SEC) {
+        while (!skipautoexec && (clock_t)(clock() - started) < 4 * CLOCKS_PER_SEC) {
         }
+        POKE(0x0318, oldlo);
+        POKE(0x0319, oldhi);
     } else {
         if (screenbase != 0x0400)
             charset_enable();
@@ -3278,13 +3316,14 @@ restart:
     charset_enable();
     screenbase = 0xe000;
     gotoxy(ox, oy);
-    if (drive) {
+    if (drive && !skipautoexec) {
         p1.dev = drive;
         filename("AUTOEXEC.BAT", p1.name);
         /* AUTOEXEC is read from the startup device. */
         if (findfile(&p1) >= 0)
             runbatch();
     }
+    skipautoexec = 0;
     while (!quit) {
         if (startup && !batching) {
             startup = 0;

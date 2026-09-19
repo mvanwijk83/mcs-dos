@@ -5,7 +5,7 @@ setup();
 const unit = ['amount-switches','cache-capacity','concat-limits','dir-sort','editor-lines','find',
     'help-wrap','print','prompt','startup-settings','type-wrap'].map(name => [name]);
 const emulator = ['c64-support','oscar64-regression','help-prompt','find-vice',
-    'new-commands','copy-wildcards','redirection','editor-session','charset','bootsplash',
+    'new-commands','copy-wildcards','redirection','editor-session','charset','bootsplash','bootsplash-restore',
     'input-history','help-recovery','sample-startup','petscii-completion'].map(name => [name]);
 const drives = [['drive-compat','1541'], ['drive-compat','1571'], ['drive-compat','1581'],
     ['drive-compat','1581','--large'], ['drive-compat','1571','--rel'], ['drive-compat','1581','--rel'],

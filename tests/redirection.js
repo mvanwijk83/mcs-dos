@@ -54,6 +54,7 @@ async function run(){
  for(let i=0;i<40 && !startup.trimEnd().endsWith('8:>');i++){await command('x');await delay(300);startup=await screen();}assert(startup.trimEnd().endsWith('8:>'),startup);
  async function check(cmd,expected){await enter('cls',100);let s=await enter(cmd,2000);for(let i=0;i<100&&!s.trimEnd().endsWith('8:>');i++){await command('x');await delay(250);s=await screen();}if(expected)assert(s.includes(expected),cmd+'\n'+s);else assert(!/error|fault|not ready|not found/i.test(s),cmd+'\n'+s);assert(!s.includes('Press any key'),s);assert(s.trimEnd().endsWith('8:>'),cmd+'\n'+s);console.log('OK '+cmd);}
  await check('echo first>out');await check('echo second>>out');
+ await check('echo joined;>semicolon');await check('echo line;;>escsemi');
  await check('echo old longer text>replace');await check('echo x>replace');
  await check('echo new>>new');await check('echo.>emptyline');
  await check('echo "a>b">"quoted name"');
@@ -61,6 +62,7 @@ async function run(){
  await check('type raw>>rawcopy');await check('echo letter>B:letter');
  await check('echo '+'x'.repeat(longCount)+'>longline');
  await check('dir/b>files');await check('dir>listing');await check('chkdsk>stats');await check('mem>memory');await check('help>commands');
+ if(process.argv.includes('--v101')){await command('detach 8');await command('detach 9');verifyV101();return;}
  await check('type raw>raw','Cannot redirect TYPE onto itself');
  await check('type raw>>8:raw','Cannot redirect TYPE onto itself');
  await check('echo bad>rawcopy>lpt1','Multiple redirections');
@@ -90,8 +92,14 @@ async function run(){
  verify();
 }
 function petscii(s){return Buffer.from(s).map(c=>c>=65&&c<=90?c+128:c>=97&&c<=122?c-32:c);}
+function verifyV101(){
+ assert.equal(read('semicolon').toString(),'JOINED');assert.equal(read('escsemi').toString(),'LINE;\r');
+ const memory=read('memory');assert(memory.includes(petscii('bytes reserved for system\r')));assert(memory.includes(petscii('bytes free\r')));
+ console.log('PASS v1.01 ECHO terminator/escape and MEM reserved-system report');
+}
 function verify(){
  assert.equal(read('out').toString(),'FIRST\rSECOND\r');
+ assert.equal(read('semicolon').toString(),'JOINED');assert.equal(read('escsemi').toString(),'LINE;\r');
  assert.equal(read('replace').toString(),'X\r');assert.equal(read('new').toString(),'NEW\r');
  assert.equal(read('emptyline').toString(),'\r');assert.equal(read('quoted name').toString(),'"A>B"\r');
  assert.deepEqual(read('rawcopy'),Buffer.concat([raw,raw]));assert.deepEqual(read('raw'),raw);assert.deepEqual(read('cross',target),raw);
@@ -103,7 +111,8 @@ function verify(){
  assert(read('files').includes(petscii('RAW\r')));
  assert(read('listing').includes(petscii('File(s)')));
  assert(read('stats').includes(petscii('(254 usable)\r')));
- assert(read('memory').includes(petscii('bytes free\r')));
+ const memory=read('memory');
+ assert(memory.includes(petscii('bytes reserved for system\r')));assert(memory.includes(petscii('bytes free\r')));
  assert(read('commands').includes(petscii('TYPE')));
  console.log('PASS overwrite, append/create, quoting, raw TYPE (same/cross drive), six commands, rejected destinations/chaining, errors and recovery');
 }

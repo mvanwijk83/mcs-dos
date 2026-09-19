@@ -15,6 +15,7 @@ static void error(const char *s){++errors;}
 static int path(const char *s,Path *p){p->dev=drive;strcpy(p->name,s);return 1;}
 static void say(const char *s){}
 static int command(int d,const char *s){++calls;strcpy(sent,s);return 1;}
+static int preparewrite(const Path *p){return 1;}
 ${code}
 int main(void){
  strcpy(line,"copy abcdefghijklmnop+abc abcdefghijklmnop");if(!tokenize(line))return 1;concatcmd();if(calls!=1||strlen(sent)!=40)return 2;

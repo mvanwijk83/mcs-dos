@@ -39,9 +39,10 @@ Future versions may address (some of) these and other shortcomings where possibl
 
 ## Development notes
 
-MCS-DOS was written in C and compiled with Oscar64. Extensive machine help was
-enlisted from OpenAI's Codex and GPT-6 (Astra) LLM. Testing was done on a C64
-Ultimate and in VICE.
+MCS-DOS was written in C and compiled with Oscar64. Unit and regression tests,
+as well as build scripts are Node.js. Extensive machine help was enlisted from
+OpenAI's Codex and GPT-6 (Astra) LLM. Human testing was done on a C64 Ultimate
+and in VICE.
 
 ## Running the shell
 
@@ -54,13 +55,13 @@ Refer to `MANUAL.TXT` for more extensive information.
 ## Repository layout
 Source code is available on https://github.com/mvanwijk83/mcs-dos.
 
-`disk-content` &ndash; Content to include on the release images.
-`extras` &ndash; Extra content to customize your MCS-DOS shell.
-`releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.
-`screenshots` &ndash; Assorted screenshots.
-`scripts` &ndash; Build scripts.
-`src` &ndash; Source code.
-`tests` &ndash; Automated tests.
+`disk-content` &ndash; Content to include on the release images.  
+`extras` &ndash; Extra content to customize your MCS-DOS shell.  
+`releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.  
+`screenshots` &ndash; Assorted screenshots.  
+`scripts` &ndash; Build scripts.  
+`src` &ndash; Source code.  
+`tests` &ndash; Automated tests.  
 
 The root contains various documentation. Except for this `README.md`, they are
 also included on the release image (hence the 40 character width).
@@ -68,5 +69,6 @@ also included on the release image (hence the 40 character width).
 ## Version history
 See `CHANGELOG.TXT` for a full overview of changes.
 
-* **1.0 Preview** (13-Sep-2026) - preliminary limited public release
-* **1.0 RTM** (15-Sep-2026) - definitive first public release
+* **1.0 Preview** (13-Sep-2026) &ndash; preliminary limited public release
+* **1.0 RTM** (15-Sep-2026) &ndash; definitive first public release
+* **1.01*** (19-Sep-2026) &ndash; minor additions and improvements

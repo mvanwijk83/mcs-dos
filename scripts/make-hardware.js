@@ -22,6 +22,8 @@ charset=charset.replace(/\.repeat (\d+), page\s*([\s\S]*?)\.endrepeat/g,(_,n,bod
   .replace(/\$([0-9a-f]+)\+(\d+)\*\$100/gi,(_,base,page)=>'$'+(parseInt(base,16)+Number(page)*256).toString(16))
   .replace(/^:\s*$/m,'local_page'+i+':').replace('bne :-','bne local_page'+i)).join('\n'));
 c += '__asm charset_nmi { rti }\n';
+c += '__asm splash_nmi { inc skipautoexec\n rti }\n';
+c += 'unsigned int splash_nmi_address(void) { return __asm { lda #<splash_nmi\n sta accu\n lda #>splash_nmi\n sta accu+1\n }; }\n';
 const pieces=('prepare:\n'+charset).split(/_charset_/);
 for(const piece of pieces){
  const split=piece.indexOf(':'),name=piece.slice(0,split),body=piece.slice(split+1);

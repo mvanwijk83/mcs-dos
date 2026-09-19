@@ -44,7 +44,7 @@ int main(void) {
   reset(removed[i],0);memcmd();if(!errors||out[0])return 1;
   reset(removed[i],0);volcmd(1);if(!errors||out[0])return 2;
  }
- reset(0,0);memcmd();if(errors||!strstr(out,"65,536 bytes total")||!strstr(out,"524,288 bytes REU"))return 3;
+ reset(0,0);memcmd();if(errors||!strstr(out,"65,536 bytes total")||!strstr(out,"bytes reserved for system")||!strstr(out,"524,288 bytes REU"))return 3;
  reset("/s",0);memcmd();if(!errors||out[0])return 4;
  reset(0,0);volcmd(1);if(errors||!strstr(out,"169,984 bytes total")||!strstr(out,"1,024 bytes allocated"))return 5;
  reset("8:","/S");volcmd(1);if(!errors||out[0])return 6;

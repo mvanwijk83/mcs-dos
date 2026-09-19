@@ -22,3 +22,14 @@ Preliminary public release.
   mentation.
 * Finalized release package.
 * Source code release.
+
+  1.01 (19-Sep-2026)
+----------------------------------------
+* Added /P switch to COPY (overwrite
+  without user confirmation).
+* ECHO text ending in ; will omit the
+  line terminator (use ;; to escape).
+* Extended memory usage report produced
+  by MEM.
+* Press RESTORE on boot screen for "safe
+  mode" (skips executing AUTOEXEC.BAT).

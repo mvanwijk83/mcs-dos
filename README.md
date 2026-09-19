@@ -71,4 +71,4 @@ See `CHANGELOG.TXT` for a full overview of changes.
 
 * **1.0 Preview** (13-Sep-2026) &ndash; preliminary limited public release
 * **1.0 RTM** (15-Sep-2026) &ndash; definitive first public release
-* **1.01*** (19-Sep-2026) &ndash; minor additions and improvements
+* **1.01** (19-Sep-2026) &ndash; minor additions and improvements

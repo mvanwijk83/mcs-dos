@@ -11,10 +11,11 @@ const drives = [['drive-compat','1541'], ['drive-compat','1571'], ['drive-compat
     ['drive-compat','1581','--large'], ['drive-compat','1571','--rel'], ['drive-compat','1581','--rel'],
     ['drive-compat','1571','--format'], ['drive-compat','1581','--format'],
     ['drive-compat','1581','--mismatch'], ['drive-compat','1541','--badformat'], ['drive-compat','1571','--single']];
-const groups = {unit, emulator, drives, all: [...unit, ...emulator, ...drives]};
+const easyflash = [['banked-image'], ['easyflash','--banked']];
+const groups = {unit, easyflash, emulator, drives, all: [...unit, ...easyflash]};
 const group = process.argv[2] || 'unit';
 if (process.argv.length > 3 || !groups[group]) {
-    console.error('Usage: node tests/run.js [unit|emulator|drives|all]');
+    console.error('Usage: node tests/run.js [unit|easyflash|emulator|drives|all]');
     process.exit(2);
 }
 let failures = 0;

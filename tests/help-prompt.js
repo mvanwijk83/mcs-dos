@@ -137,7 +137,7 @@ async function run(){
  await command(`attach "${disk}" 8`);await enter('exit');
  console.log('PASS real SET help first/last pages, /? form, RUN/STOP cancellation, subsequent help and exact unpaginated redirection');
 
- const commands=[...fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n').match(/static const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
+ const commands=[...fs.readFileSync('src/core.c','utf8').replace(/\r\n/g, '\n').match(/const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
  const topic=commands.indexOf('SET');assert(topic>=0);
  const original=fs.readFileSync('build/COMMANDS.HLP');let offset=5;
  for(let i=0;i<topic;i++)offset=original.indexOf(0,offset)+1;

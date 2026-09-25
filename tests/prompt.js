@@ -1,8 +1,8 @@
 require('./setup');
 // Exercise production expansion and prompt rendering on the 6502 simulator.
 const fs=require('fs'),assert=require('assert/strict');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-const expansion=source.slice(source.indexOf('static void showprompt('),source.indexOf('static unsigned char diroption('));
+const {fn,functions,header}=require("./source");
+const expansion=fn("showprompt");
 const harness=`
 #include <stdio.h>
 #include <string.h>

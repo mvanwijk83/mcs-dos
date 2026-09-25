@@ -1,8 +1,8 @@
 require('./setup');
 // Run the production TYPE/PRINT handler with observable KERNAL I/O mocks.
 const fs=require('fs');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
+const {fn,functions,header}=require("./source");
+const type=fn("typecmd");
 const harness=`
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +12,7 @@ static const char *args[4];static char input[600],output[600];
 static int path(const char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
 static int channel_open(int a,int b,int c,const char *s) { device=b;secondary=c;++opened;return failopen; }
-static void krnio_close(int n) { closed|=1<<n; }
+static void channel_close(int n) { closed|=1<<n; }
 static int channel_write(int a,void *b,int n) { if(failwrite)return -1;memcpy(output+written,b,n);written+=n;return n; }
 static void error(const char *s) { ++errors; }
 static void outputbyte(unsigned char c) { output[written++]=c; }

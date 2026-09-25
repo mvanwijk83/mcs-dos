@@ -1,6 +1,7 @@
 require('./setup');
 const fs=require('fs'),assert=require('assert/strict');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
+const {fn,functions,header}=require("./source");
+const source=fn("diskhelp");
 const start=source.indexOf('                /* A full-width row already');
 const end=source.indexOf("} else if (!c)\n                ++current;",start);
 const display=source.slice(start,end);
@@ -12,7 +13,7 @@ let checks='';for(const text of fixtures)for(const redirected of [0,1]){
 }
 const harness=`#include <string.h>\nstatic char output[2000];static unsigned char redirected,ox;static unsigned int used;
 static void outc(unsigned char c){output[used++]=c;if(c==10||c==13)ox=0;else if(!redirected && ++ox==40){output[used++]=10;ox=0;}output[used]=0;}
-static int page(void){return 1;}static void krnio_close(int n){}
+static int page(void){return 1;}static void channel_close(int n){}
 static void reset(int r){redirected=r;ox=used=0;output[0]=0;}
 static int show(const char *s){unsigned char wrapped=0,c;while((c=*s++)){${display}}return 1;}
 int main(void){${checks}return 0;}`;

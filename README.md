@@ -1,7 +1,7 @@
 # MCS-DOS
 
-MCS-DOS is a simple MS-DOS-inspired command shell designed to work on an
-unexpanded Commodore 64, Commodore 64 Ultimate, Commodore 128 in C64 mode, and
+MCS-DOS is a simple MS-DOS-inspired command shell designed to work on a
+Commodore 64 with EasyFlash, Commodore 64 Ultimate, Commodore 128 in C64 mode, and
 on emulators. It provides familiar commands, syntax, and prompts to perform
 disk operations. It also supports rudimentary batch scripting. It is otherwise
 *not* a true execution environment for native programs.
@@ -29,7 +29,7 @@ this was made for fun and novelty.
 
 * No directory support.
 * Running native C64 programs quits the shell.
-* No fastloader implemented in software; use a fastload cartridge or ROM replacement to speed up disk access.
+* No fastloader implemented in software; disk acceleration depends on the drive/hardware or ROM replacement.
 * Batch files do not support variables, conditionals, labels, or parameters.
 * No piping (`|` syntax); output redirection does not support printers.
 * Duplicating disks between different drive types is not currently implemented.
@@ -46,9 +46,11 @@ and in VICE.
 
 ## Running the shell
 
-MCS-DOS is distributed as a D64 disk image. Write it to floppy, and load the
-main program called `MCS-DOS.EXE`. `LOAD "*",8` will work too. `RUN` to start. Or
-if your setup allows it, simply mount and run the disk image.
+The experimental 2.0 branch is EasyFlash-exclusive. Build and attach
+`build/easyflash/MCS-DOS.crt` as an EasyFlash cartridge, then reset. Device 0
+is writable cartridge storage; devices 8–30 are external disks. See
+[EASYFLASH.md](EASYFLASH.md) for startup configuration and persistence details.
+The older disk releases remain available under `releases/`.
 
 Refer to `MANUAL.TXT` for more extensive information.
 

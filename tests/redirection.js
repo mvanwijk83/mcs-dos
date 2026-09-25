@@ -17,7 +17,7 @@ async function screen(){
 async function enter(s,ms=1300){await command('keybuf '+s+'\\x0d');await command('x');await delay(ms);return screen();}
 const disk=path.resolve('build/test-redirection.d64'),target=path.resolve('build/test-redirection-target.d64');
 const c1541=path.resolve(tool('vice', 'c1541'));
-const longCount=Number(fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n').match(/#define LINE (\d+)/)[1])-1-'echo >longline'.length;
+const longCount=Number(fs.readFileSync('src/core.h','utf8').replace(/\r\n/g, '\n').match(/#define LINE (\d+)/)[1])-1-'echo >longline'.length;
 function drive(...args){return execFileSync(c1541,args,{stdio:'pipe'});}
 function read(name,which=disk){
  const image=fs.readFileSync(which);

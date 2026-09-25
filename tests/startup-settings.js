@@ -1,10 +1,10 @@
 require('./setup');
 const fs=require('fs'),assert=require('assert/strict');
-const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-const env=s.slice(s.indexOf('static char *envget('),s.indexOf('static unsigned char dosdrives('));
-const drives=s.slice(s.indexOf('static unsigned char dosdrives('),s.indexOf('static void showprompt('));
-const set=s.slice(s.indexOf('static void setcmd('),s.indexOf('static unsigned char path('));
-const startup=s.slice(s.indexOf('static void startupprompt('),s.indexOf('/* Apply once after AUTOEXEC'));
+const {fn,functions,header}=require("./source");
+const env=fn("envget");
+const drives=functions("dosdrives","drivename");
+const set=fn("setcmd");
+const startup=functions("startupprompt","startupcolor");
 const code=`
 #include <stdio.h>
 #include <string.h>
@@ -62,5 +62,5 @@ int main(void){
 fs.writeFileSync('build/test-startup-settings.c',code);
 require('./simulator')('build/test-startup-settings.c');
 
-assert(s.includes('#define LINE 65'));assert(s.includes('#define MAXARGS 33'));
+assert(header.includes('#define LINE 65'));assert(header.includes('#define MAXARGS 33'));
 console.log('PASS startup colors/prompt, atomic invalid colors, 8/32 limits exact 512-byte capacity, aligned usage statistics deferred DRIVEIDS and exact screen recoloring');

@@ -28,7 +28,13 @@ const pieces=('prepare:\n'+charset).split(/_charset_/);
 for(const piece of pieces){
  const split=piece.indexOf(':'),name=piece.slice(0,split),body=piece.slice(split+1);
  c += '__asm cs_'+name+' {\n'+asm(body.replaceAll('ram_nmi','charset_nmi'))+'\n}\n';
- c += 'void charset_'+name+'(void) { __asm { jsr cs_'+name+' } }\n';
+ // With a 16K cartridge active, $01=$31 exposes RAM, not character ROM.
+ // This wrapper executes in resident RAM, so it can hide the cartridge for
+ // the font copy and restore the caller's bank before returning to ROM.
+ if(name==='prepare')
+  c += 'void charset_prepare(void) { unsigned char previous=bank_enter(BANK_NONE); __asm { jsr cs_prepare } bank_leave(previous); }\n';
+ else
+  c += 'void charset_'+name+'(void) { __asm { jsr cs_'+name+' } }\n';
 }
 const {execFileSync}=require('child_process');
 execFileSync(tool('oscar64', 'oscar64'), ['-n', '-O0', '-rt=', '-tf=bin',
@@ -50,7 +56,7 @@ for(const [name,address] of Object.entries(labels)) {
 fs.writeFileSync(out+'/loader.bin',bytes);
 c += 'static const unsigned char loader_bytes[]={'+[...bytes].join(',')+'};\n';
 c += '__asm display_reset { jsr cs_default\n lda #0\n sta 0x0291\n lda 0xd015\n and #0xfe\n sta 0xd015\n lda #0x8e\n jsr 0xffd2\n lda #0x93\n jsr 0xffd2\n rts\n}\n';
-c += 'void launch(void) { __asm { jsr display_reset\n sei }\n memcpy((void*)0x0334,loader_bytes,sizeof(loader_bytes));\n memcpy((void*)0x03e0,launchname,17);\n';
+c += 'void launch(void) { bank_leave(BANK_NONE); __asm { jsr display_reset\n sei }\n memcpy((void*)0x0334,loader_bytes,sizeof(loader_bytes));\n memcpy((void*)0x03e0,launchname,17);\n';
 for(const [label,value] of Object.entries({len:'launchlength',dev:'launchdevice',absolute:'launchabsolute',secondary:'launchabsolute^1',addresslo:'launchaddress',addresshi:'launchaddress>>8',jump:'launchaddress'}))
   c += `POKE(${labels[label]+1},${value});\n`;
 c += `POKE(${labels.jump+2},launchaddress>>8);\n __asm { jmp 0x0334 } }\n`;

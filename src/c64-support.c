@@ -3,6 +3,7 @@
 #include "c64-support.h"
 #include <string.h>
 #include <ctype.h>
+#include "cart.h"
 
 typedef const char *StringPtr;
 static unsigned char reverse_mask;
@@ -81,12 +82,15 @@ void screen_clear(unsigned char n)
 
 unsigned char channel_open(char f, char d, char s, const char *n)
 {
+    if (!d) return cart_open(f,s,n);
+    if (f>=0 && f<6) cart_channels[f]=0;
     krnio_setnam(n);
     return krnio_open(f, d, s) ? 0 : 1;
 }
 
 int channel_read(char f, void *p, unsigned int n)
 {
+    if (f>=0 && f<6 && cart_channels[f]) return cart_read(f,p,n);
     /* The shell owns EOF state and resets it after a U1 block command. */
     krnio_pstatus[f] = KRNIO_OK;
     return krnio_read(f, (char *)p, n);
@@ -94,6 +98,7 @@ int channel_read(char f, void *p, unsigned int n)
 
 int channel_write(char f, const void *p, unsigned int n)
 {
+    if (f>=0 && f<6 && cart_channels[f]) return cart_write(f,p,n);
     unsigned int i = 0;
     const char *s = p;
     if (!krnio_chkout(f))
@@ -112,6 +117,7 @@ int channel_write(char f, const void *p, unsigned int n)
 unsigned char directory_open(char f, char d)
 {
     char address[2];
+    if (!d) return cart_directory(f,1,0);
     if (channel_open(f, d, 0, "$"))
         return 1;
     return channel_read(f, address, 2) != 2;
@@ -120,6 +126,7 @@ unsigned char directory_open(char f, char d)
 unsigned char directory_read(char f, struct DirectoryEntry *e)
 {
     unsigned char h[4], c, n = 0, quoted = 0, seen = 0, t = 0;
+    if (f>=0 && f<6 && cart_channels[f]) return cart_directory(f,0,e);
     if (channel_read(f, h, 4) != 4)
         return 1;
     e->size = h[2] | ((unsigned int)h[3] << 8);

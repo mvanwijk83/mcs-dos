@@ -1,5 +1,5 @@
 require('./setup');
-const fs=require('fs');const src=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');const code=src.slice(src.indexOf("static void concatcmd(void)\n{"),src.indexOf("static const char *const commands[]"))+src.slice(src.indexOf('static unsigned char tokenize('),src.indexOf('static void executecommand('));
+const fs=require('fs');const {fn,functions,header}=require("./source");const code=functions("concatcmd","tokenize");
 const harness=`
 #include <stdio.h>
 #include <string.h>

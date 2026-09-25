@@ -54,7 +54,7 @@ async function run(){
  }
  await command(`load "${root}/build/MCS-DOS.prg" 0`);await command('> ba 00');
  let rows=await enter('run',600);
- const version=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n').match(/#define VERSION "([^"]+)"/)[1];
+ const version=fs.readFileSync('src/core.h','utf8').replace(/\r\n/g, '\n').match(/#define VERSION "([^"]+)"/)[1];
  const product='MCS-DOS version '+version;
  const copyright='Copyright (C) 2026 MCS';
  assert.equal(rows[12].trim(),product,rows.join('\n'));

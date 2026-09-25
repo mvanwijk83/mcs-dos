@@ -1,9 +1,10 @@
 require('./setup');
 const fs=require('fs'),assert=require('assert/strict');
-const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-const options=s.slice(s.indexOf('static unsigned char diroption('),s.indexOf('/* A 12-character stem'));
-const edit=s.slice(s.indexOf('static void editnumber('),s.indexOf('static unsigned char yesno('));
-const compare=s.slice(s.indexOf('static int dircompare('),s.indexOf('static void dircmd('));
+const {fn,functions,header}=require("./source");
+const options=functions("diroption","dirdefaults");
+const edit=fn("editnumber");
+const compare=fn("dircompare");
+const s=fn("dircmd");
 const sort=s.slice(s.indexOf("for (i = 0; i < count; ++i)\n        order[i] = i;"),s.indexOf("pagelines = 5;",s.indexOf('static void dircmd(')));
 const fixtures=[['zboot',3,99],['beta',1,3],['alpha',1,3],['delta',0,65535],['gamma',2,0],['epsilon',4,256]];
 let checks='',n=0;

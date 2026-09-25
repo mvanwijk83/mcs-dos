@@ -15,4 +15,5 @@ scripts/*
 !scripts/make-examples.js
 !scripts/petscii.js
 !scripts/verify-image.js
+!scripts/build-easyflash.js
 tools/

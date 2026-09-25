@@ -1,8 +1,8 @@
 require('./setup');
 // Execute the actual TYPE implementation under Oscar64 with mocked disk/screen I/O.
 const fs=require('fs'),assert=require('assert/strict');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-const type=source.slice(source.indexOf('static void typecmd('),source.indexOf('static int findbyte('));
+const {fn,functions,header}=require("./source");
+const type=fn("typecmd");
 const harness=`
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +12,7 @@ static const char *args[2];static char input[4096];
 static int path(const char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
 static int channel_open(int a,int b,int c,const char *s) { return 0; }
-static void krnio_close(int n) {}
+static void channel_close(int n) {}
 static int channel_write(int a,void *b,int n) { return n; }
 static void say(const char *s) {}
 static void error(const char *s) {}

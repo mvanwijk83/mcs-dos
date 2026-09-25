@@ -1,5 +1,5 @@
                  MCS-DOS
-               version 1.0
+               version 2.0
 
                User manual
 
@@ -11,7 +11,7 @@
   0. Introduction
   1. Features and limitations
   2. Development notes
-  3. Contents of the disk
+  3. Contents of the cartridge
   4. Running MCS-DOS
   5. Using the shell
   6. Commands
@@ -92,9 +92,9 @@ and omissions include:
 * No directory support.
 * Running native C64 programs quits the
   shell.
-* No fastloader implemented; use a
-  fastload cartridge or ROM replacement
-  to speed up disk access.
+* No fastloader implemented; disk speed
+  depends on hardware or a replacement
+  ROM.
 * Batch files do not support variables,
   conditionals, labels, or parameters.
 * No piping, output redirection does not
@@ -135,14 +135,11 @@ GPT-6. Once things started to look
 genuinely usable, things snowballed...
 
 
-  3. Contents of the disk
+  3. Contents of the cartridge
 ----------------------------------------
-MCS-DOS is distributed as a D64 disk
-image. Files included on a standard disk
-are:
-
-  MCS-DOS.EXE
-    The main program.
+MCS-DOS 2.0 is an EasyFlash cartridge.
+The shell boots directly. Device 0
+contains the following files:
   COMMANDS.HLP
     Data file containing help text
     for shell commands.
@@ -160,17 +157,21 @@ are:
     Example AUTOEXEC.BAT. Rename to
     apply.
 
-A stand-alone PRG containing only the
-shell is also available.
+Device 0 is writable. Its fixed label is
+MCS-DOS 2.0 and its ID is MC. It holds
+40 files and 64,000 bytes of file data,
+shared by bundled and user files.
+Use ATTRIB +R to protect a file.
+Disk-only operations such as FORMAT,
+LABEL and DISKID do not apply here.
 
 
   4. Running MCS-DOS
 ----------------------------------------
-Write the D64 disk image to a C64
-floppy and run the "MCS-DOS.EXE"
-program. LOAD "*",8 and RUN works too.
-Or simply mount and run if your setup
-(e.g. Ultimate or emulator) allows that.
+Attach MCS-DOS.crt as an EasyFlash
+cartridge and reset. On physical
+EasyFlash, flash the image first.
+Devices 8-30 still access external disks.
 
 If an AUTOEXEC.BAT is present, it will
 execute first before you arrive at the
@@ -179,6 +180,37 @@ default; create it or rename the sample.
 Pressing RESTORE on the boot screen will
 run MCS-DOS in "safe mode"; it skips
 execution of AUTOEXEC.BAT.
+
+Create CONFIG.SYS on device 0 to select
+where AUTOEXEC.BAT is found:
+
+  BOOTDRV=8,0
+  LDAUTOEX=1
+
+BOOTDRV tries devices in order, skipping
+unavailable drives and missing files.
+Only the first AUTOEXEC found is run.
+Its drive also supplies startup charset
+files and becomes the initial drive.
+Default: BOOTDRV=0. Valid devices are 0
+and 8-30. LDAUTOEX=0 skips AUTOEXEC;
+the default is 1. Directives ignore case,
+spaces and tabs. Invalid directives
+report an error and retain valid values.
+No CONFIG.SYS is required.
+
+Use EDIT 0:AUTOEXEC.BAT to create or edit
+your startup script. Cartridge writes
+survive reset and are saved in flash.
+Emulators and Ultimate may require an
+explicit image save for persistence on
+host storage. Reflashing the original
+CRT replaces your saved files. Back up
+with COPY 0:filename 8:filename.
+Each edit erases one sector and copies
+the live files, so writes take time.
+An interrupted write retains the last
+committed filesystem snapshot.
 
 
   5. Using the shell
@@ -613,8 +645,8 @@ sequence of MCS-DOS commands. They also
 can't call other batch files.
 
 MCS-DOS supports AUTOEXEC.BAT. If it is
-present on the disk the shell is booted
-from, it will be executed at startup.
+present on device 0 (or a device chosen
+by CONFIG.SYS), it runs at startup.
 Pressing RESTORE on the boot screen will
 run MCS-DOS in "safe mode"; it skips
 execution of AUTOEXEC.BAT. 

@@ -1,7 +1,7 @@
 require('./setup');
 const fs=require('fs');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-const code=source.slice(source.indexOf('static int findbyte('),source.indexOf('static void renderedit('));
+const {fn,functions,header}=require("./source");
+const code=functions("findbyte","findcmd");
 const fixtures=['DOS\r\ndos\n\rno DOS here\rfinal','', '\r\n\r\n','a'.repeat(1100)+'DOS\nlast','x'.repeat(37)+'DOS\nDOS','ababa\naba\nno'];
 const cases=[], strings=new Map();
 // Short adjacent literals avoid Oscar64’s limit on a single string token.
@@ -39,7 +39,7 @@ static int path(const char *s,void *p){strcpy(p1.name,s);return 1;}
 static void uppername(const char *s,char *d){while(*s)*d++=toupper(*s++);*d=0;}
 static int openread(void *p,int n){return 1;}
 static int channel_open(int a,int b,int c,const char *d){return 0;}
-static void krnio_close(int n){}
+static void channel_close(int n){}
 static int diskstatus(int a,int b){return 0;}
 static int readio(int channel,char *p,int len){int n=0;while(n<len && input[cursor[channel-2]])p[n++]=input[cursor[channel-2]++];return n;}
 ${code}

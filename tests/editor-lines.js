@@ -1,7 +1,8 @@
 // Exercise the production row-insertion branch without patching a VICE ROM.
 const {tool}=require('./setup');
 const fs=require('fs'),assert=require('assert/strict');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g,'\n');
+const {fn,functions,header}=require("./source");
+const source=fn("editcmd");
 const start=source.indexOf('} else if (c == 0) {'),end=source.indexOf('} else if (c == CH_DEL)',start);
 assert(start>=0&&end>start,'editor row-insertion branch must exist');
 const branch=source.slice(start+'} else if (c == 0) {'.length,end);

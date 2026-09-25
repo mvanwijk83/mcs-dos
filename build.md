@@ -53,69 +53,37 @@ Run from the project root:
 node scripts/build.js
 ```
 
-Source is compiled with Oscar64 flags `-n Os -Oo -psci`. It also produces
-the D64 image, containing all additional included files such as
-`COMMANDS.HLP` (generated from `src/command-help.json`); the bundled
-documentation converted to PETSCII; and additional content included in
-`disk-content/`.
+The 2.0 branch builds an EasyFlash cartridge at
+`build/easyflash/MCS-DOS.crt`. The shell payload PRG is an intermediate file
+and cannot be used as a standalone distribution. Oscar64 uses `-n -Os -Oo -psci`.
+Command modules execute from five ROMH banks at $A000; shared services and
+state stay resident. See [EASYFLASH.md](EASYFLASH.md) for the module layout,
+bank-call rules and RAM accounting. The build compares the PRG/CRT links and
+rejects mismatched code or overflowing banks.
+The build packages COMMANDS.HLP, CGA.CPI, AUTOEXEC.SAMPLE and the three PETSCII
+documents alongside the shell. It also emits linker maps, a bank/storage
+summary in `layout.json`, and `SHA256SUMS.txt` in the same output directory.
+No external assembler is needed: the vendor EasyAPI binary is included.
 
-Build output is placed under `build/`.
+See [EASYFLASH.md](EASYFLASH.md) for the bank layout, filesystem format,
+CONFIG.SYS behavior, capacity and persistence limitations.
 
 ## Automated tests
 
-There are three groups to be run sequentially. The tests create disposable files
-and disk images in `build` that are used by automatically spawned VICE instances
-(beware that they may not always close properly, so manually kill any stray
-processes afterwards).
-
-`node tests/run.js all` runs all three groups. The runner prints a pass/fail
-summary, continues to report failures in subsequent suites, and returns a
-nonzero exit status if any suite fails.
-
-The automated suites test emulation and mocked I/O, not physical drive timing,
-real printer behavior, or every cartridge/ROM combination. They are not intended
-to replace emulator or real hardware testing.
-
-### Fast simulator tests
-
-Validates various functionalities with Oscar64's build-in emulator (`-e`):
+Run the simulator tests and the cartridge integration test after building:
 
 ```powershell
 node tests/run.js unit
+node tests/easyflash.js
+node tests/easyflash.js --ntsc
 ```
 
-### Regression tests
+The cartridge suite starts its own VICE instance and uses disposable copies
+under `build/easyflash`. It checks file operations, disk transfers, startup
+configuration and persistence. It does not modify the distribution CRT.
+`node tests/run.js all` runs unit and EasyFlash suites sequentially.
 
-Run them all together:
-
-```powershell
-node scripts/build.js
-node tests/run.js emulator
-```
-
-Or run any of these individually (examples):
-
-```
-node tests/find.js
-node tests/oscar64-regression.js
-node tests/oscar64-regression.js build/MCS-DOS.prg --launch-only
-node tests/editor-session.js --ntsc
-node tests/charset.js --ntsc
-node tests/bootsplash.js --ntsc
-```
-
-### Extended drive tests
-
-Testing the supported disk drive models:
-
-```
-node tests/run.js drives
-```
-
-Or, individually: 
-
-```
-node tests/drive-compat.js 1581 --large
-node tests/drive-compat.js 1571 --rel
-node tests/drive-compat.js 1581 --mismatch
-```
+The legacy `emulator` and `drives` groups are retained as migration references;
+they still assume the 1.x disk/standalone PRG distribution and are not the 2.0
+cartridge acceptance suite. Emulator checks do not replace testing flash writes,
+reset and image saving on real hardware or Ultimate.

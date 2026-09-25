@@ -1,9 +1,9 @@
 require('./setup');
 // Exercise actual directory loading/lookup at both former integer limits.
 const fs=require('fs'),assert=require('assert/strict');
-const source=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-assert(source.includes('#define MAXFILES 296'));
-const code=source.slice(source.indexOf("static unsigned char directory(unsigned char dev)\n{"),source.indexOf('static unsigned char match('));
+const {fn,functions,header}=require("./source");
+assert(header.includes('#define MAXFILES 296'));
+const code=functions("directory","findfile");
 const harness=`
 #include <stdio.h>
 #include <string.h>
@@ -18,7 +18,7 @@ static void error(const char *s) { ++errors; }
 static unsigned char drivetype(unsigned char d,unsigned char report) { return 2; }
 static unsigned char command(unsigned char d,const char *s) { return !failmode; }
 static unsigned char directory_open(unsigned char f,unsigned char d) { cursor=0;return 0; }
-static void krnio_close(unsigned char f) { ++closed; }
+static void channel_close(unsigned char f) { ++closed; }
 static unsigned char directory_read(unsigned char f,struct DirectoryEntry *e) {
  if(!cursor++) { strcpy(e->name,"test");return 0; }
  if(cursor-2==available) { e->size=111;return 2; }

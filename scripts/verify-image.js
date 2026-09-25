@@ -22,7 +22,7 @@ function chain(t,s) {
   return {data:Buffer.concat(result),blocks:seen.size};
 }
 const entries=new Map();
-const version=fs.readFileSync('src/mcsdos.c','utf8').match(/^#define VERSION "([^"]+)"/m)[1];
+const version=fs.readFileSync('src/core.h','utf8').match(/^#define VERSION "([^"]+)"/m)[1];
 assert.equal(image.subarray(offset(18,0)+0x90,offset(18,0)+0xa0).toString('latin1').replace(/\xa0+$/,''),'MCS-DOS '+version,'Release disk label');
 let t=18,s=1;
 const directorySectors=new Set();

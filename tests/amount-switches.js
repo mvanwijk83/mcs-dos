@@ -1,7 +1,7 @@
 require('./setup');
 const fs=require('fs');
-const s=fs.readFileSync('src/mcsdos.c','utf8').replace(/\r\n/g, '\n');
-let code=s.slice(s.indexOf('static unsigned char noseparators;'),s.indexOf('static void volumeheader('))+s.slice(s.indexOf('static unsigned char validate;'),s.indexOf('static void labelcmd('));
+const {fn,functions,header}=require("./source");
+let code="static unsigned char noseparators,validate;\n"+functions("decimal","allocated","reportoptions","freememory","memcmd","deletable","delcmd","volcmd");
 code=code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,"static unsigned char deletable(void *p) { return 1; }");
 code=code.replace(/static unsigned int freememory\(void\)\s*\{[\s\S]*?\n\}/,'static unsigned int freememory(void) { return 2000; }');
 const harness=`
@@ -24,7 +24,7 @@ static void say(const char *s) {strcat(out,s);strcat(out,"\\n");}
 static void outs(const char *s) {strcat(out,s);}
 static void newline(void) {strcat(out,"\\n");}
 static void print(const char *s,...) {char b[200];va_list a;va_start(a,s);vsprintf(b,s,a);va_end(a);strcat(out,b);}
-static int reu_size(void) {return 512;}
+static const char *cart_stats(unsigned char line) {return "";}
 static int yesno(const char *s) {++prompts;return answer;}
 static void scratch(void *p) {++deleted;}
 static int command(int d,const char *s) {return 1;}
@@ -44,7 +44,7 @@ int main(void) {
   reset(removed[i],0);memcmd();if(!errors||out[0])return 1;
   reset(removed[i],0);volcmd(1);if(!errors||out[0])return 2;
  }
- reset(0,0);memcmd();if(errors||!strstr(out,"65,536 bytes total")||!strstr(out,"bytes reserved for system")||!strstr(out,"524,288 bytes REU"))return 3;
+ reset(0,0);memcmd();if(errors||!strstr(out,"65,536 bytes total")||!strstr(out,"bytes reserved for system")||strstr(out,"REU"))return 3;
  reset("/s",0);memcmd();if(!errors||out[0])return 4;
  reset(0,0);volcmd(1);if(errors||!strstr(out,"169,984 bytes total")||!strstr(out,"1,024 bytes allocated"))return 5;
  reset("8:","/S");volcmd(1);if(!errors||out[0])return 6;

@@ -16,6 +16,10 @@ unsigned char cart_init(void) {
  memset(cart_channels,0,6); call(0,0); return P[4];
 }
 unsigned char cart_status(void) { call(7,0); return P[4]; }
+int cart_help(unsigned char topic,unsigned int offset,void *buffer,unsigned char size) {
+ P[2]=topic;P[3]=size>120?120:size;P[5]=offset;P[6]=offset>>8;call(19,0);
+ if(P[4])return -1;memcpy(buffer,TEXT,P[3]);return P[3];
+}
 const char *cart_stats(unsigned char line) { P[2]=line;call(13,0);return TEXT; }
 unsigned char cart_open(char f,char s,const char *name) {
  if(f<0||f>=6||strlen(name)>=120) return 1;

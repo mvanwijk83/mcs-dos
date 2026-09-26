@@ -20,15 +20,16 @@ for(const b of layout.commandBanks){
 const prg=fs.readFileSync(base+'shell.prg');
 assert.equal(prg.length,layout.payload+2);
 assert.equal(layout.executableBytes,prg.length+layout.commandBanks.reduce((n,b)=>n+b.used,0));
-assert.equal(image.get('4:40960').readUInt16LE(0x17f0),layout.executableBytes);
+assert.deepEqual(image.get('10:32768').subarray(0,layout.helpBytes),fs.readFileSync(base+'help.bin'));
+assert.equal(layout.filesystemVersion,3);
 assert.equal(layout.residentBytes,layout.bssEnd-0x801);
 assert.equal(layout.freeRam,layout.freeRanges.reduce((n,[a,b])=>n+b-a,0));
 assert(layout.freeRam>10000,'banked prototype must recover meaningful RAM');
 assert(layout.bssEnd<=0xa000);assert.deepEqual(layout.romWindow,{start:0xa000,end:0xc000});
 assert(layout.wedge>0&&layout.wedge<=0x1e0,'wedge must not overlap resume token');
 assert.deepEqual(layout.sessionBanks,[48,55]);assert.equal(layout.sessionBytes,3349);
-assert.deepEqual(layout.freeRanges[1],[0xc200,0xc700]);
+assert.deepEqual(layout.freeRanges[1],[0xc300,0xc700]);
 for(let bank=48;bank<=55;bank++)for(const address of [0x8000,0xa000]) {
  const sector=image.get(bank+':'+address);assert(sector&&sector.every(b=>b===255),'empty session journal');
 }
-console.log('PASS linked command banks, resident payload, virtual executable size and RAM accounting');
+console.log('PASS linked command banks, resident payload, internal help and RAM accounting');

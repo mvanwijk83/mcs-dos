@@ -1,6 +1,6 @@
 # EasyFlash implementation (2.0 prototype)
 
-The shell and its six distribution files are contained in `build/easyflash/MCS-DOS.crt`.
+The shell and its five distribution files are contained in `build/easyflash/MCS-DOS.crt`.
 Device 0 is writable cartridge storage; devices 8–30 retain IEC disk access.
 Load the CRT as an EasyFlash cartridge and reset. Shared services and state
 remain in RAM; command modules execute directly from banked cartridge ROM.
@@ -14,19 +14,16 @@ operations such as `FORMAT`, `DISKCOPY`, `LABEL` and `DISKID` are unsupported
 on device 0. Sequential, program and user files are supported; REL files are
 not supported on the cartridge.
 
-Files have 16-character names and a read-only attribute. The six bundled files
+Files have 16-character names and a read-only attribute. The five bundled files
 start writable, just like user files. `ATTRIB +R filename` protects a file;
-`ATTRIB -R filename` removes protection. `HELP` reads `0:COMMANDS.HLP`.
+`ATTRIB -R filename` removes protection. They are CGA.CPI, AUTOEXEC.SAMPLE,
+MANUAL.TXT, CHANGELOG.TXT and LICENSE.TXT. HELP reads indexed internal cartridge
+data, independently of the writable filesystem; it never opens COMMANDS.HLP.
 
-DIR also displays a read-only virtual `MCS-DOS.EXE` entry. Its length comes
-from the resident shell PRG (including its load address) plus the occupied
-command-bank bytes, excluding bank padding and filesystem storage; DIR
-shows the usual rounded disk-block allocation. This entry is for directory
-display, not a stored/copyable file, and consumes no writable space or slot.
-Its name is reserved. CHKDSK on device 0 reports the 128 KiB flash reservation,
+DIR lists only real files. Neither MCS-DOS.EXE nor COMMANDS.HLP is a reserved
+filename. CHKDSK on device 0 reports the 128 KiB flash reservation,
 recovery and metadata overhead, 64,000-byte logical capacity, exact live-file
-bytes, available bytes and free directory slots. The virtual executable is
-excluded from those writable-area statistics. CHKDSK /V remains a disk-only
+bytes, available bytes and free directory slots. CHKDSK /V remains a disk-only
 repair operation.
 
 Create `0:AUTOEXEC.BAT` with `EDIT`, or copy `0:AUTOEXEC.SAMPLE` to it. A missing
@@ -50,17 +47,26 @@ boot screen still skips automatic startup scripts.
 The filesystem has 40 directory entries and 64,000 bytes of file payload shared
 by bundled and user files. `layout.json` reports the remaining capacity after
 packaging. Directory sizes and free space use conventional 254-byte blocks,
-so displayed free space rounds down. Writes compact the live files into the
-alternate flash sector. This deliberately favors simplicity and recovery over
-speed: even a small edit rewrites the current files and erases one 64 KiB
-sector. BASIC session saves use the separate journal described below; they
-do not compact or rewrite the filesystem.
+so displayed free space rounds down. Writes append records to the active
+sector. REN, DEL and ATTRIB normally append just 32 bytes; creating, editing
+or copying a file writes its new contents plus a 32-byte record. Obsolete
+versions consume physical journal space but not logical free space.
+When necessary, compaction copies live files to the alternate sector and
+erases that spare sector. This is the occasional slower operation. BASIC
+session saves use the separate journal below and do not rewrite the filesystem.
 
-A write becomes visible on close. The old snapshot remains intact until the
-new snapshot has a checksum and its final commit marker. Failed/full writes
-and reset before commit leave the previous snapshot available. Do not reflash
+A file write becomes visible on close, after CRC readback and a final commit
+marker. Interrupted appends retain the previous committed file. Compaction
+keeps the original sector until the replacement is completely committed.
+An incomplete journal tail is reclaimed on the next write. Wildcard deletion
+commits each file separately, so an interruption can leave a partly completed
+batch. Do not reflash
 the distribution image to preserve user files: replacing the whole cartridge
 image replaces its filesystem too. Back up files with `COPY 0:name 8:name`.
+
+This build uses MFJ3, incompatible with the previous MFS2 filesystem. Back up
+existing files using the old build before installing the new CRT, then copy
+them back. There is no automatic migration or formatting of unknown data.
 
 Physical EasyFlash stores changes in flash. Emulator/Ultimate persistence to
 the host CRT file also depends on that platform's save/writeback facility;
@@ -81,10 +87,11 @@ the target setup.
 | 7 ROMH | `filemgmt.c`: DIR, COPY/MOVE, DEL, REN, ATTRIB, shared file helpers |
 | 8 ROMH | `disk.c`: raw disk services, VOL/CHKDSK, FORMAT, LABEL, DISKID, DISKCOPY |
 | 9 ROMH | `boot.c`, `session.c`: startup/configuration, SET, splash, charset, BASIC/session services |
-| 10–47 | Reserved for future code/data |
+| 10 ROML | Indexed internal HELP text |
+| 11–47 | Reserved for future code/data |
 | 48–55 ROML/ROMH | Private session journal: two independent 64 KiB sectors |
-| 56–63 ROML | Filesystem snapshot A: one physical 64 KiB sector |
-| 56–63 ROMH | Filesystem snapshot B: one physical 64 KiB sector |
+| 56–63 ROML | Filesystem journal A: one physical 64 KiB sector |
+| 56–63 ROMH | Filesystem journal B: one physical 64 KiB sector |
 
 The two chips are erased independently. Do not pack code into filesystem or
 session sectors, even apparently unused bytes. File offsets cross 8 KiB bank boundaries
@@ -94,7 +101,7 @@ RAM reservations are $0400–$06FF for EasyAPI, $0700–$07EF for driver state,
 $07F0–$07F4 for flash parameters, $07F5 for the current command bank,
 $0800–$087F for the shared mailbox,
 $0880–$09FF for the bank bridge, $C000–$C1FF for the BASIC wedge and return
-descriptor, and $C700–$C7FF for the driver's C stack.
+descriptor, $C200–$C2FF for filesystem indexes, and $C700–$C7FF for the driver's C stack.
 The resident shell starts at $0A00 and keeps its 2 KiB stack at $C800–$CFFF.
 Its display and charset remain in upper RAM. The bridge preserves Oscar64's
 zero-page workspace and disables interrupts during filesystem calls.
@@ -133,18 +140,18 @@ not valid after switching banks. Resident output routines can consume a
 literal from the currently visible caller bank. Persistent variables remain
 in RAM. IRQ/NMI handlers and mapping/flash routines must remain resident.
 
-With BASIC session support the build uses 29,289 bytes for the resident shell/workspace,
-plus the unchanged 2,048-byte stack. MEM reports **10,902 bytes free** versus
-231 before the banking refactor. Of these, 9,622 bytes are below $A000 and 1,280 are
-at $C200–$C6FF. The latter is available for an explicitly placed future buffer;
+With the filesystem journal the build uses 29,335 bytes for the resident shell/workspace,
+plus the unchanged 2,048-byte stack. MEM reports **10,600 bytes free** versus
+231 before the banking refactor. Of these, 9,576 bytes are below $A000 and 1,024 are
+at $C300–$C6FF. The latter is available for an explicitly placed future buffer;
 it is not part of the compiler's contiguous main region. RAM beneath the ROM
 window is not counted. MEM shows the 8,192-byte window separately and does
 not probe REU hardware. Exact figures are generated in `layout.json`.
 
-The five banks occupy 26,080 bytes, with 14,880 bytes spare across them.
-The aggregate executable is 43,857 bytes, including the resident image and
+The five banks occupy 25,948 bytes, with 15,012 bytes spare across them.
+The aggregate executable is 43,771 bytes, including the resident image and
 banked code/data. Resident code/data/BSS falls from the pre-banking build's
-48,664 bytes to 29,289 bytes despite the additional session functionality.
+48,664 bytes to 29,335 bytes despite the additional session functionality.
 File management is the tightest bank (788 bytes spare). Future code can use
 additional banks instead of increasing resident code size. RAM data still
 has a real limit; new persistent buffers, gates and resident/library services
@@ -152,20 +159,17 @@ consume the reported free RAM.
 The build rejects bank overflow, resident code reaching $8000, or resident
 data reaching $A000. Move a cohesive helper/command group to another bank
 and add resident gates when a bank fills; do not enlarge its window.
-The virtual EXE directory entry still uses a 16-bit byte count; that metadata
-will need widening once the aggregate executable exceeds 65,535 bytes. This
-is separate from the banked code's addressability.
 
 Run `node tests/easyflash.js --banked` for the full cartridge regression with
 ROM-versus-RAM checks and a guard over the free upper RAM block. Hardware
 testing of this banked build remains required before committing.
 
-Validation for this prototype: all 11 logic suites and the independent CRT
-layout check pass; the full PAL cartridge suite covers editing, copying,
+The logic suites and independent CRT layout check accompany the cartridge
+tests. The full PAL cartridge suite covers editing, copying,
 cross-device binary transfers, disk CHKDSK, FIND, CONFIG/AUTOEXEC, both charset
 sources, cartridge program launch, interrupted-write recovery and CRT
-writeback/reload. Targeted checks also pass for NTSC, REBOOT, disk program
-launch, virtual EXE statistics and RAM preservation across flash writes.
+writeback/reload. Targeted checks cover NTSC, REBOOT, disk program
+launch, filesystem statistics and RAM preservation across flash writes.
 
 The first banked build had a charset initialization regression: `$01=$31`
 does not expose character ROM while the 16K cartridge mapping is active
@@ -179,24 +183,32 @@ CPI fonts from cartridge/disk and missing-file fallback.
 
 ## Filesystem format
 
-Each snapshot starts with `MFS`, format version 2, a little-endian 16-bit
-generation at offset 4, the used-data end at offset 6, file count at offset 8,
-and a two-byte checksum at offset 10. Offset 15 is the commit marker `$A5`.
-The checksum covers bytes 32 through the used-data end (exclusive): its low
-byte is the sum of bytes modulo 256, and its high byte accumulates those sums
-modulo 256. Mount validates both snapshots and selects the newer valid
-generation, allowing 16-bit generation wrap.
+Each 64 KiB sector starts with a 32-byte header: `MFJ`, version 3, a 16-bit
+generation at offset 4, the sealed baseline end at 6, CRC-16/CCITT of bytes
+0–7 at 8, and commit marker `$A5` at 15. CRC uses polynomial $1021 and
+initial value $FFFF. All multibyte fields are little-endian.
 
-The directory starts at offset 32, with 40 slots of 24 bytes. Each slot contains
-a 17-byte NUL-terminated name, one file-type byte, a 16-bit data offset, a
-16-bit length, one read-only flag, and one reserved byte. Data starts at 1024;
-its exclusive upper limit is 65024. File data is contiguous within a snapshot
-and can span several 8 KiB cartridge banks. All multibyte fields are little-endian.
+Records begin at offset 32 and end no later than 65504. Each has a 32-byte
+header: name (17 bytes), type (17), payload offset (18), length (20), read-only
+flag (22), directory slot (23), record span (24), CRC (26), magic `$4A` (28),
+kind (29), optional overwritten slot (30; $FF for none), and commit `$A5` (31).
+Kinds are new data (1), metadata/reference (2), and deletion (3). New file
+payloads follow their header contiguously and can cross 8 KiB bank boundaries.
+Metadata records reference existing payloads without copying them. Rename
+over an existing file drops the destination slot in the same committed record.
+CRC covers new payload bytes first, then header bytes 0–25 and 28–30.
 
-Only one writer may be open. Existing readers retain their snapshot until
-close; the driver refuses an erase if a reader still needs that older sector.
-Close writes the directory entry, header and checksum, then programs the
-commit marker last. Aborting a copy discards the pending write.
+Mount selects the newer committed generation and rebuilds RAM indexes from
+valid records. Damage in the sealed baseline invalidates that sector; a torn
+append ends the log without hiding preceding committed records. Generation
+comparison supports 16-bit wrap. Compaction seals a complete new baseline
+before selecting it, including a pending file when rollover happens mid-write.
+
+Only one writer may be open. Existing readers retain their sector and offsets
+until close; the driver refuses an erase if a reader still needs that sector.
+Aborting a copy discards the pending write. No erase is needed after mounting
+or reading. Run `node tests/easyflash.js --journal` for record size, compaction,
+interrupted-write recovery, and HELP independence checks.
 
 ## BASIC and shell sessions
 
@@ -210,7 +222,7 @@ BASIC starts with its normal ROM uppercase/graphics font and full program
 area through $9FFF. Shell colors remain, the screen is cleared, and
 `COMMODORE BASIC V2` and `38911 BASIC BYTES FREE` appear on separate lines,
 then a blank line, `TYPE 'SHELL' TO RETURN TO MCS-DOS`, another blank line,
-and `READY.`. The 340-byte RAM
+and `READY.`. The RAM
 wedge hooks BASIC's statement-dispatch vector and recognizes only a standalone
 `SHELL` at the direct prompt, allowing surrounding spaces. Ordinary statements,
 variables such as `SHELLX`, and program execution use the original interpreter.

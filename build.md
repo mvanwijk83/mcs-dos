@@ -60,8 +60,9 @@ Command modules execute from five ROMH banks at $A000; shared services and
 state stay resident. See [EASYFLASH.md](EASYFLASH.md) for the module layout,
 bank-call rules and RAM accounting. The build compares the PRG/CRT links and
 rejects mismatched code or overflowing banks.
-The build packages COMMANDS.HLP, CGA.CPI, AUTOEXEC.SAMPLE and the three PETSCII
-documents alongside the shell. It also emits linker maps, a bank/storage
+The build packages CGA.CPI, AUTOEXEC.SAMPLE and the three PETSCII documents
+as writable files, and command help as indexed internal cartridge data.
+It also emits linker maps, a bank/storage
 summary in `layout.json`, and `SHA256SUMS.txt` in the same output directory.
 No external assembler is needed: the vendor EasyAPI binary is included.
 
@@ -76,6 +77,7 @@ Run the simulator tests and the cartridge integration test after building:
 node tests/run.js unit
 node tests/easyflash.js
 node tests/easyflash.js --ntsc
+node tests/easyflash.js --journal
 ```
 
 The cartridge suite starts its own VICE instance and uses disposable copies

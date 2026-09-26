@@ -16,4 +16,5 @@ scripts/*
 !scripts/petscii.js
 !scripts/verify-image.js
 !scripts/build-easyflash.js
+!scripts/journal-image.js
 tools/

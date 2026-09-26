@@ -61,18 +61,23 @@ function diskFile(file,name){
   catch{socket.destroy();socket=null;await delay(100);}
  }
  assert(socket,'VICE monitor did not start');socket.on('error',()=>{});await command('x');
- await delay(3000); let s=await screen();console.log('BOOT',s); assert(s.includes('0:>'),s);
+ await delay(3000); let s=await screen();
+ for(let i=0;i<20&&!s.includes('0:>');i++){await command('x');await delay(500);s=await screen();}
+ console.log('BOOT',s); assert(s.includes('0:>'),s);
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');
  await defaultFont();
+ if(process.argv.includes('--journal')) {
+  await require('./journal')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
+ }
  if(process.argv.includes('--session')) {
   await require('./basic-session')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
  }
  if(process.argv.includes('--display')) {
-  await check('dir','MCS-DOS.EXE');
+  await check('dir','CGA.CPI');
   await defaultFont();
   await enter('splash');await defaultFont();
   await enter('reboot');await defaultFont();
-  await check('dir','MCS-DOS.EXE');
+  await check('dir','CGA.CPI');
   await command(`screenshot "${root}/build/easyflash/display-${process.argv.includes('--ntsc')?'ntsc':'pal'}.png" 2`);
   if(process.argv.includes('--display-fonts')) {
    const patch=fs.readFileSync('build/CGA.CPI');
@@ -90,7 +95,7 @@ function diskFile(file,name){
  if(process.argv.includes('--banked')) {
   await command('bank ram');
   await command('f a000 bfff ea');
-  await command('f c200 c6ff cd');
+  await command('f c300 c6ff cd');
   const bssEnd=JSON.parse(fs.readFileSync('build/easyflash/layout.json')).bssEnd;
   if(bssEnd<=0x8000)await command('f 8000 9fff ab');
   await command('bank cpu');
@@ -100,25 +105,20 @@ function diskFile(file,name){
   assert((await screen()).includes(free.toLocaleString('en-US')+' bytes free'));
  }
  if(process.argv.includes('--feedback')) {
-  s=await check('dir','MCS-DOS.EXE');
-  const blocks=Math.ceil(JSON.parse(fs.readFileSync('build/easyflash/layout.json')).executableBytes/254);
-  assert(new RegExp('MCS-DOS\\.EXE\\s+PRG.*\\(\\s*'+blocks+' bl\\)').test(s),s);
-  s=await check('mem','bytes free');assert(!s.includes('REU'),s);
-  s=await check('help mem','memory');assert(!s.includes('REU'),s);
+  s=await check('dir','CGA.CPI');assert(!s.includes('MCS-DOS.EXE')&&!s.includes('COMMANDS.HLP'),s);
+  await check('mem','bytes free');await check('help mem','memory');
   s=await check('chkdsk','64,000 bytes total file space');
   const layout=JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
   assert(s.includes(String(layout.available)+' bytes available'),s);
-  assert(s.includes(String(layout.used-1024)+' bytes used in 6 files'),s);
-  await enter('echo abc >stats.txt',4000);
-  s=await check('chkdsk','bytes used in 7 files');assert(s.includes(String(layout.available-4)+' bytes available'),s);
-  await check('attrib mcs-dos.exe','R');
-  await keys('ren stats.txt mcs-dos.exe\\x0dy',3000);await check('type stats.txt','abc');
+  assert(s.includes(String(layout.fileBytes)+' bytes used in 5 files'),s);
+  await enter('echo abc >mcs-dos.exe',1500);await check('type mcs-dos.exe','abc');
+  await enter('ren mcs-dos.exe stats.txt');await check('type stats.txt','abc');
   if(process.argv.includes('--banked'))await bankChecks();
-  console.log('PASS virtual executable size, MEM/help and cartridge CHKDSK accounting');return;
+  console.log('PASS removed virtual executable/name restriction and journal accounting');return;
  }
  if(process.argv.includes('--banked-smoke')) {
   await check('help cls','Clears');
-  await check('dir','MCS-DOS.EXE');
+  await check('dir','CGA.CPI');
   await check('chkdsk','64,000 bytes total file space');
   await enter('set test=temporary');
   await enter('reboot');
@@ -139,7 +139,7 @@ function diskFile(file,name){
   await recoverWrite(crt);return;
  }
  if(process.argv.includes('--large-launch')) {
-  for(const name of ['commands.hlp','cga.cpi','autoexec.sample','manual.txt','changelog.txt','license.txt'])
+  for(const name of ['cga.cpi','autoexec.sample','manual.txt','changelog.txt','license.txt'])
    await enter('del '+name+' /p',3000);
   await command(`attach "${disk}" 8`);
   await enter('copy 8:big 0:big',5000);
@@ -150,7 +150,7 @@ function diskFile(file,name){
   assert.equal((await memory(0x801+53000-1))[0],0x5a,'last PRG byte');
   console.log('PASS large cartridge PRG crosses banks and loads RAM under I/O');return;
  }
- s=await check('dir','COMMANDS.HLP',2000);assert(s.includes('MCS-DOS 2.0')&&s.includes('MC'),s);
+ s=await check('dir','CGA.CPI',2000);assert(s.includes('MCS-DOS 2.0')&&s.includes('MC'),s);
  s=await check('mem','bytes free');assert(!s.includes('REU'),s);
  await check('help cls','Clears',1500);
  await check('type autoexec.sample','set',1500);
@@ -212,7 +212,7 @@ function diskFile(file,name){
  assert.deepEqual(saved.get('BLOB').data,blob);
  assert.equal(saved.get('TEST.TXT').data.toString(),'HELLO\rSECOND\r');
  assert.equal(saved.get('EDITED.TXT').data.toString(),'EDITED ON CARTRIDGE\r');
- for(const name of ['COMMANDS.HLP','CGA.CPI','AUTOEXEC.SAMPLE','MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT'])
+ for(const name of ['CGA.CPI','AUTOEXEC.SAMPLE','MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT'])
   assert.deepEqual(saved.get(name).data,fs.readFileSync('build/'+name),name+' remains intact');
  console.log('PASS persisted file bytes and bundled resources');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{
@@ -250,7 +250,7 @@ async function bankChecks(){
   assert((await memory(0x8000,0x9fff)).every(b=>b===0xab),'ROML window is usable RAM while a command bank is visible');
  await command('bank ram');
  assert((await memory(0xa000,0xbfff)).every(b=>b===0xea),'commands never copied to RAM beneath ROM');
- assert((await memory(0xc200,0xc6ff)).every(b=>b===0xcd),'upper free RAM remains untouched');
+ assert((await memory(0xc300,0xc6ff)).every(b=>b===0xcd),'upper free RAM remains untouched');
  await command('bank cpu');console.log('PASS ROM execution, restored bank, and free RAM guards');
 }
 

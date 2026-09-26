@@ -643,7 +643,7 @@ unsigned char reportoptions(unsigned char disk)
 
 unsigned int freememory(void)
 {
-    return 0xa000U - ((unsigned int)&BSSEnd) + 0x0500U;
+    return 0xa000U - ((unsigned int)&BSSEnd) + 0x0400U;
 }
 
 void memcmd(void)

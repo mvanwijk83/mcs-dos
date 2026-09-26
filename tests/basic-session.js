@@ -93,7 +93,7 @@ module.exports=async function({command,memory,screen,keys,enter,check,defaultFon
  assert(rotated.subarray(4096,65536).every(b=>b===255),'only reused sector erased');
  assert.deepEqual(rotated.subarray(65536),bytes.subarray(65536),'other journal sector intact');
  const files=require('./easyflash-image').readImage(crt).files;
- for(const name of ['CGA.CPI','COMMANDS.HLP','MANUAL.TXT'])assert.deepEqual(files.get(name).data,fs.readFileSync('build/'+name));
+ for(const name of ['CGA.CPI','MANUAL.TXT'])assert.deepEqual(files.get(name).data,fs.readFileSync('build/'+name));
  await attach();await resume();console.log('PASS append-only journal rotation without filesystem damage');
 
  // Report an error after begin has written an incomplete header.

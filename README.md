@@ -50,6 +50,9 @@ The experimental 2.0 branch is EasyFlash-exclusive. Build and attach
 `build/easyflash/MCS-DOS.crt` as an EasyFlash cartridge, then reset. Device 0
 is writable cartridge storage; devices 8–30 are external disks. See
 [EASYFLASH.md](EASYFLASH.md) for startup configuration and persistence details.
+Bundled files are writable just like user files. HELP uses internal cartridge
+data and needs no file or disk. Cartridge writes append to a journal, with
+occasional compaction to reclaim obsolete records.
 The older disk releases remain available under `releases/`.
 
 Use `BASIC` to save the shell session to flash and enter Commodore BASIC.

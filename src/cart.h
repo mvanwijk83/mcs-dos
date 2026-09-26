@@ -2,7 +2,7 @@
 #define MCS_CART_H
 /* Common channels are implemented in c64-support.c; these entry points are
  * its device-0 backend. Close must dispatch too: a cartridge close commits
- * the pending snapshot. LFN 0..5 are available to cartridge callers. */
+ * the pending journal record. LFN 0..5 are available to cartridge callers. */
 struct DirectoryEntry;
 unsigned char cart_init(void);
 unsigned char cart_open(char f,char s,const char *name);
@@ -18,5 +18,6 @@ unsigned char cart_config(unsigned char *devices);
 unsigned char cart_attribute(const char *name,unsigned char mode);
 unsigned char cart_launch(const char *name,unsigned char absolute,unsigned int address);
 extern unsigned char cart_channels[6];
+int cart_help(unsigned char topic,unsigned int offset,void *buffer,unsigned char size);
 #pragma compile("cart.c")
 #endif

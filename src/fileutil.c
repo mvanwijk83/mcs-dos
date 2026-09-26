@@ -295,75 +295,30 @@ __noinline void bank_runcmd(void)
     launch();
 }
 
-/* COMMANDS.HLP v1: MCH, version, topic count, then NUL-ended PETSCII texts.
- * Command help lives on cartridge device 0.
- * Reuse io so help does not reserve another permanent buffer. */
+/* Indexed internal cartridge text; no filesystem channels or persistent buffer. */
 __noinline unsigned char bank_diskhelp(unsigned char topic)
 {
-    unsigned char current, c, wrapped, device = 0;
-    unsigned int i;
+    unsigned char c, wrapped = 0, i;
+    unsigned int offset = 0;
     int n;
-retry:
-    current = 0;
-    wrapped = 0;
     pagelines = 0;
-    eof[2] = 0;
-    POKE(144, 0); /* Do not carry a failed open's KERNAL status into a retry. */
-    if (channel_open(2, device, 2, "commands.hlp,s,r"))
-        goto failed;
-    if (diskstatus(device, 0) >= 20)
-        goto failed;
-    if (readio(2, io, 5) != 5 || io[0] != 77 || io[1] != 67 || io[2] != 72 || io[3] != 1 ||
-        io[4] != sizeof(commands) / sizeof(commands[0]))
-        goto failed;
-    while (!aborted && (n = readio(2, io, sizeof(io))) > 0) {
+    while (!aborted && (n = cart_help(topic, offset, io, 120)) > 0) {
+        offset += n;
         for (i = 0; i < n; ++i) {
             c = io[i];
-            if (current == topic) {
-                if (!c) {
-                    channel_close(2);
-                    newline();
-                    return 1;
-                }
-                /* A full-width row already advanced to the next line. */
-                if (!redirected && wrapped && (c == 10 || c == 13)) {
-                    wrapped = 0;
-                    continue;
-                }
-                outc(c);
-                wrapped = !redirected && c != 10 && c != 13 && !ox;
-                /* Count displayed rows, including wrapping and blank lines.
-                 * Keep redirected bank_help byte-exact and free of page prompts. */
-                if (!redirected && !ox && !page()) {
-                    channel_close(2);
-                    return 0;
-                }
-            } else if (!c)
-                ++current;
+            if (!c) { newline(); return 1; }
+            if (!redirected && wrapped && (c == 10 || c == 13)) {
+                wrapped = 0;
+                continue;
+            }
+            outc(c);
+            wrapped = !redirected && c != 10 && c != 13 && !ox;
+            if (!redirected && !ox && !page()) return 0;
         }
         stop();
     }
-    if (aborted) {
-        channel_close(2);
-        return 0;
-    }
-failed:
-    channel_close(2);
-    /* Swapping a disk with an open output file would write to the wrong disk. */
-    if(!device) { error("Cartridge bank_help file missing or unreadable"); return 0; }
-    if (redirected && outputpath.dev == device) {
-        error("Insert MCS-DOS disk before redirecting bank_help");
-        return 0;
-    }
-    /* Always prompt on screen, including when bank_help output is redirected. */
-    error("Insert MCS-DOS disk and press any key when ready");
-    if (getch() == CH_STOP) {
-        aborted = 1;
-        return 0;
-    }
-    /* Refresh the drive's media state as well as the shell directory cache. */
-    command(device, "i");
-    goto retry;
+    if (!aborted) error("Cartridge help unavailable");
+    return 0;
 }
 
 __noinline void bank_help(int id)

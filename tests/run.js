@@ -3,7 +3,7 @@ const {setup} = require('./setup');
 const {spawnSync} = require('child_process');
 setup();
 const unit = ['amount-switches','cache-capacity','concat-limits','dir-sort','editor-lines','find',
-    'help-wrap','print','prompt','startup-settings','type-wrap'].map(name => [name]);
+    'help-wrap','print','prompt','startup-settings','type-wrap','journal-crc'].map(name => [name]);
 const emulator = ['c64-support','oscar64-regression','help-prompt','find-vice',
     'new-commands','copy-wildcards','redirection','editor-session','charset','bootsplash','bootsplash-restore',
     'input-history','help-recovery','sample-startup','petscii-completion'].map(name => [name]);
@@ -11,7 +11,7 @@ const drives = [['drive-compat','1541'], ['drive-compat','1571'], ['drive-compat
     ['drive-compat','1581','--large'], ['drive-compat','1571','--rel'], ['drive-compat','1581','--rel'],
     ['drive-compat','1571','--format'], ['drive-compat','1581','--format'],
     ['drive-compat','1581','--mismatch'], ['drive-compat','1541','--badformat'], ['drive-compat','1571','--single']];
-const easyflash = [['banked-image'], ['easyflash','--banked'], ['easyflash','--session']];
+const easyflash = [['banked-image'], ['easyflash','--banked'], ['easyflash','--journal'], ['easyflash','--session']];
 const groups = {unit, easyflash, emulator, drives, all: [...unit, ...easyflash]};
 const group = process.argv[2] || 'unit';
 if (process.argv.length > 3 || !groups[group]) {

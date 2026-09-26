@@ -60,7 +60,4 @@ c += 'void launch(void) { bank_leave(BANK_NONE); __asm { jsr display_reset\n sei
 for(const [label,value] of Object.entries({len:'launchlength',dev:'launchdevice',absolute:'launchabsolute',secondary:'launchabsolute^1',addresslo:'launchaddress',addresshi:'launchaddress>>8',jump:'launchaddress'}))
   c += `POKE(${labels[label]+1},${value});\n`;
 c += `POKE(${labels.jump+2},launchaddress>>8);\n __asm { jmp 0x0334 } }\n`;
-// Return through main and CRT: its normal epilogue also restores BASIC's
-// temporary-string pointer ($16), which Oscar64's exit(0) skips.
-c += 'void basic_exit(void) { __asm { jsr 0xffcc\n jsr 0xffe7\n jsr display_reset\n lda #0x37\n sta 1 } }\n';
 fs.writeFileSync(out+'/hardware.h',c);

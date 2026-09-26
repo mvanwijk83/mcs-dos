@@ -87,7 +87,7 @@ low:
  jsr 0xdf80
  jmp result
 erase:
- lda #56
+ lda 0x07f0
  ldy 0x07f2
  jsr 0xdf83
  jmp result

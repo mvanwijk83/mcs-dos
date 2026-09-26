@@ -1,4 +1,16 @@
 #include "core.h"
+__noinline unsigned char bank_session_save(void);
+__noinline unsigned char bank_session_restore(void);
+__noinline void bank_session_basic(void);
+unsigned char session_save(void) {
+    unsigned char previous=bank_enter(BANK_BOOT),result=bank_session_save();
+    bank_leave(previous);return result;
+}
+unsigned char session_restore(void) {
+    unsigned char previous=bank_enter(BANK_BOOT),result=bank_session_restore();
+    bank_leave(previous);return result;
+}
+void session_basic(void) { bank_enter(BANK_BOOT);bank_session_basic(); }
 /* Typed resident gates: one linked program shares stack/register allocation. */
 __noinline void bank_editstatus(void);
 __noinline void editstatus(void)

@@ -6,6 +6,8 @@
 
 #include "cart.h"
 #include "banking.h"
+#include "session.h"
+extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,7 +82,6 @@ extern unsigned char noseparators, validate;
 extern const char *const commands[29];
 #define COMMANDCOUNT 29
 void launch(void);
-void basic_exit(void);
 void charset_prepare(void);
 void charset_commit(void);
 void charset_enable(void);

@@ -107,7 +107,7 @@ static unsigned char begin(int omit) {
  unsigned char i; unsigned int n,off,len,start;
  if(writer) { error=60; return 0; }
  for(i=0;i<6;++i) if(channels[i].kind==1&&channels[i].side!=active) { error=60; return 0; }
- target=active^1; failed=0; H[2]=target?0xa0:0x80; hal(2);
+ target=active^1; failed=0; H[0]=56; H[2]=target?0xa0:0x80; hal(2);
  if(H[4]) { error=25; return 0; }
  cursor=DATA; outcount=0;
  for(i=0;i<count;++i) {
@@ -262,9 +262,11 @@ static void config(void) {
  }
  P[3]=enabled?countdev:0; for(j=0;j<countdev;++j) TEXT[j]=devices[j]; if(bad) error=33;
 }
+#include "session-store.h"
 void dispatch(void) {
  unsigned char op=P[0],f=P[1],n=P[3],i; Channel *c;
  if(op==0) { hal(3); if(H[4]) { error=74; P[4]=error; return; } mount(); }
+ else if(op>=14&&op<=18) { session_store(op);return; }
  else if(op==7) { P[4]=error; return; }
  else if(!mounted) { P[4]=74; return; }
  else {

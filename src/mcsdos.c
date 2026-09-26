@@ -10,6 +10,7 @@
 #pragma compile("filemgmt.c")
 #pragma compile("disk.c")
 #pragma compile("boot.c")
+#pragma compile("session.c")
 
 int main(void)
 {
@@ -23,10 +24,21 @@ int main(void)
     textcursor(false);
     POKE(207, 0);
     startdrive = 0;
-    bootsplash(1);
+    resume_requested=RESUME[0]==0xa5;
+    RESUME[0]=0;
+    if(!resume_requested)bootsplash(1);
 restart:
     startdrive = bootstart(startdrive);
     startup = 1;
+    if(resume_requested) {
+        if(!session_restore()) {
+            bootstart(0);
+            envready=1;
+            say("Warning: saved shell state unavailable. Using defaults.");
+        }
+        startup=0;resume_requested=0;
+    }
+again:
     while (!quit) {
         if (startup && !batching) {
             startup = 0;
@@ -83,7 +95,9 @@ restart:
         if (!batching && !quit)
             newline();
     }
-    basic_exit();
-    return 0;
+    if(session_save() || yesno("Warning: write error saving shell state. Proceed to BASIC"))
+        session_basic();
+    quit=0;
+    goto again;
 }
 #include "../build/oscar64/hardware.h"

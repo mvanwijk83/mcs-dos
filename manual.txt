@@ -295,9 +295,12 @@ identifiers) can be customized via
 environment variables. See chapter 7
 for more information.
 
-  Quitting MCS-DOS
-The EXIT command ends the program and
-returns to BASIC.
+  Using Commodore BASIC
+The BASIC command saves the shell
+session to cartridge flash and enters
+Commodore BASIC. Type SHELL at its
+prompt to restore your shell session.
+Startup files are not processed again.
 
 
   6. Commands
@@ -330,6 +333,22 @@ drive:
 
 ATTRIB [+R | -R] [[drive:]filename]
   Displays or changes file attributes.
+
+BASIC
+  Saves the shell state and history,
+  then enters Commodore BASIC. Type
+  SHELL to return. Shell colors persist
+  in BASIC; its standard font is used.
+  Returning restores the shell font,
+  colors, environment, prompt and drive.
+  Returning discards BASIC programs.
+  External programs may overwrite the
+  return wedge; reset the cartridge if
+  necessary. Reset starts a new session.
+  If saving fails, choose N to stay in
+  the shell, or Y to enter BASIC without
+  a restorable session. Failed restores
+  use defaults, never an older snapshot.
 
 BEEP [duration]
   Plays a SID beep.
@@ -373,10 +392,6 @@ ECHO.
 
 EDIT [filename]
   Edits one screen of text.
-
-EXIT
-  Quits the command shell and returns to
-  Commodore BASIC.
 
 FIND [/V] [/C] [/N] [/I] "string"
      [[drive:]filename]

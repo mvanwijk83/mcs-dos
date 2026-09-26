@@ -8,7 +8,7 @@
   "DISKCOPY": "Copies the contents of one disk to\nanother.\n\nDISKCOPY source: destination:\n  source:       Drive to copy from.\n  destination:  Drive to copy to.\n\nNote: source and destination drive must\nbe of the same type (1541/1571/1581).",
   "ECHO": "Displays messages, or turns command-\nechoing on or off.\n\n  ECHO [ON | OFF]\n  ECHO [message]\n\nType ECHO without parameters to display\nthe current echo setting. ECHO. (no\nspace) will insert a blank line.",
   "EDIT": "Edits one screen of text.\n\nEDIT [filename]\n\nSupported edit keys are cursor keys,\nINST/DEL, CLR/HOME, and RETURN. RUN/STOP\nexits and prompts to save.\n\nOmit filename to be prompted at save.\nTo create a batch file, include a .BAT\nextension.",
-  "EXIT": "Quits the command shell and returns to\nCommodore BASIC.",
+  "BASIC": "Exits to Commodore 64 BASIC.\n\nType SHELL in BASIC to return.",
   "FORMAT": "Formats a disk.\n\n  FORMAT drive:",
   "HELP": "Displays help on MCS-DOS commands.\n\n  HELP [command]\n\n[command]\n  Displays help on that command.\n\nCommand /? also displays help. If no\ncommand is specified, a list of valid\ncommands is displayed.",
   "LABEL": "Creates, changes, or deletes the volume\nlabel of a disk.\n\nLABEL [drive:] [label]",

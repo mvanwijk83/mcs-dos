@@ -53,7 +53,8 @@ packaging. Directory sizes and free space use conventional 254-byte blocks,
 so displayed free space rounds down. Writes compact the live files into the
 alternate flash sector. This deliberately favors simplicity and recovery over
 speed: even a small edit rewrites the current files and erases one 64 KiB
-sector. Frequent history/cache saving is not implemented in this stage.
+sector. BASIC session saves use the separate journal described below; they
+do not compact or rewrite the filesystem.
 
 A write becomes visible on close. The old snapshot remains intact until the
 new snapshot has a checksum and its final commit marker. Failed/full writes
@@ -74,24 +75,26 @@ the target setup.
 | --- | --- |
 | 0 | Reset/bootstrap, RAM bank bridge, vendor EasyAPI |
 | 1–3 | Shell load image, copied to RAM at startup |
-| 4 | Filesystem driver and external-program loader |
+| 4 | Filesystem/session flash driver and external-program loader |
 | 5 ROMH | `edit.c`: editor, command-line input/history/completion |
 | 6 ROMH | `fileutil.c`: TYPE, PRINT, FIND, HELP, RUN |
 | 7 ROMH | `filemgmt.c`: DIR, COPY/MOVE, DEL, REN, ATTRIB, shared file helpers |
 | 8 ROMH | `disk.c`: raw disk services, VOL/CHKDSK, FORMAT, LABEL, DISKID, DISKCOPY |
-| 9 ROMH | `boot.c`: startup/configuration, environment SET, splash, charset loading |
-| 10–55 | Reserved for future code/data |
+| 9 ROMH | `boot.c`, `session.c`: startup/configuration, SET, splash, charset, BASIC/session services |
+| 10–47 | Reserved for future code/data |
+| 48–55 ROML/ROMH | Private session journal: two independent 64 KiB sectors |
 | 56–63 ROML | Filesystem snapshot A: one physical 64 KiB sector |
 | 56–63 ROMH | Filesystem snapshot B: one physical 64 KiB sector |
 
-The two chips are erased independently. Do not pack code into either filesystem
-sector, even apparently unused bytes. File offsets cross 8 KiB bank boundaries
+The two chips are erased independently. Do not pack code into filesystem or
+session sectors, even apparently unused bytes. File offsets cross 8 KiB bank boundaries
 without exposing banks to callers. The build rejects shell/driver overflows.
 
 RAM reservations are $0400–$06FF for EasyAPI, $0700–$07EF for driver state,
 $07F0–$07F4 for flash parameters, $07F5 for the current command bank,
 $0800–$087F for the shared mailbox,
-$0880–$09FF for the bank bridge, and $C700–$C7FF for the driver's C stack.
+$0880–$09FF for the bank bridge, $C000–$C1FF for the BASIC wedge and return
+descriptor, and $C700–$C7FF for the driver's C stack.
 The resident shell starts at $0A00 and keeps its 2 KiB stack at $C800–$CFFF.
 Its display and charset remain in upper RAM. The bridge preserves Oscar64's
 zero-page workspace and disables interrupts during filesystem calls.
@@ -130,18 +133,18 @@ not valid after switching banks. Resident output routines can consume a
 literal from the currently visible caller bank. Persistent variables remain
 in RAM. IRQ/NMI handlers and mapping/flash routines must remain resident.
 
-The provisional build uses 29,025 bytes for the resident shell/workspace,
-plus the unchanged 2,048-byte stack. MEM reports **11,678 bytes free** versus
-231 before this refactor. Of these, 9,886 bytes are below $A000 and 1,792 are
-at $C000–$C6FF. The latter is available for an explicitly placed future buffer;
+With BASIC session support the build uses 29,289 bytes for the resident shell/workspace,
+plus the unchanged 2,048-byte stack. MEM reports **10,902 bytes free** versus
+231 before the banking refactor. Of these, 9,622 bytes are below $A000 and 1,280 are
+at $C200–$C6FF. The latter is available for an explicitly placed future buffer;
 it is not part of the compiler's contiguous main region. RAM beneath the ROM
 window is not counted. MEM shows the 8,192-byte window separately and does
 not probe REU hardware. Exact figures are generated in `layout.json`.
 
-The five banks occupy 24,770 bytes, with 16,190 bytes spare across them.
-The aggregate executable grows from 37,153 to 42,284 bytes because of explicit
-call boundaries, gates and changed compiler optimization opportunities; flash
-absorbs that cost. Resident code/data/BSS falls from 48,664 to 29,025 bytes.
+The five banks occupy 26,080 bytes, with 14,880 bytes spare across them.
+The aggregate executable is 43,857 bytes, including the resident image and
+banked code/data. Resident code/data/BSS falls from the pre-banking build's
+48,664 bytes to 29,289 bytes despite the additional session functionality.
 File management is the tightest bank (788 bytes spare). Future code can use
 additional banks instead of increasing resident code size. RAM data still
 has a real limit; new persistent buffers, gates and resident/library services
@@ -195,10 +198,67 @@ close; the driver refuses an erase if a reader still needs that older sector.
 Close writes the directory entry, header and checksum, then programs the
 commit marker last. Aborting a copy discards the pending write.
 
+## BASIC and shell sessions
+
+`BASIC` replaces `EXIT`. It saves the current environment, active prompt,
+colors, current drive, ECHO setting, all ten history entries (including their
+exact-byte metadata), and the actual 2,048-byte font. Active settings are
+stored separately from environment values which may apply only on the next
+ordinary startup. The directory cache and open/batch execution state are discarded.
+
+BASIC starts with its normal ROM uppercase/graphics font and full program
+area through $9FFF. Shell colors remain, the screen is cleared, and
+`COMMODORE BASIC V2` and `38911 BASIC BYTES FREE` appear on separate lines,
+then a blank line, `TYPE 'SHELL' TO RETURN TO MCS-DOS`, another blank line,
+and `READY.`. The 340-byte RAM
+wedge hooks BASIC's statement-dispatch vector and recognizes only a standalone
+`SHELL` at the direct prompt, allowing surrounding spaces. Ordinary statements,
+variables such as `SHELLX`, and program execution use the original interpreter.
+The wedge and descriptor fit within $C000–$C1FF; BASIC loses no program space.
+
+`SHELL` reloads the resident image from cartridge, recreates runtime/display
+services, and restores the exact saved session. It skips the splash,
+CONFIG.SYS and AUTOEXEC.BAT. BASIC programs and variables are discarded.
+The saved font is restored directly, without reopening a CPI file or disk.
+Changes to colors made in BASIC do not alter the saved shell colors.
+
+If saving fails, the shell asks
+`Warning: write error saving shell state. Proceed to BASIC (Y/N)?`.
+N (or RUN/STOP) keeps the shell running. Y enters BASIC with an invalid return
+token; `SHELL` then starts with defaults and a warning, without startup files.
+Corrupt or incompatible snapshots receive the same fallback. Normal cartridge
+reset always ignores sessions and processes startup files normally.
+
+The private journal uses 32 slots of 4,096 bytes across banks 48–55, on both
+flash chips. Saves append to unused slots; when full, the sector opposite the
+latest committed record is erased and reused. These retained records reduce
+erase frequency; they are never used as restoration fallbacks. Restoration
+neither erases nor rewrites flash.
+
+Each 16-byte header contains `MSS`, format version 1, a little-endian 16-bit
+generation at offset 4, payload length (3,349) at offset 6, and CRC-16/CCITT
+at offset 8 (polynomial $1021, initial value $FFFF). Offset 15 is committed
+as $A5 only after readback verification. The payload contains 16 metadata
+bytes, 512 environment bytes, 650 history bytes, 90 history metadata bytes,
+33 prompt bytes, and 2,048 font bytes. No pointers are serialized.
+
+The RAM descriptor at $C1E0 retains the slot, generation and CRC from a
+successful save. Its validity flag is cleared before every attempt and set
+only after successful verification. Restore requires that exact token plus
+a valid header and full payload CRC; it never chooses an older record.
+The cold-start bootstrap clears the resume request, while the wedge sets it
+immediately before loading the shell. The on-flash snapshot remains intact
+after return. Snapshot format changes must increment its version.
+
+Run `node tests/easyflash.js --session` for BASIC execution, state round trips,
+startup bypass, flash readback/rotation, failed-save N/Y paths, CRC rejection
+and cold-reset behavior. `--ntsc` selects NTSC timing.
+
 ## Scope
 
 RUN can load PRGs from the cartridge as well as disks. Running an external
-program relinquishes the shell; cartridge reset boots it again. There is no
-BASIC return wedge or session restoration yet. Existing EXIT remains a BASIC
-handoff. The filesystem format is experimental; future versions may require
+program directly from the shell relinquishes it; cartridge reset boots it again.
+The BASIC return wedge is a convenience: programs that overwrite its RAM or
+BASIC vectors can disable it. The filesystem and session formats are
+experimental; future versions may require
 backing up and restoring files.

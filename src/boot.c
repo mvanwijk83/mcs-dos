@@ -283,14 +283,13 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive) {
     screenbase = 0xe000;
     gotoxy(ox, oy);
     c=cart_init(); if(c) error("Cartridge filesystem unavailable");
-    if (!c && !skipautoexec) {
+    if (!c && !skipautoexec && !resume_requested) {
         unsigned char bootdevs[24], bi, bn=cart_config(bootdevs);
         if(cart_status()) error("Invalid CONFIG.SYS directive");
         startdrive=drive=0;
         for(bi=0;bi<bn;++bi) {
             p1.dev=bootdevs[bi]; filename("AUTOEXEC.BAT",p1.name);
             if(p1.dev && !statuschannel(p1.dev)) continue;
-/* Swapping a disk with an open output file would write to the wrong disk. */
             if(findfile(&p1)>=0) { startdrive=drive=p1.dev; runbatch(); break; }
         }
     }

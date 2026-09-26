@@ -47,9 +47,10 @@ unsigned char launchdevice, launchlength, launchabsolute;
 unsigned int launchaddress;
 
 unsigned char noseparators, validate;
+unsigned char resume_requested;
 
 const char *const commands[] = {
-    "BEEP",   "CHKDSK", "CLS",   "COPY",   "DEL",  "DIR",    "DISKCOPY", "ECHO",   "EDIT", "EXIT",
+    "BEEP",   "CHKDSK", "CLS",   "COPY",   "DEL",  "DIR",    "DISKCOPY", "ECHO",   "EDIT", "BASIC",
     "FORMAT", "HELP",   "LABEL", "MEM",    "MOVE", "PAUSE",  "PRINT",    "REM",    "REN",  "RUN",
     "TYPE",   "VOL",    "VER",   "DISKID", "SET",  "REBOOT", "ATTRIB",   "SPLASH", "FIND"};
 
@@ -642,7 +643,7 @@ unsigned char reportoptions(unsigned char disk)
 
 unsigned int freememory(void)
 {
-    return 0xa000U - ((unsigned int)&BSSEnd) + 0x0700U;
+    return 0xa000U - ((unsigned int)&BSSEnd) + 0x0500U;
 }
 
 void memcmd(void)
@@ -841,7 +842,8 @@ void executecommand(char *s)
         editcmd();
         break;
     case 9:
-        quit = 1;
+        if(argc!=1)error("Syntax: BASIC");
+        else quit = 1;
         break;
     case 10:
         formatcmd();

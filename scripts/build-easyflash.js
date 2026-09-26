@@ -4,6 +4,10 @@ const out='build/easyflash'; fs.mkdirSync(out,{recursive:true});
 const compile=args=>exec(tool('oscar64','oscar64'),args,{stdio:'inherit',windowsHide:true});
 const binary=(name,source=`src/easyflash/${name}.c`,extra=[])=>compile(['-n','-Os','-Oo','-psci','-rt=','-tf=bin',...extra,`-o=${out}/${name}.bin`,source]);
 exec(process.execPath,['scripts/make-hardware.js'],{stdio:'inherit',windowsHide:true});
+binary('wedge');
+const wedge=fs.readFileSync(`${out}/wedge.bin`);
+if(wedge.length>480)throw Error('BASIC wedge overlaps handoff descriptor');
+fs.writeFileSync(`${out}/wedge.h`,'static const unsigned char wedge_image[]={'+[...wedge].join(',')+'};\n');
 binary('bridge');
 binary('run');
 const run=fs.readFileSync(`${out}/run.bin`); if(run.length>172) throw Error('Cartridge launch loader overflow');
@@ -54,6 +58,8 @@ fs.writeFileSync(`${out}/init.c`,`#pragma section(startup,0)
 #pragma region(startup,0x8000,0xa000,,, {startup})
 #pragma optimize(noasm)
 __asm startup {
+ lda #0
+ sta 0xc1e0
  jsr 0xff84
  jsr 0xff87
  jsr 0xff8a
@@ -79,6 +85,7 @@ function insert(bank,chip,bytes,offset=0){if(bytes.length+offset>8192)throw Erro
 insert(0,0,fs.readFileSync(`${out}/init.bin`)); insert(0,1,fs.readFileSync(`${out}/boot.bin`));
 insert(0,1,fs.readFileSync('src/easyflash/eapi.bin'),0x1800);
 insert(0,1,bridge,0x1000);
+insert(0,0,loader,0x1000);insert(0,0,Buffer.from([loader.length]),0x10ff);
 payload.copy(rom,16384);
 const banks=fs.readFileSync(`${out}/shell-crt.crt`);
 for(let at=64;at<banks.length;at+=banks.readUInt32BE(at+4)){
@@ -102,8 +109,8 @@ let a=0,b=0;for(let i=32;i<used;i++){a=(a+image[i])&255;b=(b+a)&255;}image.write
 for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
 const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.0',32);
 const packets=[header];
-// Include both complete writable sectors, even the erased recovery side.
-for(let bank=0;bank<64;bank++)if(bank<10||bank>=56)for(let chip=0;chip<2;chip++){
+// Include complete filesystem and session sectors, including erased sides.
+for(let bank=0;bank<64;bank++)if(bank<10||bank>=48)for(let chip=0;chip<2;chip++){
  const h=Buffer.alloc(16);h.write('CHIP');h.writeUInt32BE(8208,4);h.writeUInt16BE(2,8);h.writeUInt16BE(bank,10);h.writeUInt16BE(chip?0xa000:0x8000,12);h.writeUInt16BE(8192,14);
  packets.push(h,rom.subarray(bank*16384+chip*8192,bank*16384+(chip+1)*8192));
 }
@@ -112,7 +119,8 @@ fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
 fs.writeFileSync(`${out}/layout.json`,JSON.stringify({entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
- freeRam:0xa000-bssEnd+0x700,freeRanges:[[bssEnd,0xa000],[0xc000,0xc700]],
+ wedge:wedge.length,sessionBytes:3349,sessionBanks:[48,55],
+ freeRam:0xa000-bssEnd+0x500,freeRanges:[[bssEnd,0xa000],[0xc200,0xc700]],
  used,available:65024-used},null,2));
 console.log('Built '+out+'/MCS-DOS.crt');
 

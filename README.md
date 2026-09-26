@@ -52,6 +52,11 @@ is writable cartridge storage; devices 8–30 are external disks. See
 [EASYFLASH.md](EASYFLASH.md) for startup configuration and persistence details.
 The older disk releases remain available under `releases/`.
 
+Use `BASIC` to save the shell session to flash and enter Commodore BASIC.
+Type `SHELL` at its prompt to restore the session without rerunning startup
+files. A normal cartridge reset starts fresh. Programs that overwrite the
+return wedge may require a cartridge reset.
+
 Refer to `MANUAL.TXT` for more extensive information.
 
 ## Repository layout

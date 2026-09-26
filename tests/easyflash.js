@@ -64,6 +64,9 @@ function diskFile(file,name){
  await delay(3000); let s=await screen();console.log('BOOT',s); assert(s.includes('0:>'),s);
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');
  await defaultFont();
+ if(process.argv.includes('--session')) {
+  await require('./basic-session')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
+ }
  if(process.argv.includes('--display')) {
   await check('dir','MCS-DOS.EXE');
   await defaultFont();
@@ -87,7 +90,7 @@ function diskFile(file,name){
  if(process.argv.includes('--banked')) {
   await command('bank ram');
   await command('f a000 bfff ea');
-  await command('f c000 c6ff cd');
+  await command('f c200 c6ff cd');
   const bssEnd=JSON.parse(fs.readFileSync('build/easyflash/layout.json')).bssEnd;
   if(bssEnd<=0x8000)await command('f 8000 9fff ab');
   await command('bank cpu');
@@ -247,7 +250,7 @@ async function bankChecks(){
   assert((await memory(0x8000,0x9fff)).every(b=>b===0xab),'ROML window is usable RAM while a command bank is visible');
  await command('bank ram');
  assert((await memory(0xa000,0xbfff)).every(b=>b===0xea),'commands never copied to RAM beneath ROM');
- assert((await memory(0xc000,0xc6ff)).every(b=>b===0xcd),'upper free RAM remains untouched');
+ assert((await memory(0xc200,0xc6ff)).every(b=>b===0xcd),'upper free RAM remains untouched');
  await command('bank cpu');console.log('PASS ROM execution, restored bank, and free RAM guards');
 }
 

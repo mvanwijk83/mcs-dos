@@ -79,8 +79,8 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators, validate;
-extern const char *const commands[29];
-#define COMMANDCOUNT 29
+#define COMMANDCOUNT 30
+extern const char *const commands[COMMANDCOUNT];
 void launch(void);
 void charset_prepare(void);
 void charset_commit(void);
@@ -163,6 +163,7 @@ void volcmd(unsigned char stats);
 void labelcmd(void);
 void formatcmd(void);
 void diskidcmd(void);
+void diskinitcmd(void);
 void diskcopycmd(void);
 void attribcmd(void);
 int commandid(const char *s);

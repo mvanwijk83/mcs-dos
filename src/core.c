@@ -52,7 +52,7 @@ unsigned char resume_requested;
 const char *const commands[] = {
     "BEEP",   "CHKDSK", "CLS",   "COPY",   "DEL",  "DIR",    "DISKCOPY", "ECHO",   "EDIT", "BASIC",
     "FORMAT", "HELP",   "LABEL", "MEM",    "MOVE", "PAUSE",  "PRINT",    "REM",    "REN",  "RUN",
-    "TYPE",   "VOL",    "VER",   "DISKID", "SET",  "REBOOT", "ATTRIB",   "SPLASH", "FIND"};
+    "TYPE",   "VOL",    "VER",   "DISKID", "SET",  "REBOOT", "ATTRIB",   "SPLASH", "FIND", "DISKINIT"};
 
 void clear(void)
 {
@@ -935,6 +935,9 @@ void executecommand(char *s)
         break;
     case 28:
         findcmd();
+        break;
+    case 29:
+        diskinitcmd();
         break;
     case 26:
         attribcmd();

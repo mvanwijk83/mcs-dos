@@ -68,7 +68,7 @@ __noinline void bank_editcmd(void)
             return;
         if (exists >= 0) {
             if (directory_entries[exists].type != CBM_T_SEQ) {
-                say(SYSOUT_EDIT_REQUIRES_A_SEQ_TEXT_FILE);
+                say(SYSOUT_UNSUPPORTED_FILE_TYPE);
                 return;
             }
             if (!openreadtype(&p1, 2, CBM_T_SEQ))

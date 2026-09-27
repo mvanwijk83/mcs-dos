@@ -8,12 +8,12 @@
   "DISKCOPY": "Copies the contents of one disk to\nanother.\n\nDISKCOPY source: destination:\n  source:       Drive to copy from.\n  destination:  Drive to copy to.\n\nNote: source and destination drive must\nbe of the same type (1541/1571/1581).",
   "ECHO": "Displays messages, or turns command-\nechoing on or off.\n\n  ECHO [ON | OFF]\n  ECHO [message]\n\nType ECHO without parameters to display\nthe current echo setting. ECHO. (no\nspace) will insert a blank line.",
   "EDIT": "Edits one screen of text.\n\nEDIT [filename]\n\nSupported edit keys are cursor keys,\nINST/DEL, CLR/HOME, and RETURN. RUN/STOP\nexits and prompts to save.\n\nOmit filename to be prompted at save.\nTo create a batch file, include a .BAT\nextension.",
-  "BASIC": "Exits to Commodore 64 BASIC.\n\nType SHELL in BASIC to return.",
+  "BASIC": "Enters the C64 64 BASIC environment.\n\nType SHELL in BASIC to return.",
   "FORMAT": "Formats a disk.\n\n  FORMAT drive:",
   "HELP": "Displays help on MCS-DOS commands.\n\n  HELP [command]\n\n[command]\n  Displays help on that command.\n\nCommand /? also displays help. If no\ncommand is specified, a list of valid\ncommands is displayed.",
   "LABEL": "Creates, changes, or deletes the volume\nlabel of a disk.\n\nLABEL [drive:] [label]",
   "MEM": "Displays the amount of used and free\nmemory in your system.\n\nMEM",
-  "MOVE": "Copies the source file to the specified\ndestination, then deletes the source.\n\nMOVE source destination [/P]\n\n  /P           Suppresses confirmation\n               prompt to overwrite an\n               existing file.",
+  "MOVE": "Copies the source file to the specified\ndestination, then deletes the source.\n\nMOVE source destination [/P]\n\n  /P  Suppresses confirmation prompt to\n      overwrite an existing file.",
   "PAUSE": "Suspends processing of a batch program\nand waits for a key to resume.",
   "PRINT": "Sends the contents of a file to a\nprinter.\n\nPRINT filename [4:|5:|LPT1|LPT2]\n\nLPT1 and LPT2 are aliases of devices\n4 and 5.",
   "REM": "Records comments in a batch file.\n\nREM [comment]",
@@ -27,5 +27,6 @@
   "REBOOT": "Reboots the environment.",
   "ATTRIB": "Displays or changes file attributes\n\nATTRIB [+L | -L] [[drive:]filename]\n\n  +   Sets an attribute.\n  -   Clears an attribute.\n  L   File lock attribute.",
   "SPLASH": "Shows the MCS-DOS splash screen.",
-  "FIND": "Searches for a text string in a file.\n\nFIND [/V] [/C] [/N] [/I] \"string\"\n     [[drive:]filename]\n\n /V  Displays all lines NOT containing\n     the specified string.\n /C  Displays only the count of lines\n     containing the string.\n /N  Displays line numbers with the\n     displayed lines\n /I  Ignores the case of characters\n     when searching for the string\n \"string\"\n     Specifies the text string to find.\n [drive:]filename\n     Specifies a file to search."
+  "FIND": "Searches for a text string in a file.\n\nFIND [/V] [/C] [/N] [/I] \"string\"\n     [[drive:]filename]\n\n /V  Displays all lines NOT containing\n     the specified string.\n /C  Displays only the count of lines\n     containing the string.\n /N  Displays line numbers with the\n     displayed lines\n /I  Ignores the case of characters\n     when searching for the string\n \"string\"\n     Specifies the text string to find.\n [drive:]filename\n     Specifies a file to search.",
+  "DISKINIT": "Resets disk drive state and forces a\nreread of the directory.\n\nDISKINIT [drive:]"
 }

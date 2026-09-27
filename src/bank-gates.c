@@ -188,6 +188,14 @@ __noinline void formatcmd(void)
     bank_leave(previous);
 }
 
+__noinline void bank_diskinitcmd(void);
+__noinline void diskinitcmd(void)
+{
+    unsigned char previous=bank_enter(BANK_DISK);
+    bank_diskinitcmd();
+    bank_leave(previous);
+}
+
 __noinline void bank_diskidcmd(void);
 __noinline void diskidcmd(void)
 {

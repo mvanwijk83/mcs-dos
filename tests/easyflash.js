@@ -104,6 +104,37 @@ function diskFile(file,name){
   const free=JSON.parse(fs.readFileSync('build/easyflash/layout.json')).freeRam;
   assert((await screen()).includes(free.toLocaleString('en-US')+' bytes free'));
  }
+ if(process.argv.includes('--delete')) {
+  await command('attach "'+disk+'" 8');
+  for(const dev of [0,8]) {
+   await enter(dev+':');
+   for(const name of ['za.txt','zb.txt','zc.txt'])await enter('echo test >'+name,1800);
+   await enter('cls');
+   s=await keys('del z?.txt\\x0d',3000);assert(s.includes('Delete ZA.TXT (Y/N)?'),s);
+   s=await keys('y',2000);assert(s.includes('Delete ZB.TXT (Y/N)?'),s);
+   s=await keys('n');assert(s.includes('Delete ZC.TXT (Y/N)?'),s);
+   s=await keys('y',2000);assert(s.trimEnd().endsWith(dev+':>'),s);
+   await enter('cls');s=await check('dir z* /b','ZB.TXT');
+   assert(!s.includes('ZA.TXT')&&!s.includes('ZC.TXT'),s);
+   await enter('del z* /p');
+   await enter('cls');s=await enter('dir z* /b');assert(!s.includes('ZB.TXT'),s);
+  }
+  console.log('PASS wildcard DEL individual Yes/No choices and /P on cartridge and disk');return;
+ }
+ if(process.argv.includes('--diskinit')) {
+  await check('help diskinit','Resets disk drive state and forces a');
+  await check('diskinit','Unsupported operation on cartridge');
+  await check('diskinit 0:','Unsupported operation on cartridge');
+  await command('attach "'+disk+'" 8');
+  await enter('cls');
+  s=await enter('diskinit 8:');assert.equal(s.trim().replace(/\n+/g,'\n'),'0:>diskinit 8:\n0:>',s);
+  await check('dir 8: /b','BLOB');
+  await enter('8:');await enter('cls');
+  s=await enter('diskinit');assert.equal(s.trim().replace(/\n+/g,'\n'),'8:>diskinit\n8:>',s);
+  await check('dir /b','BLOB');
+  await check('diskinit 0:','Unsupported operation on cartridge');
+  console.log('PASS DISKINIT help, cartridge rejection, explicit/current disk and subsequent directory reads');return;
+ }
  if(process.argv.includes('--commands')) {
   const layout=JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
   s=await check('chkdsk',' 64,000 bytes total disk space');
@@ -300,4 +331,3 @@ async function defaultFont(patch){
  assert.equal((await memory(0xdd00))[0]&3,0,'VIC bank 3');
  console.log('PASS complete '+(patch?'CPI':'default')+' charset and VIC mapping');
 }
-

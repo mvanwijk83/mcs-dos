@@ -1,7 +1,7 @@
 #ifndef MCS_SYSOUT_H
 #define MCS_SYSOUT_H
 
-/* System output text, including error messages, warnings, prompts, line fragments and format strings.*/
+/* System output text, including error messages, warnings, prompts, line fragments and format strings */
 #define SYSOUT_SESSION_RESTORE_WARNING "Unable to restore previous shell state.\nUsing defaults."
 #define SYSOUT_BATCH_COMMAND_TOO_LONG "Batch command too long"
 #define SYSOUT_SESSION_SAVE_WARNING "Warning: write error saving shell state. Proceed to BASIC"
@@ -51,21 +51,20 @@
 #define SYSOUT_TYPE_USER "USR"
 #define SYSOUT_TYPE_RELATIVE "REL"
 #define SYSOUT_TYPE_UNKNOWN "???"
-/* Editor. */
+/* Editor */
 #define SYSOUT_SAVING "Saving . . ."
 #define SYSOUT_INVALID_SWITCH "Invalid switch"
 #define SYSOUT_TOO_MANY_PARAMETERS "Too many parameters"
-#define SYSOUT_EDIT_REQUIRES_A_SEQ_TEXT_FILE "EDIT requires a SEQ text file"
 #define SYSOUT_FILE_TOO_LARGE_OR_UNREADABLE "File too large or unreadable"
 #define SYSOUT_EDIT_INITIAL_POSITION " 01:01  "
 #define SYSOUT_UNTITLED "Untitled"
 #define SYSOUT_RUN_STOP_QUIT "RUN/STOP:quit"
 #define SYSOUT_SAVE_CHANGES "Save changes"
 #define SYSOUT_FILE_NAME "File name: "
-/* File display, search, launch and help. */
+/* File display, search, launch and help */
 #define SYSOUT_SYNTAX_PRINT "Syntax: PRINT filename [4:|5:|LPT1|LPT2]"
-#define SYSOUT_INVALID_PRINTER "Invalid printer (4:, 5:, LPT1, LPT2)"
-#define SYSOUT_PRINTER_NOT_READY "Printer not ready"
+#define SYSOUT_INVALID_PRINTER "Invalid device (4:, 5:, LPT1, LPT2)"
+#define SYSOUT_PRINTER_NOT_READY "Device not ready"
 #define SYSOUT_READ_FAULT_ERROR "Read fault error"
 #define SYSOUT_SYNTAX_FIND "Syntax: FIND [switches] \"string\" filename"
 #define SYSOUT_FIND_HEADER "---- %s"
@@ -74,13 +73,13 @@
 #define SYSOUT_SYNTAX_RUN "Syntax: RUN file [/A address]"
 #define SYSOUT_INVALID_SWITCH_FOR_BATCH_FILE "Invalid switch for batch file"
 #define SYSOUT_INVALID_LOAD_ADDRESS "Invalid load address"
-#define SYSOUT_LOADING "Loading..."
+#define SYSOUT_LOADING "Loading . . ."
 #define SYSOUT_CANNOT_LOAD_CARTRIDGE_PROGRAM "Cannot load cartridge program"
-#define SYSOUT_CARTRIDGE_HELP_UNAVAILABLE "Cartridge help unavailable"
+#define SYSOUT_CARTRIDGE_HELP_UNAVAILABLE "Help unavailable"
 #define SYSOUT_HELP_INTRO "For more information on a specific\ncommand, type HELP [command]."
 #define SYSOUT_HELP_COMMAND "%-13s"
 #define SYSOUT_HELP_ALIASES "Aliases: DELETE ERASE RENAME VERSION"
-/* Directory listings and file management. */
+/* Directory listings and file management */
 #define SYSOUT_DIRECTORY_HEADER " Directory of %s:\n\n"
 #define SYSOUT_DIRECTORY_WIDE_ENTRY "%-19s"
 #define SYSOUT_DIRECTORY_ENTRY "%-17s%s%8s"
@@ -97,12 +96,12 @@
 #define SYSOUT_ONE_FILE_MOVED "        1 file(s) moved."
 #define SYSOUT_ONE_FILE_COPIED "        1 file(s) copied."
 #define SYSOUT_FILE_IS_LOCKED "File is locked"
-#define SYSOUT_ERROR_READING_BANK_DIRECTORY "Error reading bank_directory"
+#define SYSOUT_ERROR_READING_BANK_DIRECTORY "Error reading bank directory"
 #define SYSOUT_SYNTAX_DEL "Syntax: DEL filename [/P]"
-#define SYSOUT_DELETE_ALL_MATCHING_FILES "Delete all matching files"
+#define SYSOUT_DELETE_FILE "Delete %s"
 #define SYSOUT_DELETE_THIS_FILE "Delete this file"
 #define SYSOUT_ATTRIBUTE_ENTRY "  %c    %s\n"
-#define SYSOUT_INVALID_BANK_DIRECTORY_CHAIN "Invalid bank_directory chain"
+#define SYSOUT_INVALID_BANK_DIRECTORY_CHAIN "Invalid bank directory"
 #define SYSOUT_FILES_MUST_BE_ON_THE_SAME_DISK "Files must be on the same disk"
 #define SYSOUT_FILE_LIST_TOO_LONG "File list too long"
 #define SYSOUT_SYNTAX_REN "Syntax: REN oldname newname"
@@ -116,7 +115,7 @@
 #define SYSOUT_INVALID_REL_FILE "Invalid REL file"
 #define SYSOUT_CHECKING_AND_FIXING_DISK "Checking and fixing disk . . ."
 #define SYSOUT_DISK_VALIDATION_FAILED "Disk validation failed"
-#define SYSOUT_DISK_VALIDATION_COMPLETE "Disk validation complete."
+#define SYSOUT_DISK_VALIDATION_COMPLETE "Disk validation complete"
 #define SYSOUT_DISK_VOLUME "Volume %s\n"
 #define SYSOUT_DISK_ID_SPACED "Disk ID is %c%c\n\n"
 #define SYSOUT_DISK_TOTAL_SPACE "%7s bytes total disk space\n"
@@ -130,7 +129,7 @@
 #define SYSOUT_LABEL_VOLUME "Volume in drive %s: is %s\n"
 #define SYSOUT_LABEL_DISK_ID "Disk ID is %c%c\n"
 #define SYSOUT_LABEL_PROMPT "Volume label  (16 characters)? "
-#define SYSOUT_VOLUME_LABEL_CHANGED "Volume label changed."
+#define SYSOUT_VOLUME_LABEL_CHANGED "Volume label changed"
 #define SYSOUT_SYNTAX_FORMAT "Syntax: FORMAT drive:"
 #define SYSOUT_INSERT_DISK_IN_DRIVE "Insert disk in drive %s:\n"
 #define SYSOUT_ALL_DATA_ON_THIS_DISK_WILL_BE_LOST "All data on this disk will be lost!"
@@ -138,20 +137,21 @@
 #define SYSOUT_FORMAT_LABEL_PROMPT "Volume label (16 characters): "
 #define SYSOUT_DISK_ID_PROMPT "New disk ID (2 letters or digits): "
 #define SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS "Disk ID must be two letters or digits"
-#define SYSOUT_FORMATTING "Formatting..."
-#define SYSOUT_FORMAT_COMPLETE "Format complete."
+#define SYSOUT_FORMATTING "Formatting . . ."
+#define SYSOUT_FORMAT_COMPLETE "Format complete"
 #define SYSOUT_SYNTAX_DISKID "Syntax: DISKID [drive:] [id]"
+#define SYSOUT_SYNTAX_DISKINIT "Syntax: DISKINIT [drive:]"
 #define SYSOUT_INVALID_DISK_ID "Invalid disk ID"
-#define SYSOUT_DISK_ID_CHANGED "Disk ID changed."
+#define SYSOUT_DISK_ID_CHANGED "Disk ID changed"
 #define SYSOUT_SYNTAX_DISKCOPY "Syntax: DISKCOPY source: destination:"
 #define SYSOUT_TWO_DIFFERENT_DRIVES_REQUIRED "Two different drives required"
 #define SYSOUT_INCOMPATIBLE_DRIVE_TYPE "Incompatible drive type"
-#define SYSOUT_DESTINATION_DISK_WILL_BE_OVERWRITTEN "Destination disk will be overwritten."
+#define SYSOUT_DESTINATION_DISK_WILL_BE_OVERWRITTEN "Destination disk will be overwritten"
 #define SYSOUT_PROCEED_WITH_DISK_COPY "Proceed with disk copy"
 #define SYSOUT_COPY_TRACK_PROGRESS "Copying track %u of %u\n"
-#define SYSOUT_COPY_COMPLETE "Copy complete."
-#define SYSOUT_DISK_COPY_NOT_COMPLETED "Disk copy not completed."
-/* Startup and environment. */
+#define SYSOUT_COPY_COMPLETE "Copy complete"
+#define SYSOUT_DISK_COPY_NOT_COMPLETED "Disk copy not completed"
+/* Startup and environment */
 #define SYSOUT_INVALID_COLOR "Invalid color"
 #define SYSOUT_INVALID_CHARSET_NAME "Invalid charset name"
 #define SYSOUT_USE_HELP_SET "Use HELP SET"
@@ -163,9 +163,9 @@
 #define SYSOUT_CANNOT_LOAD "Cannot load %s"
 #define SYSOUT_SPLASH_PRODUCT "MCS-DOS version " VERSION
 #define SYSOUT_COPYRIGHT "Copyright (C) 2026 MCS"
-/* Cartridge filesystem statistics. */
+/* Cartridge filesystem statistics */
 #define SYSOUT_CARTRIDGE_VOLUME "Volume MCS-DOS 2.0\nDisk ID is MC\n\n"
-/* VER banner; VERSION is supplied by core.h. */
+/* VER banner */
 #define SYSOUT_BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS"
 
 #endif

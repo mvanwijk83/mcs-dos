@@ -378,6 +378,12 @@ DISKCOPY source: destination:
 DISKID [drive:] [id]
   Changes the drive's two-character ID.
 
+DISKINIT [drive:]
+  Resets disk drive state and forces a
+  reread of the directory.
+  Omit drive to use the current disk.
+  Not supported on cartridge (0:).
+
 ECHO [ON | OFF]
 ECHO [message]
 ECHO.

@@ -286,7 +286,9 @@ __noinline unsigned char bank_deletable(const Path *p)
 __noinline void bank_delcmd(void)
 {
     unsigned char i, suppress = 0;
+    unsigned int entry, matches = 0;
     char *name = 0;
+    char pattern[17], shown[17], request[24];
     for (i = 1; i < argc; ++i) {
         if (!stricmp(args[i], "/P"))
             suppress = 1;
@@ -301,8 +303,27 @@ __noinline void bank_delcmd(void)
     }
     if (!bank_deletable(&p1))
         return;
-    if (suppress || yesno(strchr(p1.name, '*') || strchr(p1.name, '?') ? SYSOUT_DELETE_ALL_MATCHING_FILES
-                                                                       : SYSOUT_DELETE_THIS_FILE))
+    if (!suppress && strpbrk(p1.name, "*?")) {
+        strcpy(pattern, p1.name);
+        if (!bank_directory(p1.dev))
+            return;
+        /* Scratch invalidates the cache but does not replace its entries.
+         * Keep this snapshot so deleted entries cannot shift later matches. */
+        for (entry = 0; entry < count && !aborted; ++entry) {
+            if (!match(pattern, directory_entries[entry].name))
+                continue;
+            ++matches;
+            strcpy(p1.name, directory_entries[entry].name);
+            uppername(p1.name, shown);
+            snprintf(request, sizeof(request), SYSOUT_DELETE_FILE, shown);
+            if (yesno(request) && !bank_scratch(&p1))
+                return;
+        }
+        if (!matches)
+            error(SYSOUT_FILE_NOT_FOUND);
+        return;
+    }
+    if (suppress || yesno(SYSOUT_DELETE_THIS_FILE))
         bank_scratch(&p1);
 }
 

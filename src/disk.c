@@ -15,6 +15,7 @@ __noinline void bank_volcmd(unsigned char stats);
 __noinline void bank_labelcmd(void);
 __noinline void bank_formatcmd(void);
 __noinline void bank_diskidcmd(void);
+__noinline void bank_diskinitcmd(void);
 __noinline void bank_diskcopycmd(void);
 
 /* CBM DOS raw block interface. Each drive uses secondary address 2;
@@ -381,6 +382,28 @@ __noinline void bank_formatcmd(void)
     snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s", name, id);
     if (command(p1.dev, diskcmd))
         say(SYSOUT_FORMAT_COMPLETE);
+}
+
+__noinline void bank_diskinitcmd(void)
+{
+    if (argc > 2) {
+        error(SYSOUT_SYNTAX_DISKINIT);
+        return;
+    }
+    p1.dev = drive;
+    if (argc == 2) {
+        if (!path(args[1], &p1))
+            return;
+        if (!strchr(args[1], ':') || p1.name[0]) {
+            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+            return;
+        }
+    }
+    if (!p1.dev) {
+        error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE);
+        return;
+    }
+    command(p1.dev, "i0");
 }
 
 __noinline void bank_diskidcmd(void)

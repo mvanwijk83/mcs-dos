@@ -20,7 +20,7 @@ function fillMetadata(state,stop){
  h.writeUInt16LE(crc(Buffer.concat([h.subarray(0,26),h.subarray(28,31)])),26);
  let at=state.end;while(at+32<=stop){h.copy(b,at);at+=32;}return at;
 }
-module.exports=async function({command,memory,screen,keys,enter,check,disk,crt}){
+module.exports=async function({command,memory,screen,keys,enter,check,disk,crt,compactOnly}){
  const resource=await command('resourceset "CartridgeReset" "0"');assert(!resource.includes('ERROR'),resource);
  async function boot(){
   await command('reset 0');await command('x');await delay(2000);let s=await screen();
@@ -31,6 +31,28 @@ module.exports=async function({command,memory,screen,keys,enter,check,disk,crt})
  async function inspect(){await command('detach $20');const state=readImage(crt);await attach();return state;}
  async function fixture(state,stop){await command('detach $20');fillMetadata(state,stop);replaceSectors(crt,state.sides);await attach();}
  const initial=readImage(crt),sample=initial.files.get('AUTOEXEC.SAMPLE').data;
+ if(compactOnly){
+  await check('help chkdsk','Compacts the cartridge file system');
+  await check('chkdsk /c','already compact');let before=await inspect();
+  assert.deepEqual(before.sides,initial.sides,'no flash changes for packed journal');
+  await enter('echo first >test.txt');await enter('echo second >test.txt');
+  await enter('ren test.txt renamed.txt');await enter('attrib +l renamed.txt');
+  before=await inspect();await check('chkdsk 0: /c','journal compacted');let after=await inspect();
+  assert.equal(after.generation,(before.generation+1)&65535);assert.notEqual(after.side,before.side);
+  assert(after.end<before.end);assert.equal(after.files.size,before.files.size);
+  for(const [name,file] of before.files){assert.deepEqual(after.files.get(name).data,file.data);assert.equal(after.files.get(name).readonly,file.readonly);}
+  await check('chkdsk /c 0:','already compact');assert.deepEqual((await inspect()).sides,after.sides);
+  await check('chkdsk 8: /c','Compaction requires cartridge drive 0');
+  await check('chkdsk /v /c','Invalid parameter');
+  await enter('echo obsolete >extra.txt');await enter('del extra.txt /p');before=await inspect();
+  const point=(await command('break exec df80')).match(/(?:BREAK|WATCH):\s*(\d+)/i);assert(point);
+  await command('keybuf chkdsk /c\\x0d');await command('x');await delay(2000);
+  assert(/df80/i.test(await command('r')));await command('delete '+point[1]);await boot();
+  after=await inspect();assert.equal(after.generation,before.generation);
+  for(const [name,file] of before.files)assert.deepEqual(after.files.get(name).data,file.data);
+  await check('chkdsk /c','journal compacted');
+  console.log('PASS manual compaction, no-op flash preservation, locked files, switch rejection and interrupted-compaction recovery');return;
+ }
  await enter('ren autoexec.sample sample.bat');let state=await inspect();
  assert.equal(state.side,initial.side);assert.equal(state.end-initial.end,32);
  assert.deepEqual(state.sides[state.side].subarray(0,initial.end),initial.sides[initial.side].subarray(0,initial.end));

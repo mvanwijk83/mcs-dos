@@ -624,7 +624,9 @@ unsigned char reportoptions(unsigned char disk)
     validate = 0;
     for (i = 1; i < argc; ++i) {
         if (disk && !stricmp(args[i], "/V"))
-            validate = 1;
+            validate |= 1;
+        else if (disk && !stricmp(args[i], "/C"))
+            validate |= 2;
         else {
             if (args[i][0] == '/' || !disk || seenpath++)
                 break;
@@ -634,7 +636,7 @@ unsigned char reportoptions(unsigned char disk)
                 break;
         }
     }
-    if (i < argc) {
+    if (i < argc || validate == 3) {
         error(SYSOUT_INVALID_PARAMETER);
         return 0;
     }

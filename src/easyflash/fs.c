@@ -151,6 +151,16 @@ void dispatch(void) {
  else {
   error=0;
   if(op==1)openfile(f,TEXT);
+  else if(op==20) {
+   P[3]=0;
+   if(writer)error=60;
+   else {
+    failed=rotating=0;
+    /* Packed live records need one header each plus the sector header. */
+    if(dirty||tail>32U+livebytes+(unsigned int)count*32U)
+     if(compact(0))P[3]=1;
+   }
+  }
   else if(op==4){if(writer==f+1&&failed)error=25;closefile(f);}
   else if(op==6){if(TEXT[0]=='c')concat();else command(TEXT);}
   else if(op==8)config();

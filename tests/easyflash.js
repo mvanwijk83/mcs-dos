@@ -69,8 +69,8 @@ function diskFile(file,name){
  if(process.argv.includes('--run-return')) {
   await require('./run-return')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
  }
- if(process.argv.includes('--journal')) {
-  await require('./journal')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
+ if(process.argv.includes('--journal')||process.argv.includes('--compact')) {
+  await require('./journal')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root,compactOnly:process.argv.includes('--compact')});return;
  }
  if(process.argv.includes('--session')) {
   await require('./basic-session')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;

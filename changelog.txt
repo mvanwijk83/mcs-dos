@@ -57,6 +57,9 @@ Preliminary public release.
   to TYPE (/H, /T, /HEX).
 * Added /P switch to MOVE to suppress
   file overwrite prompt.
+* Added /C switch to CHKDSK to perform
+  a cartridge filesystem compaction on
+  demand.
 * Added DISKINIT command to refresh
   drive cache and status, equivalent to
   the CBM-DOS INITIALIZE command.

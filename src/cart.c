@@ -21,6 +21,8 @@ int cart_help(unsigned char topic,unsigned int offset,void *buffer,unsigned char
  if(P[4])return -1;memcpy(buffer,TEXT,P[3]);return P[3];
 }
 const char *cart_stats(unsigned char line) { P[2]=line;call(13,0);return TEXT; }
+/* -1: failure; 0: already compact; 1: compacted. */
+int cart_compact(void) { call(20,0);return P[4]?-1:P[3]; }
 unsigned char cart_open(char f,char s,const char *name) {
  if(f<0||f>=6||strlen(name)>=120) return 1;
  strcpy(TEXT,name); P[2]=s; call(1,f); cart_channels[f]=!P[4]; return P[4];

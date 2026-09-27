@@ -249,14 +249,24 @@ __noinline void bank_volcmd(unsigned char stats)
     unsigned int i;
     unsigned int used, filecount;
     char shown[17];
+    int compacted;
     p1.dev = drive;
     if (stats) {
         if (!reportoptions(1))
             return;
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;
+    if (stats && validate == 2 && p1.dev) {
+        error(SYSOUT_COMPACT_CARTRIDGE_ONLY);
+        return;
+    }
     if (stats && !p1.dev) {
-        if (validate) { error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE); return; }
+        if (validate == 1) { error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE); return; }
+        if (validate == 2) {
+            compacted = cart_compact();
+            if (compacted < 0) { error(SYSOUT_COMPACTION_FAILED); return; }
+            say(compacted ? SYSOUT_COMPACTION_COMPLETE : SYSOUT_JOURNAL_ALREADY_COMPACT);
+        }
         used = (unsigned int)strtoul(cart_stats(1), 0, 10);
         i = (unsigned int)strtoul(cart_stats(0), 0, 10);
         outs(SYSOUT_CARTRIDGE_VOLUME);

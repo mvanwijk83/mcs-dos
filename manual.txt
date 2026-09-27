@@ -189,23 +189,19 @@ submenu and reset the machine.
   Boot configuration
 If an AUTOEXEC.BAT is present, it will
 execute first before you arrive at the
-shell prompt. Via normal batch commands
-you can perform any setup you wish for
-your MCS-DOS sessions, e.g. customizing
-settings via SET, or echoing text to
-the shell. It is not present by default;
-create it or rename the sample file.
+shell prompt. It is not present by
+default; create it or rename the sample
+file.
 
-See chapter 7 (Environment variables)
-for more information on how to configure
-and customize the shell via environment
-variables.
+See chapter 7 for more information on
+how to configure and customize the
+shell via environment variables.
 
-By default, MCS-DOS seeks AUTOEXEC.BAT
-in the writeable area of the cartridge
-image. A CONFIG.SYS can be created to
-change this behaviour. The following
-directives are available:
+By default, MCS-DOS looks for
+AUTOEXEC.BAT in the writeable area of
+the cartridge image. A CONFIG.SYS can
+be created to change this behaviour.
+The following directives are available:
 
 BOOTDRV
   Specify one or more drives where
@@ -229,23 +225,31 @@ whitespace is ignored.
   Safe mode
 You can press RESTORE on the boot screen
 to enable a "safe mode"; it will skip
-processing of the startup files. This
-may be useful to correct
-misconfigurations that render your shell
+processing of the startup files,
+applying default settings instead. This
+can be useful to correct mis-
+configurations that render your shell
 unusable.
 
   Cartridge storage
 64,000 bytes of writeable storage is
-reserved on the cartridge image. You
-can store your startup files there, or
-any other files you may want to keep
-there (e.g. custom character sets or
-batch files). The custom file system
-occasionally needs compaction to
-reclaim space from metadata and deleted
-content. This occurs automatically, but
-will incur a noticeable delay on reads
-and writes.
+available on the cartridge image. It is
+the default location for your startup
+configuration files and where the
+bundled documentation resides. However,
+nothing stops you from storing anything
+else you may want to keep there.
+
+A custom journaling file system is
+implemented to allow for fast file
+operations without having to reconstruct
+the entire sector every turn. It however
+requires occasional compaction to
+reclaim space from stale metadata and
+deleted content. This happens auto-
+matically (leading to a noticeable delay
+on reads and writes when it occurs), but
+can also be forced via CHKDSK /C.
 
 Changes to the writeable area of the
 image persist automatically on a real
@@ -393,7 +397,7 @@ BASIC
 BEEP [duration]
   Plays a SID beep.
 
-CHKDSK [drive:] [/V]
+CHKDSK [drive:] [/V] [/C]
   Checks a disk and returns a status
   report.
 

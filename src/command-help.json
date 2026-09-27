@@ -1,6 +1,6 @@
 {
   "BEEP": "Plays a SID beep.\n\nBEEP [duration]\n\nDuration is in milliseconds. The\ndefault value when omitted is 200 ms.",
-  "CHKDSK": "Checks a disk and returns a status\nreport.\n\nCHKDSK [drive:] [/V]\n\n  /V  Checks and fixes errors on the\n      disk.\n\nOmit drive to check the current disk.",
+  "CHKDSK": "Checks a disk and returns a status\nreport.\n\nCHKDSK [drive:] [/V | /C]\n\n  /V  Checks and fixes errors on the\n      disk.\n  /C  Compacts the cartridge file system\n      journal.\n\nOmit drive to check the current disk.",
   "CLS": "Clears the screen.",
   "COPY": "Copies a file to another location, or\ncombines files on the same disk.\n\nCOPY source destination [/P]\nCOPY source1+source2[+...] destination\n\n  source       File(s) to copy.\n  destination  Target drive/file name.\n  /P           Suppresses confirmation\n               prompt to overwrite an\n               existing file.",
   "DEL": "Deletes one or more files.\n\nDEL [drive:]filename [/P]\nDELETE [drive:]filename [/P]\nERASE [drive:]filename [/P]\n\nWildcards: * and ?.\n\n  /P  Suppresses confirmation prompt.",

@@ -25,6 +25,8 @@ static void outs(const char *s) {strcat(out,s);}
 static void newline(void) {strcat(out,"\\n");}
 static void print(const char *s,...) {char b[200];va_list a;va_start(a,s);vsprintf(b,s,a);va_end(a);strcat(out,b);}
 static const char *cart_stats(unsigned char line) {return line==0?"64000":line==1?"12345":"5";}
+static int compactions,compactresult=1;
+static int cart_compact(void) {++compactions;return compactresult;}
 static int yesno(const char *s) {++prompts;return answer;}
 static int scratch(void *p) {++deleted;return 1;}
 static int match(const char *p,const char *s) {return 1;}
@@ -52,7 +54,13 @@ int main(void) {
  drive=0;reset(0,0);volcmd(1);
  if(errors||!strstr(out," 64,000 bytes total disk space")||!strstr(out," 12,345 bytes allocated in 5 files")||!strstr(out," 51,655 bytes available on disk")||strstr(out,"blocks")||strstr(out,"memory"))return 20;
  reset(0,0);noseparators=1;volcmd(1);if(!strstr(out,"  64000 bytes total disk space")||strchr(out,','))return 21;
+ reset("/c",0);volcmd(1);if(errors||compactions!=1||!strstr(out,"journal compacted"))return 22;
+ compactresult=0;reset("/C",0);volcmd(1);if(errors||!strstr(out,"already compact"))return 23;
+ compactresult=-1;reset("/C",0);volcmd(1);if(!errors||out[0])return 24;
+ reset("/V","/C");volcmd(1);if(!errors||compactions!=3)return 25;
+ reset("/C",0);memcmd();if(!errors||compactions!=3)return 26;
  drive=8;
+ reset("/C",0);volcmd(1);if(!errors||compactions!=3)return 27;
  reset("8:","/S");volcmd(1);if(!errors||out[0])return 6;
  reset("/s","8:");volcmd(1);if(!errors||out[0])return 7;
  reset("8:",0);volcmd(1);if(errors||!strstr(out,"169,984 bytes total"))return 11;

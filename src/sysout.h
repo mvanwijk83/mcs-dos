@@ -1,5 +1,9 @@
 #ifndef MCS_SYSOUT_H
 #define MCS_SYSOUT_H
+#define SYSOUT_COMPACT_CARTRIDGE_ONLY "Compaction requires cartridge drive 0"
+#define SYSOUT_COMPACTION_FAILED "Cartridge compaction failed"
+#define SYSOUT_COMPACTION_COMPLETE "Cartridge journal compacted."
+#define SYSOUT_JOURNAL_ALREADY_COMPACT "Cartridge journal already compact."
 
 /* System output text, including error messages, warnings, prompts, line fragments and format strings */
 #define SYSOUT_SESSION_RESTORE_WARNING "Unable to restore previous shell state.\nUsing defaults."

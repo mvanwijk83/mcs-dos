@@ -21,7 +21,7 @@ __noinline void bank_editstatus(void)
 __noinline void bank_editsaving(void)
 {
     bank_editstatus();
-    outs("Saving . . .");
+    outs(SYSOUT_SAVING);
 }
 
 /* Only these two reverse-video digit cells change while editing. */
@@ -52,10 +52,10 @@ __noinline void bank_editcmd(void)
     p1.name[0] = 0;
     for (i = 1; i < argc; ++i) {
         if (args[i][0] == '/') {
-            error("Invalid switch");
+            error(SYSOUT_INVALID_SWITCH);
             return;
         } else if (p1.name[0]) {
-            say("Too many parameters");
+            say(SYSOUT_TOO_MANY_PARAMETERS);
             return;
         } else if (!path(args[i], &p1))
             return;
@@ -68,7 +68,7 @@ __noinline void bank_editcmd(void)
             return;
         if (exists >= 0) {
             if (directory_entries[exists].type != CBM_T_SEQ) {
-                say("EDIT requires a SEQ text file");
+                say(SYSOUT_EDIT_REQUIRES_A_SEQ_TEXT_FILE);
                 return;
             }
             if (!openreadtype(&p1, 2, CBM_T_SEQ))
@@ -104,7 +104,7 @@ __noinline void bank_editcmd(void)
                 }
             channel_close(2);
             if (overflow || n < 0) {
-                say("File too large or unreadable");
+                say(SYSOUT_FILE_TOO_LARGE_OR_UNREADABLE);
                 return;
             }
         }
@@ -115,15 +115,15 @@ __noinline void bank_editcmd(void)
     textcursor(0);
     caret_init();
     bank_editstatus();
-    outs(" 01:01  ");
+    outs(SYSOUT_EDIT_INITIAL_POSITION);
     if (p1.name[0]) {
         uppername(p1.name, statusbuf);
         outs(statusbuf);
     } else
-        outs("Untitled");
+        outs(SYSOUT_UNTITLED);
     /* Leave one trailing space; the longest filename still has two before it. */
     ox = 26;
-    outs("RUN/STOP:quit");
+    outs(SYSOUT_RUN_STOP_QUIT);
     screen_reverse(0);
     for (;;) {
         caret_show(x, y);
@@ -231,11 +231,11 @@ __noinline void bank_editcmd(void)
     }
     caret_hide();
     editprompt = 1;
-    if (!yesno("Save changes"))
+    if (!yesno(SYSOUT_SAVE_CHANGES))
         goto done;
     if (!p1.name[0]) {
         bank_editstatus();
-        outs("File name: ");
+        outs(SYSOUT_FILE_NAME);
         if (!bank_input(line, LINE, 0) || !path(line, &p1) || !p1.name[0])
             goto done;
     }
@@ -268,7 +268,7 @@ __noinline void bank_editcmd(void)
     channel_close(3);
     cachevalid = 0;
     if (diskstatus(p1.dev, 1) < 20 && n < 0)
-        error("Write fault error");
+        error(SYSOUT_WRITE_FAULT_ERROR);
 done:
     screen_reverse(0);
     if (editprompt)

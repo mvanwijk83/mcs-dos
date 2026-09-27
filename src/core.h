@@ -22,8 +22,8 @@ extern unsigned char resume_requested;
 #define ENVVALUE 32
 #define ENVSIZE 512
 #define VERSION "2.0"
+#include "sysout.h"
 
-#define BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS"
 #define MAXFILES 296
 #define EDITROWS 24
 #define BATCHMAX 2048
@@ -174,4 +174,5 @@ void bootsplash(unsigned char wait);
 void renamecmd(void);
 
 unsigned char bootstart(unsigned char startdrive);
+unsigned char typeoptions(unsigned char *mode, unsigned long *limit);
 #endif

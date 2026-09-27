@@ -144,7 +144,7 @@ void outputflush(void)
     if (outputused && !outputfailed) {
         if (channel_write(5, outputbuf, outputused) != outputused) {
             outputfailed = aborted = 1;
-            error("Write fault error");
+            error(SYSOUT_WRITE_FAULT_ERROR);
         }
     }
     outputused = 0;
@@ -195,6 +195,29 @@ char *decimal(unsigned long bytes)
 }
 
 #pragma optimize(pop)
+/* Validate before opening a redirected destination, too. */
+unsigned char typeoptions(unsigned char *mode, unsigned long *limit)
+{
+    unsigned char i;
+    const char *q;
+    *mode = 0;
+    *limit = 0;
+    if (argc < 2 || argc > 3 || args[1][0] == '/') return 0;
+    if (argc == 2) return 1;
+    if (!stricmp(args[2], "/HEX")) { *mode = 3; return 1; }
+    if (args[2][0] != '/' || !args[2][1] || args[2][2] != ':') return 0;
+    i = toupper(args[2][1]);
+    if (i != 'H' && i != 'T') return 0;
+    q = args[2] + 3;
+    if (!*q) return 0;
+    while (*q) {
+        if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10) return 0;
+        *limit = *limit * 10 + *q++ - '0';
+    }
+    *mode = i == 'H' ? 1 : 2;
+    return 1;
+}
+
 char *allocated(unsigned int blocks)
 {
     return decimal((unsigned long)blocks * 256);
@@ -204,18 +227,18 @@ void volumeheader(unsigned char dev)
 {
     char shown[17];
     uppername(volume, shown);
-    print(" Volume in drive %s: is ", drivename(dev));
+    print(SYSOUT_VOLUME_HEADER, drivename(dev));
     if (ox + strlen(shown) > 40)
         newline();
     outs(shown);
     if (ox)
         newline();
-    if (!dev) { outs(" Disk ID is MC\n"); return; }
+    if (!dev) { outs(SYSOUT_CARTRIDGE_DISK_ID); return; }
     if (bam(dev)) {
         diskid[0] = toupper(io[idoff]);
         diskid[1] = toupper(io[idoff + 1]);
         diskid[2] = 0;
-        print(" Disk ID is %s\n", diskid);
+        print(SYSOUT_DISK_ID_HEADER, diskid);
     }
 }
 
@@ -268,7 +291,7 @@ unsigned char yesno(const char *s)
     if (editprompt)
         editstatus();
     outs(s);
-    outs(" (Y/N)? ");
+    outs(SYSOUT_YES_NO_SUFFIX);
     do {
         c = getch();
     } while (toupper(c) != 'Y' && toupper(c) != 'N' && c != CH_STOP);
@@ -287,7 +310,7 @@ unsigned char page(void)
         return !aborted && !stop();
     if (++pagelines < 22)
         return !stop();
-    outs("Press any key to continue . . .");
+    outs(SYSOUT_PRESS_ANY_KEY_TO_CONTINUE);
     c = getch();
     gotoxy(0, oy);
     screen_clear(40);
@@ -393,7 +416,7 @@ void showprompt(void)
                 c = 0xa0;
                 break; /* Backslash at screen slot 96 */
             case 'N':
-                print("%u", drive);
+                print(SYSOUT_DRIVE_NUMBER, drive);
                 ++s;
                 continue;
             case 'P':
@@ -457,18 +480,18 @@ unsigned char path(const char *s, Path *p)
     }
     if (!letter && q > s && *q == ':') {
         if (d != 0 && (d < 8 || d > 30)) {
-            error("Invalid drive specification");
+            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
             return 0;
         }
         p->dev = d;
         s = q + 1;
     }
     if (strlen(s) > 16) {
-        error("File name too long");
+        error(SYSOUT_FILE_NAME_TOO_LONG);
         return 0;
     }
     if (strchr(s, ':') || strchr(s, ',') || strchr(s, '"')) {
-        error("Invalid file name");
+        error(SYSOUT_INVALID_FILE_NAME);
         return 0;
     }
     filename(s, p->name);
@@ -501,10 +524,10 @@ unsigned char diskstatus(unsigned char dev, unsigned char report)
 {
     int n;
     unsigned char code, lfn = statuschannel(dev);
-    if (!dev) { code=cart_status(); if(code>=20 && report) error("Cartridge file operation failed"); return code; }
+    if (!dev) { code=cart_status(); if(code>=20 && report) error(SYSOUT_CARTRIDGE_FILE_OPERATION_FAILED); return code; }
     if (!lfn) {
         if (report)
-            error("Not ready reading drive");
+            error(SYSOUT_NOT_READY_READING_DRIVE);
         return 255;
     }
     POKE(144, 0);
@@ -512,13 +535,13 @@ unsigned char diskstatus(unsigned char dev, unsigned char report)
     POKE(144, 0);
     if (n <= 0) {
         if (report)
-            error("Drive not ready");
+            error(SYSOUT_DRIVE_NOT_READY);
         return 255;
     }
     statusbuf[n] = 0;
     code = atoi(statusbuf);
     if (code >= 20 && report) {
-        error("Disk error:");
+        error(SYSOUT_DISK_ERROR);
         error(statusbuf);
     }
     return code;
@@ -545,14 +568,14 @@ int readio(unsigned char lfn, void *buf, unsigned int size)
 unsigned char command(unsigned char dev, const char *s)
 {
     unsigned char lfn = statuschannel(dev);
-    if (!dev) { cachevalid=0; if(cart_command(s)) { error("Cartridge operation failed"); return 0; } return 1; }
+    if (!dev) { cachevalid=0; if(cart_command(s)) { error(SYSOUT_CARTRIDGE_OPERATION_FAILED); return 0; } return 1; }
     if (!lfn) {
-        error("Drive not ready");
+        error(SYSOUT_DRIVE_NOT_READY);
         return 0;
     }
     POKE(144, 0);
     if (channel_write(lfn, s, strlen(s)) != (int)strlen(s)) {
-        error("Drive not ready");
+        error(SYSOUT_DRIVE_NOT_READY);
         return 0;
     }
     cachevalid = 0;
@@ -581,17 +604,17 @@ const char *typename(unsigned char t)
 {
     switch (t) {
     case CBM_T_DEL:
-        return "DEL";
+        return SYSOUT_TYPE_DELETED;
     case CBM_T_PRG:
-        return "PRG";
+        return SYSOUT_TYPE_PROGRAM;
     case CBM_T_SEQ:
-        return "SEQ";
+        return SYSOUT_TYPE_SEQUENTIAL;
     case CBM_T_USR:
-        return "USR";
+        return SYSOUT_TYPE_USER;
     case CBM_T_REL:
-        return "REL";
+        return SYSOUT_TYPE_RELATIVE;
     default:
-        return "???";
+        return SYSOUT_TYPE_UNKNOWN;
     }
 }
 
@@ -599,7 +622,7 @@ void runbatch(void)
 {
     int n;
     if (batching) {
-        say("Nested batch directory_entries not supported");
+        say(SYSOUT_NESTED_BATCH_DIRECTORY_ENTRIES_NOT_SUPPORTED);
         return;
     }
     if (!openread(&p1, 2))
@@ -610,7 +633,7 @@ void runbatch(void)
         n = -1;
     channel_close(2);
     if (n < 0) {
-        say("Batch file too large or unreadable");
+        say(SYSOUT_BATCH_FILE_TOO_LARGE_OR_UNREADABLE);
         return;
     }
     batch[batchlen] = 0;
@@ -635,7 +658,7 @@ unsigned char reportoptions(unsigned char disk)
         }
     }
     if (i < argc) {
-        error("Invalid parameter");
+        error(SYSOUT_INVALID_PARAMETER);
         return 0;
     }
     return 1;
@@ -652,12 +675,12 @@ void memcmd(void)
     if (!reportoptions(0))
         return;
     reserved = 65536UL - ((unsigned int)&BSSEnd - 0x0801) - SHELL_STACK_SIZE - freememory() - 8192U;
-    print("%10s bytes total memory\n", decimal(65536UL));
-    print("%10s bytes shell and workspace\n", decimal((unsigned int)&BSSEnd - 0x0801));
-    print("%10s bytes reserved for C stack\n", decimal(SHELL_STACK_SIZE));
-    print("%10s bytes cartridge ROM window\n", decimal(8192U));
-    print("%10s bytes reserved for system\n", decimal(reserved));
-    print("%10s bytes free\n", decimal(freememory()));
+    print(SYSOUT_MEM_TOTAL, decimal(65536UL));
+    print(SYSOUT_MEM_SHELL, decimal((unsigned int)&BSSEnd - 0x0801));
+    print(SYSOUT_MEM_STACK, decimal(SHELL_STACK_SIZE));
+    print(SYSOUT_MEM_ROM_WINDOW, decimal(8192U));
+    print(SYSOUT_MEM_SYSTEM, decimal(reserved));
+    print(SYSOUT_MEM_FREE, decimal(freememory()));
 }
 
 int commandid(const char *s)
@@ -771,7 +794,7 @@ void executecommand(char *s)
         }
     }
     if (!tokenize(s)) {
-        say("Syntax error");
+        say(SYSOUT_SYNTAX_ERROR);
         return;
     }
     if (!argc)
@@ -783,12 +806,12 @@ void executecommand(char *s)
             drive = p1.dev;
             cachevalid = 0;
         } else
-            error("Invalid drive specification");
+            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
         return;
     }
     id = commandid(args[0]);
     if (id < 0) {
-        say("Bad command or file name");
+        say(SYSOUT_BAD_COMMAND_OR_FILE_NAME);
         return;
     }
     for (i = 1; i < argc; ++i)
@@ -800,7 +823,7 @@ void executecommand(char *s)
     case 0:
         ms = argc > 1 ? strtoul(args[1], &end, 10) : 200;
         if (argc > 2 || (argc > 1 && (!args[1][0] || *end)) || ms > 60000UL) {
-            error("Invalid duration");
+            error(SYSOUT_INVALID_DURATION);
             break;
         }
         POKE(0xd418, 15);
@@ -836,13 +859,13 @@ void executecommand(char *s)
         diskcopycmd();
         break;
     case 7:
-        say(echoon ? "ECHO is on." : "ECHO is off.");
+        say(echoon ? SYSOUT_ECHO_IS_ON : SYSOUT_ECHO_IS_OFF);
         break;
     case 8:
         editcmd();
         break;
     case 9:
-        if(argc!=1)error("Syntax: BASIC");
+        if(argc!=1)error(SYSOUT_SYNTAX_BASIC);
         else quit = 1;
         break;
     case 10:
@@ -852,7 +875,7 @@ void executecommand(char *s)
         if (argc > 1) {
             id = commandid(args[1]);
             if (id < 0) {
-                error("Invalid command");
+                error(SYSOUT_INVALID_COMMAND);
                 break;
             }
         } else
@@ -869,7 +892,7 @@ void executecommand(char *s)
         copycmd(1);
         break;
     case 15:
-        outs("Press any key to continue . . .");
+        outs(SYSOUT_PRESS_ANY_KEY_TO_CONTINUE);
         getch();
         newline();
         break;
@@ -891,21 +914,21 @@ void executecommand(char *s)
         volcmd(0);
         break;
     case 22:
-        say(BANNER);
+        say(SYSOUT_BANNER);
         break;
     case 23:
         diskidcmd();
         break;
     case 24:
         if (argc > 2) {
-            error("Invalid parameter");
+            error(SYSOUT_INVALID_PARAMETER);
             break;
         }
         setcmd(argc == 2 ? args[1] : "");
         break;
     case 25:
         if (argc != 1) {
-            error("Invalid parameter");
+            error(SYSOUT_INVALID_PARAMETER);
             break;
         }
         reboot = 1;
@@ -918,7 +941,7 @@ void executecommand(char *s)
         break;
     case 27:
         if (argc != 1) {
-            error("Invalid parameter");
+            error(SYSOUT_INVALID_PARAMETER);
             break;
         }
         bootsplash(0);
@@ -939,7 +962,7 @@ void execute(char *s)
             quote = !quote;
         else if (*r == '>' && !quote) {
             if (op) {
-                error("Multiple redirections not supported");
+                error(SYSOUT_MULTIPLE_REDIRECTIONS_NOT_SUPPORTED);
                 return;
             }
             op = r;
@@ -954,7 +977,7 @@ void execute(char *s)
         return;
     }
     if (quote) {
-        error("Syntax error");
+        error(SYSOUT_SYNTAX_ERROR);
         return;
     }
     target = op + 1 + append;
@@ -965,7 +988,7 @@ void execute(char *s)
     while (*s == ' ' || *s == '@')
         ++s;
     if (!tokenize(s) || !argc) {
-        error("Syntax error");
+        error(SYSOUT_SYNTAX_ERROR);
         return;
     }
     id = commandid(args[0]);
@@ -976,13 +999,15 @@ void execute(char *s)
         if (!strcmp(args[i], "/?"))
             helping = 1;
     if (id != 1 && id != 5 && id != 7 && id != 11 && id != 13 && id != 20) {
-        error("Redirection not supported for command");
+        error(SYSOUT_REDIRECTION_NOT_SUPPORTED_FOR_COMMAND);
         return;
     }
     /* Resolve TYPE's source before opening/truncating any destination. */
     if (id == 20) {
-        if (argc != 2) {
-            error("Syntax: TYPE filename");
+        unsigned char mode;
+        unsigned long limit;
+        if (!typeoptions(&mode, &limit)) {
+            error(SYSOUT_SYNTAX_TYPE);
             return;
         }
         if (!path(args[1], &p1))
@@ -990,21 +1015,21 @@ void execute(char *s)
         i = findfile(&p1);
         if (i < 0) {
             if (i == -1)
-                error("File not found");
+                error(SYSOUT_FILE_NOT_FOUND);
             return;
         }
         if (directory_entries[i].type != CBM_T_SEQ && directory_entries[i].type != CBM_T_PRG &&
             directory_entries[i].type != CBM_T_USR) {
-            error("Unsupported file type");
+            error(SYSOUT_UNSUPPORTED_FILE_TYPE);
             return;
         }
     }
     if (!tokenize(target) || argc != 1) {
-        error("Invalid destination");
+        error(SYSOUT_INVALID_DESTINATION);
         return;
     }
     if (!stricmp(args[0], "LPT1") || !stricmp(args[0], "LPT2")) {
-        error("Printer redirection not supported");
+        error(SYSOUT_PRINTER_REDIRECTION_NOT_SUPPORTED);
         return;
     }
     if (!path(args[0], &outputpath))
@@ -1012,15 +1037,15 @@ void execute(char *s)
     /* Do not truncate/append to the help source before the reader opens it. */
     if (helping && outputpath.dev == 0 &&
         !stricmp(outputpath.name, "commands.hlp")) {
-        error("Invalid destination");
+        error(SYSOUT_INVALID_DESTINATION);
         return;
     }
     if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
-        error("Invalid destination");
+        error(SYSOUT_INVALID_DESTINATION);
         return;
     }
     if (id == 20 && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
-        error("Cannot redirect TYPE onto itself");
+        error(SYSOUT_CANNOT_REDIRECT_TYPE_ONTO_ITSELF);
         return;
     }
     cachevalid = 0;
@@ -1028,19 +1053,19 @@ void execute(char *s)
     if (i == -2)
         return;
     if (i >= 0 && directory_entries[i].type != CBM_T_SEQ) {
-        error("Destination must be a SEQ file");
+        error(SYSOUT_DESTINATION_MUST_BE_A_SEQ_FILE);
         return;
     }
     if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
         return;
     if (!statuschannel(outputpath.dev)) {
-        error("Drive not ready");
+        error(SYSOUT_DRIVE_NOT_READY);
         return;
     }
     snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, append && i >= 0 ? 'a' : 'w');
     if (channel_open(5, outputpath.dev, 5, diskcmd) != 0) {
         channel_close(5);
-        error("Write fault error");
+        error(SYSOUT_WRITE_FAULT_ERROR);
         return;
     }
     if (diskstatus(outputpath.dev, 1) >= 20) {

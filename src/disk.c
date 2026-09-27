@@ -47,7 +47,7 @@ __noinline unsigned char bank_rawchannel(unsigned char dev, unsigned char lfn)
 {
     if (channel_open(lfn, dev, 2, "#") != 0) {
         channel_close(lfn);
-        error("Drive not ready");
+        error(SYSOUT_DRIVE_NOT_READY);
         return 0;
     }
     eof[lfn] = 0;
@@ -68,7 +68,7 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
 {
     unsigned char lfn = statuschannel(dev), i;
     unsigned char probe[6] = {'m', '-', 'r', 0xc4, 0xe5, 4}, signature[4];
-    if (!dev) { if(report) error("Unsupported operation on cartridge"); return 0; }
+    if (!dev) { if(report) error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE); return 0; }
     if (!lfn)
         return 0;
     for (i = 0; i < 2; ++i) {
@@ -87,7 +87,7 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
         probe[4] = 0xa6;
     }
     if (report)
-        error("Unsupported drive type");
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
     return 0;
 }
 
@@ -117,7 +117,7 @@ __noinline unsigned char bank_bam(unsigned char dev)
     disktracks = type == 3 ? 80 : type == 2 && (io[3] & 128) ? 70 : 35;
     if (ok && ((type == 1 && (io[3] & 128)) || io[2] != (type == 3 ? 0x44 : 0x41) ||
                io[0] != headertrack || io[1] != (type == 3 ? 3 : 1))) {
-        error("Unsupported disk format");
+        error(SYSOUT_UNSUPPORTED_DISK_FORMAT);
         ok = 0;
     }
     return ok;
@@ -164,7 +164,7 @@ __noinline unsigned char bank_copyrel(void)
     }
     channel_close(2);
     if (!len || len == 255 || !tr) {
-        error("Invalid REL file");
+        error(SYSOUT_INVALID_REL_FILE);
         return 0;
     }
     if (!preparewrite(&p2) || !bank_rawopen(p1.dev))
@@ -246,7 +246,7 @@ __noinline unsigned char bank_copyrel(void)
 __noinline void bank_volcmd(unsigned char stats)
 {
     unsigned int i;
-    unsigned int used;
+    unsigned int used, filecount;
     char shown[17];
     p1.dev = drive;
     if (stats) {
@@ -255,40 +255,44 @@ __noinline void bank_volcmd(unsigned char stats)
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;
     if (stats && !p1.dev) {
-        if (validate) { error("Unsupported operation on cartridge"); return; }
-        for(i=0;i<6;++i) outs(cart_stats(i));
+        if (validate) { error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE); return; }
+        used = (unsigned int)strtoul(cart_stats(1), 0, 10);
+        i = (unsigned int)strtoul(cart_stats(0), 0, 10);
+        outs(SYSOUT_CARTRIDGE_VOLUME);
+        print(SYSOUT_DISK_TOTAL_SPACE, decimal(i));
+        filecount = (unsigned int)strtoul(cart_stats(2), 0, 10);
+        print(SYSOUT_DISK_ALLOCATED, decimal(used), filecount);
+        print(SYSOUT_DISK_AVAILABLE, decimal(i - used));
         return;
     }
     if (stats && validate) {
-        say("Checking and fixing disk . . .");
+        say(SYSOUT_CHECKING_AND_FIXING_DISK);
         if (!command(p1.dev, "v0")) {
-            error("Disk validation failed");
+            error(SYSOUT_DISK_VALIDATION_FAILED);
             return;
         }
-        say("Disk validation complete.");
+        say(SYSOUT_DISK_VALIDATION_COMPLETE);
     }
     if (!directory(p1.dev))
         return;
     if (stats) {
         uppername(volume, shown);
-        print("Volume %s\n", shown);
+        print(SYSOUT_DISK_VOLUME, shown);
         if (!bank_bam(p1.dev))
             return;
-        print("Disk ID is %c%c\n\n", toupper(io[idoff]), toupper(io[idoff + 1]));
+        print(SYSOUT_DISK_ID_SPACED, toupper(io[idoff]), toupper(io[idoff + 1]));
         used = 0;
         for (i = 0; i < count; ++i)
             used += directory_entries[i].blocks;
-        print("%7s bytes total disk space\n", decimal(((unsigned long)used + freeblocks) * 256));
-        print("%7s bytes allocated in %u files\n", allocated(used), count);
-        print("%7s bytes available on disk\n\n", allocated(freeblocks));
+        print(SYSOUT_DISK_TOTAL_SPACE, decimal(((unsigned long)used + freeblocks) * 256));
+        print(SYSOUT_DISK_ALLOCATED, allocated(used), count);
+        print(SYSOUT_DISK_AVAILABLE, allocated(freeblocks));
         /* Exactly 40 columns: outc already advances to the next row. */
-        outs("    256 bytes in each block (254 usable)");
+        outs(SYSOUT_DISK_BLOCK_SIZE);
         if (redirected)
             newline();
-        print("%7s total blocks on disk\n", decimal((unsigned long)used + freeblocks));
-        print("%7s available blocks on disk\n\n", decimal(freeblocks));
-        print("%7s total bytes memory\n", decimal(65536UL));
-        print("%7s bytes free\n", decimal(freememory()));
+        print(SYSOUT_DISK_TOTAL_BLOCKS, decimal((unsigned long)used + freeblocks));
+        print(SYSOUT_DISK_FREE_BLOCKS, decimal(freeblocks));
     } else
         volumeheader(p1.dev);
 }
@@ -302,18 +306,18 @@ __noinline void bank_labelcmd(void)
         if (!path(args[1], &p1))
             return;
         if (p1.name[0]) {
-            error("Invalid drive specification");
+            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
             return;
         }
         ++a;
     }
     if (argc > a + 1) {
-        error("Syntax: LABEL [drive:] [name]");
+        error(SYSOUT_SYNTAX_LABEL);
         return;
     }
     if (argc == a + 1) {
         if (strlen(args[a]) > 16) {
-            say("Volume label too long");
+            say(SYSOUT_VOLUME_LABEL_TOO_LONG);
             return;
         }
         filename(args[a], name);
@@ -321,9 +325,9 @@ __noinline void bank_labelcmd(void)
         if (!directory(p1.dev) || !bank_bam(p1.dev))
             return;
         uppername(volume, name);
-        print("Volume in drive %s: is %s\n", drivename(p1.dev), name);
-        print("Disk ID is %c%c\n", toupper(io[idoff]), toupper(io[idoff + 1]));
-        outs("Volume label  (16 characters)? ");
+        print(SYSOUT_LABEL_VOLUME, drivename(p1.dev), name);
+        print(SYSOUT_LABEL_DISK_ID, toupper(io[idoff]), toupper(io[idoff + 1]));
+        outs(SYSOUT_LABEL_PROMPT);
         if (!input(line, 17, 0))
             return;
         filename(line, name);
@@ -339,7 +343,7 @@ __noinline void bank_labelcmd(void)
     channel_close(2);
     cachevalid = 0;
     if (i && command(p1.dev, "i0"))
-        say("Volume label changed.");
+        say(SYSOUT_VOLUME_LABEL_CHANGED);
 }
 
 __noinline void bank_formatcmd(void)
@@ -347,36 +351,36 @@ __noinline void bank_formatcmd(void)
     char name[17], id[3];
     unsigned char type;
     if (argc != 2 || !path(args[1], &p1)) {
-        error("Syntax: FORMAT drive:");
+        error(SYSOUT_SYNTAX_FORMAT);
         return;
     }
     type = bank_drivetype(p1.dev, 1);
     if (!type)
         return;
-    print("Insert disk in drive %s:\n", drivename(p1.dev));
-    say("All data on this disk will be lost!");
-    if (!yesno("Proceed with format"))
+    print(SYSOUT_INSERT_DISK_IN_DRIVE, drivename(p1.dev));
+    say(SYSOUT_ALL_DATA_ON_THIS_DISK_WILL_BE_LOST);
+    if (!yesno(SYSOUT_PROCEED_WITH_FORMAT))
         return;
-    outs("Volume label (16 characters): ");
+    outs(SYSOUT_FORMAT_LABEL_PROMPT);
     if (!input(line, 17, 0))
         return;
     filename(line, name);
     if (!*name)
         strcpy(name, "MCS-DOS");
-    outs("New disk ID (2 letters or digits): ");
+    outs(SYSOUT_DISK_ID_PROMPT);
     if (!input(line, LINE, 0))
         return;
     if (strlen(line) != 2 || !isalnum(line[0]) || !isalnum(line[1])) {
-        say("Disk ID must be two letters or digits");
+        say(SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS);
         return;
     }
     filename(line, id);
-    say("Formatting...");
+    say(SYSOUT_FORMATTING);
     if (type == 2 && !command(p1.dev, "u0>m1"))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s", name, id);
     if (command(p1.dev, diskcmd))
-        say("Format complete.");
+        say(SYSOUT_FORMAT_COMPLETE);
 }
 
 __noinline void bank_diskidcmd(void)
@@ -387,33 +391,33 @@ __noinline void bank_diskidcmd(void)
     p1.name[0] = 0;
     if (argc > 1 && strchr(args[1], ':')) {
         if (!path(args[1], &p1) || p1.name[0]) {
-            error("Invalid drive specification");
+            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
             return;
         }
         ++a;
     }
     if (argc > a + 1) {
-        error("Syntax: DISKID [drive:] [id]");
+        error(SYSOUT_SYNTAX_DISKID);
         return;
     }
     if (argc == a + 1) {
         if (strlen(args[a]) != 2) {
-            say("Disk ID must be two letters or digits");
+            say(SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS);
             return;
         }
         filename(args[a], id);
     } else {
-        outs("New disk ID (2 letters or digits): ");
+        outs(SYSOUT_DISK_ID_PROMPT);
         if (!input(line, LINE, 0))
             return;
         if (strlen(line) != 2) {
-            say("Disk ID must be two letters or digits");
+            say(SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS);
             return;
         }
         filename(line, id);
     }
     if (!isalnum(id[0]) || !isalnum(id[1])) {
-        error("Invalid disk ID");
+        error(SYSOUT_INVALID_DISK_ID);
         return;
     }
     if (!bank_bam(p1.dev))
@@ -436,7 +440,7 @@ __noinline void bank_diskidcmd(void)
     channel_close(2);
     cachevalid = 0;
     if (ok && command(p1.dev, "i0"))
-        say("Disk ID changed.");
+        say(SYSOUT_DISK_ID_CHANGED);
 }
 
 __noinline void bank_diskcopycmd(void)
@@ -444,15 +448,15 @@ __noinline void bank_diskcopycmd(void)
     unsigned char tr, se, sectors, ok = 1, type, other, tracks;
     char id[2];
     if (argc != 3 || !path(args[1], &p1) || !path(args[2], &p2)) {
-        error("Syntax: DISKCOPY source: destination:");
+        error(SYSOUT_SYNTAX_DISKCOPY);
         return;
     }
     if (p1.dev == p2.dev) {
-        say("Two different drives required");
+        say(SYSOUT_TWO_DIFFERENT_DRIVES_REQUIRED);
         return;
     }
     if (p1.name[0] || p2.name[0]) {
-        error("Invalid drive specification");
+        error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
         return;
     }
     type = bank_drivetype(p1.dev, 1);
@@ -460,7 +464,7 @@ __noinline void bank_diskcopycmd(void)
     if (!type || !other)
         return;
     if (type != other) {
-        error("Incompatible drive type");
+        error(SYSOUT_INCOMPATIBLE_DRIVE_TYPE);
         return;
     }
     if (!bank_bam(p1.dev))
@@ -468,8 +472,8 @@ __noinline void bank_diskcopycmd(void)
     tracks = disktracks;
     id[0] = io[idoff];
     id[1] = io[idoff + 1];
-    say("Destination disk will be overwritten.");
-    if (!yesno("Proceed with disk copy"))
+    say(SYSOUT_DESTINATION_DISK_WILL_BE_OVERWRITTEN);
+    if (!yesno(SYSOUT_PROCEED_WITH_DISK_COPY))
         return;
     if (type == 2 && !command(p2.dev, tracks == 70 ? "u0>m1" : "u0>m0"))
         return;
@@ -486,7 +490,7 @@ __noinline void bank_diskcopycmd(void)
         return;
     }
     for (tr = 1; tr <= tracks && ok; ++tr) {
-        print("Copying track %u of %u\n", tr, tracks);
+        print(SYSOUT_COPY_TRACK_PROGRESS, tr, tracks);
         sectors = bank_tracksectors(tr, tracks);
         for (se = 0; se < sectors; ++se) {
             ok = bank_blockchannel(p1.dev, 2, tr, se, 0);
@@ -503,7 +507,7 @@ __noinline void bank_diskcopycmd(void)
     channel_close(2);
     command(p2.dev, "i0");
     cachevalid = 0;
-    say(ok ? "Copy complete." : "Disk copy not completed.");
+    say(ok ? SYSOUT_COPY_COMPLETE : SYSOUT_DISK_COPY_NOT_COMPLETED);
 }
 #pragma code(code)
 #pragma data(data)

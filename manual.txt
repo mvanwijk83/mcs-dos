@@ -159,7 +159,7 @@ MCS-DOS 2.0 and its ID is MC. It holds
 40 files and 64,000 bytes of file data,
 shared by bundled and user files.
 Bundled files can be edited or deleted.
-Use ATTRIB +R to protect a file.
+Use ATTRIB +L to protect a file.
 Disk-only operations such as FORMAT,
 LABEL and DISKID do not apply here.
 
@@ -326,7 +326,7 @@ drive:
   drive letters (with 8=A, 9=B, etc.)
   are both recognized.
 
-ATTRIB [+R | -R] [[drive:]filename]
+ATTRIB [+L | -L] [[drive:]filename]
   Displays or changes file attributes.
 
 BASIC
@@ -406,7 +406,7 @@ MEM
   Displays the amount of used and free
   memory in your system.
 
-MOVE source destination
+MOVE source destination [/P]
   Copies the source file to the
   specified destination, then deletes
   the source.
@@ -440,8 +440,14 @@ SET /ENV
 SPLASH
   Shows the MCS-DOS splash screen.
 
-TYPE filename
+TYPE filename [/H:n | /T:n | /HEX]
   Displays the contents of a file.
+  /H:n  Shows first n lines of file.
+  /T:n  Shows last n lines of file.
+  /HEX  Shows a hex view.
+  H/T count CR, LF and CRLF as line ends.
+  A final unterminated line also counts.
+  Use one option; n may be zero.
 
 VER
 VERSION

@@ -52,7 +52,7 @@ __noinline void bank_startupcolor(void)
     memset((void *)0xd800, fg, 1000);
     return;
 invalid:
-    error("Invalid color");
+    error(SYSOUT_INVALID_COLOR);
 }
 
 /* Apply once after AUTOEXEC unwinds, always using the startup disk.
@@ -74,7 +74,7 @@ __noinline void bank_startupcharset(unsigned char device)
     if (!address)
         return;
     if (address > 12) {
-        error("Invalid charset name");
+        error(SYSOUT_INVALID_CHARSET_NAME);
         return;
     }
     memcpy(name, v, address);
@@ -116,15 +116,15 @@ __noinline void bank_startupcharset(unsigned char device)
 failed:
     channel_close(2);
     uppername(name, name);
-    snprintf(fmtbuf, sizeof(fmtbuf), "Cannot load %s", name);
+    snprintf(fmtbuf, sizeof(fmtbuf), SYSOUT_CANNOT_LOAD, name);
     error(fmtbuf);
 }
 
 /* Use the ROM font for the artwork; interactive SPLASH restores the shell. */
 __noinline void bank_bootsplash(unsigned char wait)
 {
-    static const char product[] = "MCS-DOS version " VERSION;
-    static const char copyright[] = "Copyright (C) 2026 MCS";
+    static const char product[] = SYSOUT_SPLASH_PRODUCT;
+    static const char copyright[] = SYSOUT_COPYRIGHT;
     unsigned char x, y, oldlo, oldhi;
     clock_t started;
     /* Interactive SPLASH temporarily uses the default screen, which now
@@ -186,7 +186,7 @@ __noinline void bank_setcmd(const char *s)
     while (*s == ' ')
         ++s;
     if (!strcmp(s, "/?")) {
-        say("Use HELP SET");
+        say(SYSOUT_USE_HELP_SET);
         return;
     }
     if (!*s) {
@@ -202,14 +202,14 @@ __noinline void bank_setcmd(const char *s)
         while (*eq == ' ')
             ++eq;
         if (!*eq) {
-            print("%3u bytes total environment size\n%3u bytes used\n%3u bytes free\n",
+            print(SYSOUT_ENVIRONMENT_STATS,
                   (unsigned int)ENVSIZE, envused, (unsigned int)(ENVSIZE - envused));
             return;
         }
     }
     eq = strchr(s, '=');
     if (!eq || strchr(s, '"')) {
-        error("Invalid value");
+        error(SYSOUT_INVALID_VALUE);
         return;
     }
     n = eq - s;
@@ -217,7 +217,7 @@ __noinline void bank_setcmd(const char *s)
         --n;
     len = strlen(eq + 1);
     if (!n || n > 8 || len > ENVVALUE) {
-        error("Invalid value");
+        error(SYSOUT_INVALID_VALUE);
         return;
     }
     memcpy(name, s, n);
@@ -233,13 +233,13 @@ __noinline void bank_setcmd(const char *s)
     if (*v && ((!strcmp(name, "DRIVEIDS") && stricmp(v, "C64") && stricmp(v, "DOS")) ||
                (!strcmp(name, "CHARSET") && !charsetname(v)) ||
                (!strcmp(name, "DIRCMD") && !dirdefaults(v, &flags)))) {
-        error("Invalid value");
+        error(SYSOUT_INVALID_VALUE);
         return;
     }
     old = envget(name);
     size = old ? strlen(old) + strlen(name) + 2 : 0;
     if (envused - size + (len ? n + len + 2 : 0) > ENVSIZE) {
-        say("Environment full");
+        say(SYSOUT_ENVIRONMENT_FULL);
         return;
     }
     if (old) {
@@ -282,10 +282,10 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive) {
     charset_enable();
     screenbase = 0xe000;
     gotoxy(ox, oy);
-    c=cart_init(); if(c) error("Cartridge filesystem unavailable");
+    c=cart_init(); if(c) error(SYSOUT_CARTRIDGE_FILESYSTEM_UNAVAILABLE);
     if (!c && !skipautoexec && !resume_requested) {
         unsigned char bootdevs[24], bi, bn=cart_config(bootdevs);
-        if(cart_status()) error("Invalid CONFIG.SYS directive");
+        if(cart_status()) error(SYSOUT_INVALID_CONFIG_SYS_DIRECTIVE);
         startdrive=drive=0;
         for(bi=0;bi<bn;++bi) {
             p1.dev=bootdevs[bi]; filename("AUTOEXEC.BAT",p1.name);

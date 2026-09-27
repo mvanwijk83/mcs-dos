@@ -64,13 +64,13 @@ async function run(){
  await check('copy +one invalid','Invalid file name');
  await check('copy 8:one+9:two x','Files must be on the same disk');
  await check('copy abcdefghijklmnop+abcdefghijklmnop abcdefghijklmnop','File list too long');
- await check('attrib +r one','8:>');await check('attrib one','  R    ONE');
+ await check('attrib +l one','8:>');await check('attrib one','  L    ONE');
  await check('del one /p','File is locked');await check('type one','one');
  await check('del o* /p','File is locked');await check('type one','one');
  await check('del one','File is locked');
  await check('mem /s','Invalid parameter');await check('chkdsk /s','Invalid parameter');
  await check('attrib','TWO');
- await check('attrib -r one','8:>');await check('attrib one','       ONE');
+ await check('attrib -l one','8:>');await check('attrib one','       ONE');
  await check('del one /p','8:>');await check('type one','File not found');
  await check('chkdsk /v','Disk validation complete.',25000);
  await command('detach 8');

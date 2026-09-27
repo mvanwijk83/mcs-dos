@@ -2,13 +2,14 @@ require('./setup');
 // Execute the actual TYPE implementation under Oscar64 with mocked disk/screen I/O.
 const fs=require('fs'),assert=require('assert/strict');
 const {fn,functions,header}=require("./source");
-const type=fn("typecmd");
+const type=functions("typeoptions", "typehex", "typecmd");
 const harness=`
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 static unsigned char io[256],ox,aborted,pagelines,redirected;
 static int argc=2,p1,rows,pages,pos,length;
-static const char *args[2];static char input[4096];
+static const char *args[3];static char input[4096];
 static int path(const char *s,int *p) { return 1; }
 static int openread(int *p,int n) { return 1; }
 static int channel_open(int a,int b,int c,const char *s) { return 0; }
@@ -44,6 +45,7 @@ static int check(int width,const char *ending,int lines,int blank) {
 }
 int main(void) {
  int w,e,b; const char *endings[3]; int widths[5];
+ args[1]="input";
  endings[0]="\\r"; endings[1]="\\n"; endings[2]="\\r\\n";
  widths[0]=39; widths[1]=40; widths[2]=41; widths[3]=80; widths[4]=15;
  for(w=0;w<5;++w) for(e=0;e<3;++e) for(b=0;b<2;++b)

@@ -1,5 +1,6 @@
 /* Writable MFJ3 journal plus private session/resource services. */
 #include <string.h>
+#include "../sysout.h"
 #include <stdlib.h>
 #pragma section(startup, 0)
 #pragma region(startup, 0x8000, 0x8020, , , {startup})
@@ -158,14 +159,10 @@ void dispatch(void) {
   else if(op==11){for(i=0;i<CART_RUN_SIZE;++i)TEXT[i]=((const char*)0xbf00)[i];P[3]=CART_RUN_SIZE;}
   else if(op==12){if(writer==f+1){channels[f].kind=0;abortwrite();}}
   else if(op==13) {
-   switch(P[2]) {
-   case 0:strcpy(TEXT,"Volume MCS-DOS 2.0\nDisk ID is MC\n\n");break;
-   case 1:strcpy(TEXT,"131,072 bytes reserved flash\n 65,536 bytes compaction reserve\n");break;
-   case 2:strcpy(TEXT,"  1,536 bytes overhead per sector\n\n 64,000 bytes total file space\n");break;
-   case 3:i=number(0,livebytes);strcpy(TEXT+i," bytes used in ");i=number(i+15,count);strcpy(TEXT+i," files\n");break;
-   case 4:i=number(0,CAPACITY-livebytes);strcpy(TEXT+i," bytes available for files\n");break;
-   default:i=number(0,40-count);strcpy(TEXT+i," of 40 writable file slots free\n\nJournal compacts when needed.\n");break;
-   }
+   /* Raw values: the shell owns formatting and wording. */
+   if(P[2]==0)number(0,CAPACITY);
+   else if(P[2]==1)number(0,livebytes);
+   else number(0,count);
   } else if(f<6) {
    c=channels+f;
    if(op==2) {

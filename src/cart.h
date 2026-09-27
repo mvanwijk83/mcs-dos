@@ -11,6 +11,7 @@ int cart_write(char f,const void *buffer,unsigned int size);
 void channel_close(char f);
 void channel_abort(char f);
 unsigned char cart_status(void);
+/* Unformatted decimal metrics: 0 capacity, 1 live bytes, 2 file count. */
 const char *cart_stats(unsigned char line);
 unsigned char cart_command(const char *text);
 unsigned char cart_directory(char f,unsigned char first,struct DirectoryEntry *entry);

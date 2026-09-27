@@ -104,13 +104,36 @@ function diskFile(file,name){
   const free=JSON.parse(fs.readFileSync('build/easyflash/layout.json')).freeRam;
   assert((await screen()).includes(free.toLocaleString('en-US')+' bytes free'));
  }
+ if(process.argv.includes('--commands')) {
+  const layout=JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
+  s=await check('chkdsk',' 64,000 bytes total disk space');
+  assert(s.includes(layout.fileBytes.toLocaleString('en-US')+' bytes allocated in 5 files'),s);
+  assert(s.includes(layout.available.toLocaleString('en-US')+' bytes available on disk'),s);
+  assert(!s.includes('memory')&&!s.includes('blocks')&&!s.includes('reserve'),s);
+  await enter('echo one >lines.txt',2000);
+  await enter('echo two >>lines.txt',2000);
+  await enter('echo three >>lines.txt',2000);
+  await enter('cls');s=await check('type lines.txt /h:1','one');assert(!s.includes('two'),s);
+  await enter('cls');s=await check('type lines.txt /t:1','three');assert(!s.includes('one'),s);
+  await enter('cls');await check('type lines.txt /hex','000000');
+  await enter('type lines.txt /t:1 >tail.txt',2000);
+  await enter('cls');s=await check('type tail.txt','three');assert(!s.includes('one'),s);
+  await check('attrib +r lines.txt','Invalid parameter');
+  await enter('attrib +l lines.txt');s=await check('attrib lines.txt','L    LINES.TXT');
+  await enter('attrib -l lines.txt');
+  await check('move lines.txt tail.txt /p','1 file(s) moved.');
+  await enter('cls');await check('type tail.txt /t:2','two');
+  await command('attach "'+disk+'" 8');
+  s=await check('chkdsk 8:','total blocks on disk');assert(!s.includes('memory'),s);
+  console.log('PASS CHKDSK totals, TYPE options/redirection, ATTRIB L and MOVE /P');return;
+ }
  if(process.argv.includes('--feedback')) {
   s=await check('dir','CGA.CPI');assert(!s.includes('MCS-DOS.EXE')&&!s.includes('COMMANDS.HLP'),s);
   await check('mem','bytes free');await check('help mem','memory');
-  s=await check('chkdsk','64,000 bytes total file space');
+  s=await check('chkdsk','64,000 bytes total disk space');
   const layout=JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
-  assert(s.includes(String(layout.available)+' bytes available'),s);
-  assert(s.includes(String(layout.fileBytes)+' bytes used in 5 files'),s);
+  assert(s.includes(layout.available.toLocaleString('en-US')+' bytes available'),s);
+  assert(s.includes(layout.fileBytes.toLocaleString('en-US')+' bytes allocated in 5 files'),s);
   await enter('echo abc >mcs-dos.exe',1500);await check('type mcs-dos.exe','abc');
   await enter('ren mcs-dos.exe stats.txt');await check('type stats.txt','abc');
   if(process.argv.includes('--banked'))await bankChecks();
@@ -119,7 +142,7 @@ function diskFile(file,name){
  if(process.argv.includes('--banked-smoke')) {
   await check('help cls','Clears');
   await check('dir','CGA.CPI');
-  await check('chkdsk','64,000 bytes total file space');
+  await check('chkdsk','64,000 bytes total disk space');
   await enter('set test=temporary');
   await enter('reboot');
   assert(!(await enter('set')).includes('TEST=temporary'));
@@ -164,9 +187,9 @@ function diskFile(file,name){
  await enter('copy test.txt copy.txt',4000); await enter('ren copy.txt renamed.txt',4000);
  await check('type renamed.txt','hello');
  await enter('copy test.txt+renamed.txt joined.txt',4000); await check('type joined.txt','second');
- await enter('attrib +r renamed.txt',4000); await check('attrib renamed.txt','R');
+ await enter('attrib +l renamed.txt',4000); await check('attrib renamed.txt','L');
  await enter('echo forbidden >renamed.txt',4000); await check('type renamed.txt','hello');
- await enter('attrib -r renamed.txt',4000); await enter('del renamed.txt /p',4000);
+ await enter('attrib -l renamed.txt',4000); await enter('del renamed.txt /p',4000);
  await check('type renamed.txt','File not found');
  await command(`attach "${disk}" 8`);
  await enter('copy 8:blob 0:blob',4000); await enter('copy 0:blob 8:roundtrip',2500);

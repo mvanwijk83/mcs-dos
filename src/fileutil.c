@@ -8,13 +8,45 @@ __noinline void bank_runcmd(void);
 __noinline unsigned char bank_diskhelp(unsigned char topic);
 __noinline void bank_help(int id);
 
+__noinline int bank_typehex(void);
+__noinline int bank_typehex(void)
+{
+    int n, i;
+    unsigned char c;
+    unsigned long offset = 0, address;
+    char hexline[40];
+    const char *digits = "0123456789ABCDEF";
+    while ((n = readio(2, io, 8)) > 0 && !aborted) {
+        memset(hexline, ' ', 39);
+        hexline[39] = 0;
+        address = offset;
+        for (i = 5; i >= 0; --i) {
+            hexline[i] = digits[address & 15];
+            address >>= 4;
+        }
+        for (i = 0; i < n; ++i) {
+            c = io[i];
+            hexline[7 + i * 3] = digits[c >> 4];
+            hexline[8 + i * 3] = digits[c & 15];
+            hexline[31 + i] = c < 32 || (c >= 128 && c < 160) ? '.' : c;
+        }
+        for (i = 0; i < 39; ++i) outc(hexline[i]);
+        newline();
+        offset += n;
+        if (!page()) break;
+        stop();
+    }
+    return n;
+}
+
 __noinline void bank_typecmd(unsigned char printer)
 {
     int n, i;
-    unsigned char lastcr = 0, wrapped = 0;
+    unsigned char lastcr = 0, wrapped = 0, mode = 0, c, selected = 1, pending = 0;
+    unsigned long limit = 0, lines = 0, skip = 0, line = 0;
     if (printer) {
         if (argc < 2 || argc > 3) {
-            error("Syntax: PRINT filename [4:|5:|LPT1|LPT2]");
+            error(SYSOUT_SYNTAX_PRINT);
             return;
         }
         printer = 4;
@@ -22,12 +54,12 @@ __noinline void bank_typecmd(unsigned char printer)
             if (!strcmp(args[2], "5:") || !stricmp(args[2], "LPT2"))
                 printer = 5;
             else if (strcmp(args[2], "4:") && stricmp(args[2], "LPT1")) {
-                error("Invalid printer (4:, 5:, LPT1, LPT2)");
+                error(SYSOUT_INVALID_PRINTER);
                 return;
             }
         }
-    } else if (argc != 2) {
-        error("Syntax: TYPE filename");
+    } else if (!typeoptions(&mode, &limit)) {
+        error(SYSOUT_SYNTAX_TYPE);
         return;
     }
     if (!path(args[1], &p1))
@@ -37,50 +69,76 @@ __noinline void bank_typecmd(unsigned char printer)
     if (printer && channel_open(4, printer, 7, "") != 0) {
         channel_close(2);
         channel_close(4);
-        error("Printer not ready");
+        error(SYSOUT_PRINTER_NOT_READY);
         return;
     }
     pagelines = 0;
+    n = 0;
+    if ((mode == 1 || mode == 2) && !limit) goto done;
+    if (mode == 2) {
+        /* Count logical lines, then reopen: no file-size RAM limit. */
+        while ((n = readio(2, io, sizeof(io))) > 0 && !aborted) {
+            for (i = 0; i < n; ++i) {
+                c = io[i];
+                if (c == 13 || (c == 10 && !lastcr)) ++lines;
+                pending = c != 13 && c != 10;
+                lastcr = c == 13;
+            }
+            stop();
+        }
+        if (n < 0 || aborted) goto done;
+        if (pending) ++lines;
+        skip = lines > limit ? lines - limit : 0;
+        channel_close(2);
+        if (!openread(&p1, 2)) return;
+        lastcr = 0;
+    }
+    if (mode == 3) {
+        n = bank_typehex();
+        goto done;
+    }
     while ((n = readio(2, io, sizeof(io))) > 0 && !aborted) {
         if (printer) {
             if (channel_write(4, io, n) != n) {
-                error("Write fault error");
+                error(SYSOUT_WRITE_FAULT_ERROR);
                 break;
             }
             stop();
-        } else if (redirected) {
-            for (i = 0; i < n; ++i)
-                outputbyte(io[i]);
-            stop();
-        } else
+        } else {
             for (i = 0; i < n; ++i) {
-                if (io[i] == 10 && lastcr) {
+                c = io[i];
+                /* A CRLF belongs to one logical line, even across reads. */
+                if (c == 10 && lastcr) {
                     lastcr = 0;
+                    if (selected && redirected) outputbyte(c);
                     continue;
                 }
-                lastcr = io[i] == 13;
-                /* A full display row already advanced to the next line. Consume
-                 * its terminator once, preserving subsequent empty lines. Keep
-                 * this state across disk reads and pagination pauses. */
-                if (io[i] == 13 || io[i] == 10) {
-                    if (wrapped) {
-                        wrapped = 0;
-                        continue;
-                    }
+                if (mode == 1 && line >= limit) goto done;
+                selected = line >= skip;
+                lastcr = c == 13;
+                if (c == 13 || c == 10) ++line;
+                if (!selected) continue;
+                if (redirected) { outputbyte(c); continue; }
+                /* Full screen rows already advanced past their terminator. */
+                if ((c == 13 || c == 10) && wrapped) {
+                    wrapped = 0;
+                    continue;
                 }
-                outc(io[i]);
-                wrapped = io[i] != 13 && io[i] != 10 && !ox;
-                if (!ox && !page())
-                    break;
+                outc(c);
+                wrapped = c != 13 && c != 10 && !ox;
+                if (!ox && !page()) break;
             }
+            stop();
+        }
     }
+done:
     channel_close(2);
     if (printer)
         channel_close(4);
     if (!redirected && ox)
         newline();
     if (n < 0)
-        error("Read fault error");
+        error(SYSOUT_READ_FAULT_ERROR);
 }
 
 /* Reuse EDIT's idle buffer for two disk cursors and a sliding search window.
@@ -118,7 +176,7 @@ __noinline void bank_findcmd(void)
             else if (!stricmp(args[i], "/I"))
                 flags |= 8;
             else {
-                error("Invalid switch");
+                error(SYSOUT_INVALID_SWITCH);
                 return;
             }
         } else if (!needle && argquoted[i])
@@ -126,18 +184,18 @@ __noinline void bank_findcmd(void)
         else if (needle && !filename)
             filename = args[i];
         else {
-            error("Syntax: FIND [switches] \"string\" filename");
+            error(SYSOUT_SYNTAX_FIND);
             return;
         }
     }
     if (!needle || !filename) {
-        error("Syntax: FIND [switches] \"string\" filename");
+        error(SYSOUT_SYNTAX_FIND);
         return;
     }
     if (!path(filename, &p1))
         return;
     if (!p1.name[0] || strpbrk(p1.name, "*?")) {
-        error("Invalid file name");
+        error(SYSOUT_INVALID_FILE_NAME);
         return;
     }
     if (!openread(&p1, 2))
@@ -147,7 +205,7 @@ __noinline void bank_findcmd(void)
         if (channel_open(3, p1.dev, 3, diskcmd) != 0 || diskstatus(p1.dev, 1) >= 20) {
             channel_close(2);
             channel_close(3);
-            error("File not found");
+            error(SYSOUT_FILE_NOT_FOUND);
             return;
         }
         eof[3] = 0;
@@ -158,7 +216,7 @@ __noinline void bank_findcmd(void)
     hit = !size;
     noseparators = 1;
     uppername(p1.name, shown);
-    print("---- %s", shown);
+    print(SYSOUT_FIND_HEADER, shown);
     if (!(flags & 2))
         newline();
     pagelines = 1;
@@ -181,7 +239,7 @@ __noinline void bank_findcmd(void)
             if (!(flags & 2)) {
                 col = 0;
                 if (selected && (flags & 4)) {
-                    print("[%s]", decimal(number));
+                    print(SYSOUT_FIND_LINE_NUMBER, decimal(number));
                     col = 2;
                     digits = number;
                     do {
@@ -242,9 +300,9 @@ __noinline void bank_findcmd(void)
     if (!(flags & 2))
         channel_close(3);
     if (c == -2)
-        error("Read fault error");
+        error(SYSOUT_READ_FAULT_ERROR);
     else if ((flags & 2) && !aborted)
-        print(": %s\n", decimal(total));
+        print(SYSOUT_FIND_COUNT, decimal(total));
 }
 
 __noinline void bank_runcmd(void)
@@ -253,7 +311,7 @@ __noinline void bank_runcmd(void)
     unsigned long address;
     unsigned char n;
     if (argc != 2 && argc != 4) {
-        error("Syntax: RUN file [/A address]");
+        error(SYSOUT_SYNTAX_RUN);
         return;
     }
     if (!path(args[1], &p1))
@@ -261,7 +319,7 @@ __noinline void bank_runcmd(void)
     n = strlen(p1.name);
     if (n >= 4 && !stricmp(p1.name + n - 4, ".BAT")) {
         if (argc != 2) {
-            error("Invalid switch for batch file");
+            error(SYSOUT_INVALID_SWITCH_FOR_BATCH_FILE);
             return;
         }
         runbatch();
@@ -270,12 +328,12 @@ __noinline void bank_runcmd(void)
     launchabsolute = 0;
     if (argc == 4) {
         if (stricmp(args[2], "/A")) {
-            error("Invalid switch");
+            error(SYSOUT_INVALID_SWITCH);
             return;
         }
         address = strtoul(args[3], &end, 10);
         if (!args[3][0] || *end || address < 2049 || address > 65535UL) {
-            error("Invalid load address");
+            error(SYSOUT_INVALID_LOAD_ADDRESS);
             return;
         }
         launchabsolute = 1;
@@ -283,15 +341,15 @@ __noinline void bank_runcmd(void)
     }
     cachevalid = 0;
     if (findfile(&p1) < 0) {
-        error("File not found");
+        error(SYSOUT_FILE_NOT_FOUND);
         return;
     }
     strcpy(launchname, p1.name);
     launchlength = n;
     launchdevice = p1.dev;
-    say("Loading...");
+    say(SYSOUT_LOADING);
 /* Swapping a disk with an open output file would write to the wrong disk. */
-    if(!launchdevice) { if(!cart_launch(launchname,launchabsolute,launchaddress)) error("Cannot load cartridge program"); return; }
+    if(!launchdevice) { if(!cart_launch(launchname,launchabsolute,launchaddress)) error(SYSOUT_CANNOT_LOAD_CARTRIDGE_PROGRAM); return; }
     launch();
 }
 
@@ -317,7 +375,7 @@ __noinline unsigned char bank_diskhelp(unsigned char topic)
         }
         stop();
     }
-    if (!aborted) error("Cartridge help unavailable");
+    if (!aborted) error(SYSOUT_CARTRIDGE_HELP_UNAVAILABLE);
     return 0;
 }
 
@@ -328,7 +386,7 @@ __noinline void bank_help(int id)
         bank_diskhelp((unsigned char)id);
         return;
     }
-    say("For more information on a specific\ncommand, type HELP [command].");
+    say(SYSOUT_HELP_INTRO);
     newline();
     for (i = 0; i < COMMANDCOUNT; ++i)
         order[i] = i;
@@ -342,12 +400,12 @@ __noinline void bank_help(int id)
         order[j] = tmp;
     }
     for (i = 0; i < COMMANDCOUNT; ++i) {
-        print("%-13s", commands[order[i]]);
+        print(SYSOUT_HELP_COMMAND, commands[order[i]]);
         if (i % 3 == 2)
             newline();
     }
     newline();
-    say("Aliases: DELETE ERASE RENAME VERSION");
+    say(SYSOUT_HELP_ALIASES);
 }
 #pragma code(code)
 #pragma data(data)

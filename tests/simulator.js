@@ -6,7 +6,7 @@ const fs = require('fs');
 module.exports = function simulate(source) {
   const support = fs.readFileSync('src/c64-support.c', 'utf8');
   // Include the actual production helpers, while leaving disk/screen I/O mocked.
-  const helpers = '#include <string.h>\n#include <ctype.h>\n#include <stdarg.h>\n' +
+  const helpers = '#include "../src/sysout.h"\n#include <string.h>\n#include <ctype.h>\n#include <stdarg.h>\n' +
     'typedef const char *StringPtr;\n' +
     support.slice(support.indexOf('char *strpbrk('), support.indexOf('void screen_reverse(')) +
     support.slice(support.indexOf('int vsnprintf('));

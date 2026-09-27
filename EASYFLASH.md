@@ -15,8 +15,8 @@ on device 0. Sequential, program and user files are supported; REL files are
 not supported on the cartridge.
 
 Files have 16-character names and a read-only attribute. The five bundled files
-start writable, just like user files. `ATTRIB +R filename` protects a file;
-`ATTRIB -R filename` removes protection. They are CGA.CPI, AUTOEXEC.SAMPLE,
+start writable, just like user files. `ATTRIB +L filename` protects a file;
+`ATTRIB -L filename` removes protection. They are CGA.CPI, AUTOEXEC.SAMPLE,
 MANUAL.TXT, CHANGELOG.TXT and LICENSE.TXT. HELP reads indexed internal cartridge
 data, independently of the writable filesystem; it never opens COMMANDS.HLP.
 

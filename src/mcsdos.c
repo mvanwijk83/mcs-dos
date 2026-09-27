@@ -34,7 +34,7 @@ restart:
         if(!session_restore()) {
             bootstart(0);
             envready=1;
-            say("Warning: saved shell state unavailable. Using defaults.");
+            say(SYSOUT_SESSION_RESTORE_WARNING);
         }
         startup=0;resume_requested=0;
     }
@@ -66,7 +66,7 @@ again:
                 ++batchpos;
             line[n] = 0;
             if (overflow) {
-                say("Batch command too long");
+                say(SYSOUT_BATCH_COMMAND_TOO_LONG);
                 batching = 0;
                 continue;
             }
@@ -95,7 +95,7 @@ again:
         if (!batching && !quit)
             newline();
     }
-    if(session_save() || yesno("Warning: write error saving shell state. Proceed to BASIC"))
+    if(session_save() || yesno(SYSOUT_SESSION_SAVE_WARNING))
         session_basic();
     quit=0;
     goto again;

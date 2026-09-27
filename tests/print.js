@@ -2,10 +2,11 @@ require('./setup');
 // Run the production TYPE/PRINT handler with observable KERNAL I/O mocks.
 const fs=require('fs');
 const {fn,functions,header}=require("./source");
-const type=fn("typecmd");
+const type=functions("typeoptions", "typehex", "typecmd");
 const harness=`
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 static unsigned char io[256],ox,aborted,pagelines,redirected;
 static int argc,p1,pos,length,device,secondary,opened,closed,errors,failopen,failwrite,written;
 static const char *args[4];static char input[600],output[600];

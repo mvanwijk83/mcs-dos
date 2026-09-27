@@ -37,8 +37,8 @@ module.exports=async function({command,memory,screen,keys,enter,check,disk,crt})
  assert.equal(state.files.get('SAMPLE.BAT').offset,initial.files.get('AUTOEXEC.SAMPLE').offset);
  await enter('copy sample.bat backup.bat');let copied=await inspect();
  assert.equal(copied.end-state.end,32+sample.length);assert.deepEqual(copied.files.get('BACKUP.BAT').data,sample);
- await enter('attrib +r backup.bat');let attr=await inspect();assert.equal(attr.end-copied.end,32);
- await enter('attrib -r backup.bat');await enter('del manual.txt /p');
+ await enter('attrib +l backup.bat');let attr=await inspect();assert.equal(attr.end-copied.end,32);
+ await enter('attrib -l backup.bat');await enter('del manual.txt /p');
  await enter('echo ordinary user file >commands.hlp');await check('help cls','Clears');
  await enter('echo executable name is ordinary >mcs-dos.exe');await check('type mcs-dos.exe','ordinary');
  await enter('help cls >help.txt');await check('type help.txt','Clears');

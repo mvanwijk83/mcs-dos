@@ -133,9 +133,9 @@ async function run(){
    await check('label renamed','Volume label changed.');
    await check('diskid xy','Disk ID changed.');
    await check('vol','Disk ID is XY');
-   await check('attrib +r sample','8:>');
+   await check('attrib +l sample','8:>');
    await check('attrib sample','R    SAMPLE');
-   await check('attrib -r sample','8:>');
+   await check('attrib -l sample','8:>');
    await check('chkdsk /v','Disk validation complete.',5000);
    }
    await check('diskcopy 8: 9:','Proceed with disk copy');

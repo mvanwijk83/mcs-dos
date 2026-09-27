@@ -77,6 +77,14 @@ __noinline void bank_session_basic(void) {
  RESUME[0]=0;RESUME[16]=fg;RESUME[17]=bg;RESUME[18]=bd;
  __asm { jmp 0xc000 }
 }
+/* Install only the RAM image here. The low-RAM loaders initialize BASIC and
+ * hook $0302 through $C003 once execution has left the shell permanently. */
+__noinline unsigned char bank_session_run(void) {
+ if(!bank_session_save() && !yesno(SYSOUT_SESSION_RUN_WARNING))return 0;
+ memcpy((void*)0xc000,wedge_image,sizeof(wedge_image));
+ RESUME[0]=0;
+ return 1;
+}
 #pragma code(code)
 #pragma data(data)
 /* Reading font RAM beneath KERNAL must execute entirely in resident RAM. */

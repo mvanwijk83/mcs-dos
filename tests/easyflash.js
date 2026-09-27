@@ -66,6 +66,9 @@ function diskFile(file,name){
  console.log('BOOT',s); assert(s.includes('0:>'),s);
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');
  await defaultFont();
+ if(process.argv.includes('--run-return')) {
+  await require('./run-return')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
+ }
  if(process.argv.includes('--journal')) {
   await require('./journal')({command,memory,screen,keys,enter,check,defaultFont,disk,crt,root});return;
  }
@@ -103,6 +106,24 @@ function diskFile(file,name){
   await check('mem','bytes cartridge ROM window');
   const free=JSON.parse(fs.readFileSync('build/easyflash/layout.json')).freeRam;
   assert((await screen()).includes(free.toLocaleString('en-US')+' bytes free'));
+ }
+ if(process.argv.includes('--find-redirection')) {
+  await enter('echo one >input.txt',2000);
+  await enter('echo two >>input.txt',2000);
+  await enter('echo one more >>input.txt',2000);
+  await enter('find "one" input.txt >out.txt',2000);
+  await enter('cls');s=await check('type out.txt','one more');assert(!s.includes('two'),s);
+  await enter('find /c "two" input.txt >>out.txt',2000);
+  await enter('cls');s=await check('type out.txt','INPUT.TXT: 1');assert(s.includes('one more'),s);
+  await check('help find >out.txt','Redirection not supported');
+  await check('find /? >out.txt','Redirection not supported');
+  await enter('cls');s=await check('type out.txt','one more');assert(s.includes('INPUT.TXT: 1'),s);
+  await check('find "one" input.txt >input.txt','Cannot redirect FIND onto itself');
+  await check('find "one" input.txt >>input.txt','Cannot redirect FIND onto itself');
+  await enter('cls');await check('type input.txt','two');
+  await check('find "one" missing >out.txt','File not found');
+  await enter('cls');await check('type out.txt','one more');
+  console.log('PASS FIND overwrite/append, preserved input/output files, and rejected HELP redirection');return;
  }
  if(process.argv.includes('--delete')) {
   await command('attach "'+disk+'" 8');
@@ -179,13 +200,12 @@ function diskFile(file,name){
   assert(!(await enter('set')).includes('TEST=temporary'));
   await bankChecks();
   await command(`attach "${disk}" 8`);
-  s=await enter('run 8:demo',2500);assert(s.includes('hello from basic!'),s);
+  await runAndReturn('run 8:demo');
   console.log('PASS banked REBOOT and disk PRG launch');return;
  }
  if(process.argv.includes('--launch-only')) {
   await command(`attach "${disk}" 8`);await enter('copy 8:demo 0:demo',3000);
-  s=await enter('run 0:demo',1500);assert(s.includes('hello from basic!'),s);
-  assert.deepEqual(await memory(0x37,0x38),[0,0xa0],'BASIC receives normal memory limit');
+  await runAndReturn('run 0:demo');
   console.log('PASS cartridge PRG launch');return;
  }
  if(process.argv.includes('--recovery-only')) {
@@ -252,11 +272,11 @@ function diskFile(file,name){
  await command('bank cpu');console.log('PASS external startup charset');
  await enter('0:'); await enter('echo ldautoex=0 >config.sys',4000);
  await command('reset 0'); await command('x'); await delay(3500); s=await enter('set'); assert(!s.includes('BOOT='),s);
- await enter('copy 8:demo 0:demo',4000); s=await enter('run 0:demo',2500); assert(s.includes('hello from basic!'),s);
+ await enter('copy 8:demo 0:demo',4000); await runAndReturn('run 0:demo');
  console.log('PASS cartridge PRG launch');
  await command('reset 0'); await command('x'); await delay(3000);
  if(process.argv.includes('--banked')) {
-  s=await enter('run 8:demo',2500);assert(s.includes('hello from basic!'),s);
+  await runAndReturn('run 8:demo');
   console.log('PASS disk PRG launch from banked RUN');
   await command('reset 0');await command('x');await delay(3000);
  }
@@ -273,6 +293,11 @@ function diskFile(file,name){
  fs.writeFileSync('build/easyflash/test-v2.json',JSON.stringify(snapshots,null,2));
  socket?.destroy();if(child&&child.exitCode===null)child.kill();
 });
+async function runAndReturn(cmd){
+ let s=await keys(cmd+'\\x0d',3500);
+ for(let i=0;i<40&&!s.endsWith('0:>');i++){await command('x');await delay(500);s=await screen();}
+ assert(s.endsWith('0:>'),s);
+}
 async function recoverWrite(crt){
  // Keep the remote connection alive so a breakpoint stays in the remote
  // monitor instead of opening VICE's native interactive monitor window.

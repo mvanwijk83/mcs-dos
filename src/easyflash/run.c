@@ -8,8 +8,7 @@ __asm startup {
  sei
  lda #0x37
  sta 1
- jsr 0xe453
- jsr 0xe3bf
+ jsr 0xc003 // initialize BASIC and install automatic shell return
  lda 0x02a0
  sta 0xde00
  lda #7

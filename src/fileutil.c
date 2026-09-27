@@ -39,6 +39,29 @@ __noinline int bank_typehex(void)
     return n;
 }
 
+/* Validate before opening a redirected destination, too. */
+__noinline unsigned char bank_typeoptions(unsigned char *mode, unsigned long *limit)
+{
+    unsigned char i;
+    const char *q;
+    *mode = 0;
+    *limit = 0;
+    if (argc < 2 || argc > 3 || args[1][0] == '/') return 0;
+    if (argc == 2) return 1;
+    if (!stricmp(args[2], "/HEX")) { *mode = 3; return 1; }
+    if (args[2][0] != '/' || !args[2][1] || args[2][2] != ':') return 0;
+    i = toupper(args[2][1]);
+    if (i != 'H' && i != 'T') return 0;
+    q = args[2] + 3;
+    if (!*q) return 0;
+    while (*q) {
+        if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10) return 0;
+        *limit = *limit * 10 + *q++ - '0';
+    }
+    *mode = i == 'H' ? 1 : 2;
+    return 1;
+}
+
 __noinline void bank_typecmd(unsigned char printer)
 {
     int n, i;
@@ -58,7 +81,7 @@ __noinline void bank_typecmd(unsigned char printer)
                 return;
             }
         }
-    } else if (!typeoptions(&mode, &limit)) {
+    } else if (!bank_typeoptions(&mode, &limit)) {
         error(SYSOUT_SYNTAX_TYPE);
         return;
     }
@@ -156,48 +179,60 @@ __noinline int bank_findbyte(unsigned char reader, unsigned int *pos, unsigned i
     return (unsigned char)editbuf[reader * 256 + pos[reader]++];
 }
 
+/* Share FIND validation with redirection before opening output. */
+__noinline unsigned char bank_findoptions(unsigned char *flags, char **needle)
+{
+    unsigned char i;
+    char *filename = 0;
+    *flags = 0;
+    *needle = (char *)0;
+    for (i = 1; i < argc; ++i) {
+        if (!argquoted[i] && args[i][0] == '/') {
+            if (!stricmp(args[i], "/V"))
+                *flags |= 1;
+            else if (!stricmp(args[i], "/C"))
+                *flags |= 2;
+            else if (!stricmp(args[i], "/N"))
+                *flags |= 4;
+            else if (!stricmp(args[i], "/I"))
+                *flags |= 8;
+            else {
+                error(SYSOUT_INVALID_SWITCH);
+                return 0;
+            }
+        } else if (!*needle && argquoted[i])
+            *needle = args[i];
+        else if (*needle && !filename)
+            filename = args[i];
+        else {
+            error(SYSOUT_SYNTAX_FIND);
+            return 0;
+        }
+    }
+    if (!*needle || !filename) {
+        error(SYSOUT_SYNTAX_FIND);
+        return 0;
+    }
+    if (!path(filename, &p1))
+        return 0;
+    if (!p1.name[0] || strpbrk(p1.name, "*?")) {
+        error(SYSOUT_INVALID_FILE_NAME);
+        return 0;
+    }
+    return 1;
+}
+
 __noinline void bank_findcmd(void)
 {
-    unsigned char i, flags = 0, size, used = 0, hit, lastcr = 0, pending = 0, skip = 0, selected,
+    unsigned char flags = 0, size, used = 0, hit, lastcr = 0, pending = 0, skip = 0, selected,
                      col;
     unsigned int pos[2], len[2];
     unsigned long number = 0, total = 0, digits;
     int c = -1, d;
-    char *needle = 0, *filename = 0, *window = editbuf + 512;
+    char *needle = 0, *window = editbuf + 512;
     char shown[17];
-    for (i = 1; i < argc; ++i) {
-        if (!argquoted[i] && args[i][0] == '/') {
-            if (!stricmp(args[i], "/V"))
-                flags |= 1;
-            else if (!stricmp(args[i], "/C"))
-                flags |= 2;
-            else if (!stricmp(args[i], "/N"))
-                flags |= 4;
-            else if (!stricmp(args[i], "/I"))
-                flags |= 8;
-            else {
-                error(SYSOUT_INVALID_SWITCH);
-                return;
-            }
-        } else if (!needle && argquoted[i])
-            needle = args[i];
-        else if (needle && !filename)
-            filename = args[i];
-        else {
-            error(SYSOUT_SYNTAX_FIND);
-            return;
-        }
-    }
-    if (!needle || !filename) {
-        error(SYSOUT_SYNTAX_FIND);
+    if (!bank_findoptions(&flags, &needle))
         return;
-    }
-    if (!path(filename, &p1))
-        return;
-    if (!p1.name[0] || strpbrk(p1.name, "*?")) {
-        error(SYSOUT_INVALID_FILE_NAME);
-        return;
-    }
     if (!openread(&p1, 2))
         return;
     /* The same specification, but a distinct secondary address/cursor. */
@@ -256,11 +291,11 @@ __noinline void bank_findcmd(void)
                     skip = 0;
                     if (d < 0 || d == 13 || d == 10)
                         break;
-                    if (selected && (!(flags & 4) || col < 40)) {
+                    if (selected && (redirected || !(flags & 4) || col < 40)) {
                         outc(d);
                         if (col < 40)
                             ++col;
-                        if (!ox && !page())
+                        if (!redirected && !ox && !page())
                             break;
                     }
                 } while (!aborted);
@@ -269,7 +304,7 @@ __noinline void bank_findcmd(void)
                     c = -2;
                     break;
                 }
-                if (selected && !aborted && (!col || ox)) {
+                if (selected && !aborted && (redirected || !col || ox)) {
                     newline();
                     if (!page())
                         break;
@@ -347,6 +382,8 @@ __noinline void bank_runcmd(void)
     strcpy(launchname, p1.name);
     launchlength = n;
     launchdevice = p1.dev;
+    if (!session_run())
+        return;
     say(SYSOUT_LOADING);
 /* Swapping a disk with an open output file would write to the wrong disk. */
     if(!launchdevice) { if(!cart_launch(launchname,launchabsolute,launchaddress)) error(SYSOUT_CANNOT_LOAD_CARTRIDGE_PROGRAM); return; }

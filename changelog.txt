@@ -38,7 +38,10 @@ Preliminary public release.
   2.0 (dd-Mmm-2026)
 ----------------------------------------
 * MCS-DOS is now distributed as an Easy-
-  Flash cartridge image.
+  Flash cartridge image. The cartridge
+  can be used as any other storage
+  device and contains 64k of writeable
+  space.
 * Support added for CONFIG.SYS to
   configure boot behaviour.
 * The command help library is no longer
@@ -48,15 +51,23 @@ Preliminary public release.
   enters the C64 BASIC environment and
   offers a wedge to return to the shell.
 * Changed the DOS-style "R" file
-  attribute letter to "L" to match the
-  actual native C64 semantics.
+  attribute letter for the file lock bit
+  to "L", matching actual C64 behaviour.
 * Added head, tail and hex view options
   to TYPE (/H, /T, /HEX).
 * Added /P switch to MOVE to suppress
   file overwrite prompt.
+* Added DISKINIT command to refresh
+  drive cache and status, equivalent to
+  the CBM-DOS INITIALIZE command.
 * DELeting files with a wildcard will
   now prompt for individual confirmation
   for each matching file, unless /P was
   specified.
+* Added file redirection support for
+  FIND, and removed it from HELP.
+* REU test in MEM removed due to
+  register overlap between the EasyFlash
+  RAM and the REU registers.
 * Revised some system messages.
 

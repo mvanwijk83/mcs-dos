@@ -266,10 +266,38 @@ Run `node tests/easyflash.js --session` for BASIC execution, state round trips,
 startup bypass, flash readback/rotation, failed-save N/Y paths, CRC rejection
 and cold-reset behavior. `--ntsc` selects NTSC timing.
 
+## Automatic return from RUN
+
+Before launching a PRG, RUN saves the same session as BASIC, then installs
+the return image at $C000–$C1DF. The handoff token remains at $C1E0–$C1FF.
+Both disk and cartridge loaders call its fixed $C003 entry to initialize
+BASIC and then hook the warm-start vector at $0302/$0303. A normal return
+through that vector reloads the shell and restores the exact saved session,
+skipping the splash, CONFIG.SYS and AUTOEXEC.BAT. Batch execution is not resumed.
+The BASIC command still uses its separate, manual SHELL statement wedge.
+
+This also intercepts BASIC errors and STOP paths that reach the prompt vector.
+The shell clears the screen on restoration, so program output/error messages
+are not retained. RUN /A still jumps to the selected address; a bare RTS is
+not a supported exit from that direct jump, but a return through BASIC is.
+
+On save failure, RUN asks `Warning: write error saving shell state. Run program
+anyway (Y/N)?`. N cancels the launch; Y runs with an invalid return token, so
+an automatic return uses defaults with a warning instead of an older snapshot.
+Cold cartridge reset retains its ordinary startup behavior.
+
+No additional RAM is reserved. Programs can overwrite the return code/token,
+replace BASIC vectors, bypass the prompt vector, reboot or never exit. The
+hook is an optional convenience and does not restrict their memory access.
+Run `node tests/easyflash.js --run-return` for disk/cartridge native returns,
+BASIC errors, absolute launches, saved-state restoration, failed saves and
+programs that deliberately reset the vector.
+
 ## Scope
 
 RUN can load PRGs from the cartridge as well as disks. Running an external
-program directly from the shell relinquishes it; cartridge reset boots it again.
+program directly from the shell relinquishes it until the optional return
+hook restores it or the user resets the cartridge.
 The BASIC return wedge is a convenience: programs that overwrite its RAM or
 BASIC vectors can disable it. The filesystem and session formats are
 experimental; future versions may require

@@ -41,7 +41,7 @@ module.exports=async function({command,memory,screen,keys,enter,check,disk,crt})
  await enter('attrib -l backup.bat');await enter('del manual.txt /p');
  await enter('echo ordinary user file >commands.hlp');await check('help cls','Clears');
  await enter('echo executable name is ordinary >mcs-dos.exe');await check('type mcs-dos.exe','ordinary');
- await enter('help cls >help.txt');await check('type help.txt','Clears');
+ await check('help cls >help.txt','Redirection not supported');
  let beforeRename=await inspect();
  await keys('ren backup.bat mcs-dos.exe\\x0d');await keys('y',1500);
  let afterRename=await inspect();assert.equal(afterRename.end-beforeRename.end,32);

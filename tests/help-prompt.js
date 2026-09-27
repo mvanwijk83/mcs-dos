@@ -133,9 +133,10 @@ async function run(){
  rows=await fresh('help ver');assert(rows.some(r=>r.includes('copyright information.')));ends(rows,'8:>');
  rows=await fresh('help set>hp');
  assert(!rows.includes(pager));ends(rows,'8:>');
- await command('detach 8');assert.deepEqual(read('hp'),petscii(help.SET+'\n'),'redirected SET help is exact');
+ assert(rows.join(' ').includes('Redirection not supported'));
+ await command('detach 8');
  await command(`attach "${disk}" 8`);await enter('exit');
- console.log('PASS real SET help first/last pages, /? form, RUN/STOP cancellation, subsequent help and exact unpaginated redirection');
+ console.log('PASS real SET help first/last pages, /? form, RUN/STOP cancellation, subsequent help and rejected help redirection');
 
  const commands=[...fs.readFileSync('src/core.c','utf8').replace(/\r\n/g, '\n').match(/const char \*\s*const commands\[\]\s*=\s*\{([\s\S]*?)\};/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);
  const topic=commands.indexOf('SET');assert(topic>=0);

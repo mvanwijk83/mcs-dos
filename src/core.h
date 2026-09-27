@@ -175,5 +175,6 @@ void bootsplash(unsigned char wait);
 void renamecmd(void);
 
 unsigned char bootstart(unsigned char startdrive);
+unsigned char findoptions(unsigned char *flags, char **needle);
 unsigned char typeoptions(unsigned char *mode, unsigned long *limit);
 #endif

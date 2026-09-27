@@ -195,29 +195,6 @@ char *decimal(unsigned long bytes)
 }
 
 #pragma optimize(pop)
-/* Validate before opening a redirected destination, too. */
-unsigned char typeoptions(unsigned char *mode, unsigned long *limit)
-{
-    unsigned char i;
-    const char *q;
-    *mode = 0;
-    *limit = 0;
-    if (argc < 2 || argc > 3 || args[1][0] == '/') return 0;
-    if (argc == 2) return 1;
-    if (!stricmp(args[2], "/HEX")) { *mode = 3; return 1; }
-    if (args[2][0] != '/' || !args[2][1] || args[2][2] != ':') return 0;
-    i = toupper(args[2][1]);
-    if (i != 'H' && i != 'T') return 0;
-    q = args[2] + 3;
-    if (!*q) return 0;
-    while (*q) {
-        if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10) return 0;
-        *limit = *limit * 10 + *q++ - '0';
-    }
-    *mode = i == 'H' ? 1 : 2;
-    return 1;
-}
-
 char *allocated(unsigned int blocks)
 {
     return decimal((unsigned long)blocks * 256);
@@ -999,22 +976,28 @@ void execute(char *s)
         id = 7;
     helping = id == 11;
     for (i = 1; i < argc; ++i)
-        if (!strcmp(args[i], "/?"))
+        if (!argquoted[i] && !strcmp(args[i], "/?"))
             helping = 1;
-    if (id != 1 && id != 5 && id != 7 && id != 11 && id != 13 && id != 20) {
+    if (helping || (id != 1 && id != 5 && id != 7 && id != 13 && id != 20 && id != 28)) {
         error(SYSOUT_REDIRECTION_NOT_SUPPORTED_FOR_COMMAND);
         return;
     }
-    /* Resolve TYPE's source before opening/truncating any destination. */
-    if (id == 20) {
+    /* Resolve file inputs before opening/truncating any destination. */
+    if (id == 20 || id == 28) {
         unsigned char mode;
         unsigned long limit;
-        if (!typeoptions(&mode, &limit)) {
-            error(SYSOUT_SYNTAX_TYPE);
-            return;
+        char *needle;
+        if (id == 28) {
+            if (!findoptions(&mode, &needle))
+                return;
+        } else {
+            if (!typeoptions(&mode, &limit)) {
+                error(SYSOUT_SYNTAX_TYPE);
+                return;
+            }
+            if (!path(args[1], &p1))
+                return;
         }
-        if (!path(args[1], &p1))
-            return;
         i = findfile(&p1);
         if (i < 0) {
             if (i == -1)
@@ -1037,18 +1020,12 @@ void execute(char *s)
     }
     if (!path(args[0], &outputpath))
         return;
-    /* Do not truncate/append to the help source before the reader opens it. */
-    if (helping && outputpath.dev == 0 &&
-        !stricmp(outputpath.name, "commands.hlp")) {
-        error(SYSOUT_INVALID_DESTINATION);
-        return;
-    }
     if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
         error(SYSOUT_INVALID_DESTINATION);
         return;
     }
-    if (id == 20 && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
-        error(SYSOUT_CANNOT_REDIRECT_TYPE_ONTO_ITSELF);
+    if ((id == 20 || id == 28) && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
+        error(id == 20 ? SYSOUT_CANNOT_REDIRECT_TYPE_ONTO_ITSELF : SYSOUT_CANNOT_REDIRECT_FIND_ONTO_ITSELF);
         return;
     }
     cachevalid = 0;

@@ -64,8 +64,9 @@ the C64 as much as possible:
 
 * Many familiar commands and utilities
   are implemented.
-* Some batch file support, including
-  AUTOEXEC.BAT.
+* Configuration via AUTOEXEC.BAT and
+  CONFIG.SYS.
+* Some batch file support.
 * Supports multiple attached drives and
   multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and
@@ -90,11 +91,9 @@ PC-compatibles. Some notable limitations
 and omissions include:
 
 * No directory support.
-* Running native C64 programs quits the
-  shell.
-* No fastloader implemented; disk speed
-  depends on hardware or a replacement
-  ROM.
+* Automatic return from native programs
+  depends on their exit implementation,
+  if any.
 * Batch files do not support variables,
   conditionals, labels, or parameters.
 * No piping, output redirection does not
@@ -112,19 +111,14 @@ other shortcomings where possible.
 
   2. Development notes
 ----------------------------------------
+  Technology
 MCS-DOS was written in C and compiled
 with Oscar64. It has been tested on a
 C64 Ultimate and in VICE. Automated
 unit and regression testing was
 implemented with Node.js.
 
-Extensive machine help was enlisted
-through OpenAI's Codex and GPT-6 (Astra)
-LLM. Just as no claims are made as to
-the software's actual usefulness,
-neither does the author claim full
-technical credit in creating it.
-
+  Background
 MCS-DOS started as a simple throwaway
 project for personal entertainment,
 motivated by a geeky impulse to see a
@@ -134,12 +128,34 @@ limited; and an opportunity to test
 GPT-6. Once things started to look
 genuinely usable, things snowballed...
 
+  AI disclosure
+Extensive machine help was enlisted
+through OpenAI's Codex and GPT-6 (Astra)
+LLM. Just as no claims are made as to
+the software's actual usefulness,
+neither does the author claim full
+engineering credit.
+
+Nevertheless, the product was designed
+in detail by human intellect and
+creativity, including but not limited
+to the feature set, architecture,
+behaviour, system output and user
+documentation. LLM assistance is
+limited to implementation help,
+conceptual refinement, and automated
+testing and building. All code is
+manually reviewed (and modified where
+necessary) and tested on hardware.
+
 
   3. Contents of the cartridge
 ----------------------------------------
-MCS-DOS 2.0 is an EasyFlash cartridge.
-The shell boots directly. Device 0
-contains the following files:
+MCS-DOS 2.0 is distributed as an Easy-
+Flash cartridge image. The following
+contents files are bundled on the
+storage:
+
   MANUAL.TXT
     This user manual.
   CHANGELOG.TXT
@@ -150,68 +166,96 @@ contains the following files:
   CGA.CPI
     A custom character set reproducing
     the 8x8 IBM CGA font.
-  AUTOEXEC.SAMPLE
+  $AUTOEXEC.BAT
     Example AUTOEXEC.BAT. Rename to
-    apply.
-
-Device 0 is writable. Its fixed label is
-MCS-DOS 2.0 and its ID is MC. It holds
-40 files and 64,000 bytes of file data,
-shared by bundled and user files.
-Bundled files can be edited or deleted.
-Use ATTRIB +L to protect a file.
-Disk-only operations such as FORMAT,
-LABEL and DISKID do not apply here.
-
+    enable.
+  $CONFIG.SYS
+    Example CONFIG.SYS. Rename to
+    enable.
 
   4. Running MCS-DOS
 ----------------------------------------
-Attach MCS-DOS.crt as an EasyFlash
-cartridge and reset. On physical
-EasyFlash, flash the image first.
-Devices 8-30 still access external disks.
+  Startup
+If you have a physical EasyFlash cart-
+ridge, start MCS-DOS from the menu. The
+.CRT image must be flashed onto the
+cartridge first.
 
+On a C64 Ultimate, simply run the image
+from the file browser. On a VICE
+emulator, attach it via the relevant
+submenu and reset the machine.
+
+  Boot configuration
 If an AUTOEXEC.BAT is present, it will
 execute first before you arrive at the
-shell prompt. It is not present by
-default; create it or rename the sample.
-Pressing RESTORE on the boot screen will
-run MCS-DOS in "safe mode"; it skips
-execution of AUTOEXEC.BAT.
+shell prompt. Via normal batch commands
+you can perform any setup you wish for
+your MCS-DOS sessions, e.g. customizing
+settings via SET, or echoing text to
+the shell. It is not present by default;
+create it or rename the sample file.
 
-Create CONFIG.SYS on device 0 to select
-where AUTOEXEC.BAT is found:
+See chapter 7 (Environment variables)
+for more information on how to configure
+and customize the shell via environment
+variables.
 
-  BOOTDRV=8,0
-  LDAUTOEX=1
+By default, MCS-DOS seeks AUTOEXEC.BAT
+in the writeable area of the cartridge
+image. A CONFIG.SYS can be created to
+change this behaviour. The following
+directives are available:
 
-BOOTDRV tries devices in order, skipping
-unavailable drives and missing files.
-Only the first AUTOEXEC found is run.
-Its drive also supplies startup charset
-files and becomes the initial drive.
-Default: BOOTDRV=0. Valid devices are 0
-and 8-30. LDAUTOEX=0 skips AUTOEXEC;
-the default is 1. Directives ignore case,
-spaces and tabs. Invalid directives
-report an error and retain valid values.
-No CONFIG.SYS is required.
+BOOTDRV
+  Specify one or more drives where
+  MCS-DOS should seek AUTOEXEC.BAT.
+  For example, BOOTDRV=8,0 will look
+  for AUTOEXEC.BAT on the first disk
+  drive (device 8) first, and then on
+  the cartridge (device 0) if it wasn't
+  found. If BOOTDRV is omitted, device
+  0 is assumed.
 
-Use EDIT 0:AUTOEXEC.BAT to create or edit
-your startup script. Cartridge writes
-survive reset and are saved in flash.
-Emulators and Ultimate may require an
-explicit image save for persistence on
-host storage. Reflashing the original
-CRT replaces your saved files. Back up
-with COPY 0:filename 8:filename.
-Writes append to a flash journal. REN,
-DEL and ATTRIB normally change only a
-small metadata record. Occasionally,
-compaction copies live files and erases
-the spare sector; this takes longer.
-An interrupted file write retains its
-previous committed contents.
+LDAUTOEX
+  Whether AUTOEXEC.BAT should be ran at
+  all. LDAUTOEX=0 will disable it. The
+  default value when omitted is 1 (run
+  AUTOEXEC.BAT).
+
+The directives are case-insensitive and
+whitespace is ignored.
+
+  Safe mode
+You can press RESTORE on the boot screen
+to enable a "safe mode"; it will skip
+processing of the startup files. This
+may be useful to correct
+misconfigurations that render your shell
+unusable.
+
+  Cartridge storage
+64,000 bytes of writeable storage is
+reserved on the cartridge image. You
+can store your startup files there, or
+any other files you may want to keep
+there (e.g. custom character sets or
+batch files). The custom file system
+occasionally needs compaction to
+reclaim space from metadata and deleted
+content. This occurs automatically, but
+will incur a noticeable delay on reads
+and writes.
+
+Changes to the writeable area of the
+image persist automatically on a real
+EasyFlash cartridge. In VICE, you may
+have to enable writeback settings. On
+a C64 Ultimate, you need to press F1
+in the Ultimate menu, go to Power &
+Reset, and select Save Cartridge. This
+updated image must be loaded next time
+you use MCS-DOS.
 
 
   5. Using the shell
@@ -256,15 +300,37 @@ possible (think of it as the Ctrl-C
 equivalent).
 
   Running programs
-MCS-DOS does not really offer a program
-execution environment other than for
-batch files. You can start native
-programs, but they will exit the shell
-and return to BASIC after completion.
-And unlike what you're used to from
-classic DOS, programs are not simply
-executed by typing the filename.
-Instead, use the RUN command.
+Native C64 programs or batch files can
+be started from the shell using the RUN
+command. Batch files run fully within
+the shell and return control after
+completion. Native program return is
+not guaranteed; it depends on their
+own exit implementation (if any), and
+whether they preserve BASIC return via
+$0302-$0303 and the MCS-DOS hook at
+$C000–$C1FF.
+
+The current shell state is saved prior
+to program excecution, and restored
+upon return to the shell. If restoration
+fails for some reason, MCS-DOS defaults
+will be applied.
+
+Cartridge reset is still available as
+a return option, although it will
+restart MCS-DOS in its entirety.
+
+  Using Commodore BASIC
+The BASIC command can be used to enter
+the C64 BASIC environment. MCS-DOS
+installs a return wedge that allows
+you to return to the shell by typing
+SHELL at the BASIC prompt (provided
+that any programs run within BASIC
+do not overwrite $C000–$C1FF). As
+with native program execution, shell
+state is preserved.
 
   Devices
 The shell supports standard C64 device
@@ -272,9 +338,8 @@ numbers as well as DOS-style letter
 aliases: drive 8 is A, drive 9 is B,
 etc. Display is determined by the
 DRIVEIDS environment variable (see
-chapter 7). If you have multiple drives
-attached, typing a drive number or
-letter followed by a colon (e.g. 9:, B:)
+chapter 7). Typing a drive number or
+letter followed by a colon (e.g. 8:, A:)
 will select that drive as the current
 one.
 
@@ -295,13 +360,6 @@ character set, prompt format, drive
 identifiers) can be customized via
 environment variables. See chapter 7
 for more information.
-
-  Using Commodore BASIC
-The BASIC command saves the shell
-session to cartridge flash and enters
-Commodore BASIC. Type SHELL at its
-prompt to restore your shell session.
-Startup files are not processed again.
 
 
   6. Commands
@@ -330,20 +388,7 @@ ATTRIB [+L | -L] [[drive:]filename]
   Displays or changes file attributes.
 
 BASIC
-  Saves the shell state and history,
-  then enters Commodore BASIC. Type
-  SHELL to return. Shell colors persist
-  in BASIC; its standard font is used.
-  Returning restores the shell font,
-  colors, environment, prompt and drive.
-  Returning discards BASIC programs.
-  External programs may overwrite the
-  return wedge; reset the cartridge if
-  necessary. Reset starts a new session.
-  If saving fails, choose N to stay in
-  the shell, or Y to enter BASIC without
-  a restorable session. Failed restores
-  use defaults, never an older snapshot.
+  Starts the C64 BASIC environment.
 
 BEEP [duration]
   Plays a SID beep.
@@ -381,8 +426,6 @@ DISKID [drive:] [id]
 DISKINIT [drive:]
   Resets disk drive state and forces a
   reread of the directory.
-  Omit drive to use the current disk.
-  Not supported on cartridge (0:).
 
 ECHO [ON | OFF]
 ECHO [message]
@@ -448,12 +491,6 @@ SPLASH
 
 TYPE filename [/H:n | /T:n | /HEX]
   Displays the contents of a file.
-  /H:n  Shows first n lines of file.
-  /T:n  Shows last n lines of file.
-  /HEX  Shows a hex view.
-  H/T count CR, LF and CRLF as line ends.
-  A final unterminated line also counts.
-  Use one option; n may be zero.
 
 VER
 VERSION
@@ -544,6 +581,10 @@ DRIVEIDS
   always accepted by shell commands,
   regardless of the display setting.
 
+  The cartridge storage volume is
+  always identified as "0", regardless
+  of DRIVEIDS.
+
 PROMPT
   Specifies the format used for the
   command prompt. The format string can
@@ -580,7 +621,7 @@ PROMPT
 ----------------------------------------
 The screen output of certain commands
 can be redirected to a file. Supported
-are CHKDSK, DIR, ECHO, HELP, MEM and
+are CHKDSK, DIR, ECHO, FIND, MEM and
 TYPE.
 
 To redirect output to a new file, use
@@ -650,13 +691,11 @@ trimmed.
 ----------------------------------------
 Batch files can be created from within
 the shell using the EDIT tool (or
-externally, if you prefer). Like other
-programs, they are executed with the RUN
-command; but unlike native C64 programs,
-they return to the shell after
-completion. They must have a .BAT
+externally, if you prefer). They can be
+executed from the shell with the RUN
+command. Batch files must have a .BAT
 extension as part of their file name to
-be recognized by the shell.
+be recognized as such.
 
 ECHO OFF works, including "@" to
 suppress the echo of that line. There
@@ -690,6 +729,12 @@ release.
   1.01 (19-Sep-2026)
 Several minor additions and improve-
 ments.
+
+  2.0 (dd-Mmm-2026)
+Reengineered for EasyFlash distribution.
+Many refinements, several new commands
+and command options, improved BASIC
+integration and native program support.
 
 
   C. About the author

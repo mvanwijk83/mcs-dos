@@ -1,9 +1,21 @@
-/* BASIC-only RAM code. The shell installs it after its final flash call.
+/* RAM return code for BASIC and RUN. The shell installs it after saving state.
  * $C1E0..$C1FF is the handoff descriptor, outside this executable image. */
 #pragma section(startup,0)
 #pragma region(startup,0xc000,0xc1e0,,, {startup})
 #pragma optimize(noasm)
 __asm startup {
+ // Stable entries: BASIC handoff at $C000, RUN vector setup at $C003.
+ jmp basic_start
+ jmp run_start
+run_start:
+ jsr 0xe453
+ jsr 0xe3bf
+ lda #<resume
+ sta 0x0302
+ lda #>resume
+ sta 0x0303
+ rts
+basic_start:
  sei
  cld
  ldx #0xff

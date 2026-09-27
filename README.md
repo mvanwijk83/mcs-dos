@@ -28,7 +28,7 @@ this was made for fun and novelty.
 ## Notable limitations and omissions
 
 * No directory support.
-* Running native C64 programs quits the shell.
+* Automatic return from native programs depends on them preserving the return code and BASIC warm-start hook.
 * No fastloader implemented in software; disk acceleration depends on the drive/hardware or ROM replacement.
 * Batch files do not support variables, conditionals, labels, or parameters.
 * No piping (`|` syntax); output redirection does not support printers.
@@ -59,6 +59,10 @@ Use `BASIC` to save the shell session to flash and enter Commodore BASIC.
 Type `SHELL` at its prompt to restore the session without rerunning startup
 files. A normal cartridge reset starts fresh. Programs that overwrite the
 return wedge may require a cartridge reset.
+
+`RUN` also saves the session before launching a native program. Programs that
+return through BASIC's normal prompt path can restore the shell automatically,
+without typing `SHELL`.
 
 Refer to `MANUAL.TXT` for more extensive information.
 

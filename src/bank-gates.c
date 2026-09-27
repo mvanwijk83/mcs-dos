@@ -2,6 +2,11 @@
 __noinline unsigned char bank_session_save(void);
 __noinline unsigned char bank_session_restore(void);
 __noinline void bank_session_basic(void);
+__noinline unsigned char bank_session_run(void);
+unsigned char session_run(void) {
+    unsigned char previous=bank_enter(BANK_BOOT),result=bank_session_run();
+    bank_leave(previous);return result;
+}
 unsigned char session_save(void) {
     unsigned char previous=bank_enter(BANK_BOOT),result=bank_session_save();
     bank_leave(previous);return result;
@@ -36,12 +41,28 @@ __noinline void editcmd(void)
     bank_leave(previous);
 }
 
+__noinline unsigned char bank_typeoptions(unsigned char *mode, unsigned long *limit);
+__noinline unsigned char typeoptions(unsigned char *mode, unsigned long *limit)
+{
+    unsigned char previous=bank_enter(BANK_FILEUTIL), result=bank_typeoptions(mode, limit);
+    bank_leave(previous);
+    return result;
+}
+
 __noinline void bank_typecmd(unsigned char printer);
 __noinline void typecmd(unsigned char printer)
 {
     unsigned char previous=bank_enter(BANK_FILEUTIL);
     bank_typecmd(printer);
     bank_leave(previous);
+}
+
+__noinline unsigned char bank_findoptions(unsigned char *flags, char **needle);
+__noinline unsigned char findoptions(unsigned char *flags, char **needle)
+{
+    unsigned char previous=bank_enter(BANK_FILEUTIL), result=bank_findoptions(flags, needle);
+    bank_leave(previous);
+    return result;
 }
 
 __noinline void bank_findcmd(void);

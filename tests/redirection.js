@@ -61,7 +61,7 @@ async function run(){
  await check('type raw>rawcopy');await check('type raw>9:cross');
  await check('type raw>>rawcopy');await check('echo letter>B:letter');
  await check('echo '+'x'.repeat(longCount)+'>longline');
- await check('dir/b>files');await check('dir>listing');await check('chkdsk>stats');await check('mem>memory');await check('help>commands');
+ await check('dir/b>files');await check('dir>listing');await check('chkdsk>stats');await check('mem>memory');await check('help>commands','Redirection not supported');
  if(process.argv.includes('--v101')){await command('detach 8');await command('detach 9');verifyV101();return;}
  await check('type raw>raw','Cannot redirect TYPE onto itself');
  await check('type raw>>8:raw','Cannot redirect TYPE onto itself');
@@ -113,7 +113,7 @@ function verify(){
  assert(read('stats').includes(petscii('(254 usable)\r')));
  const memory=read('memory');
  assert(memory.includes(petscii('bytes reserved for system\r')));assert(memory.includes(petscii('bytes free\r')));
- assert(read('commands').includes(petscii('TYPE')));
+ assert.throws(()=>read('commands'),/Missing/);
  console.log('PASS overwrite, append/create, quoting, raw TYPE (same/cross drive), six commands, rejected destinations/chaining, errors and recovery');
 }
 (process.argv.includes('--verify-only')?Promise.resolve().then(verify):run()).catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{socket?.destroy();if(child&&child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),delay(3000)]);}});

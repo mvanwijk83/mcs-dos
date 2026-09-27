@@ -9,8 +9,7 @@ loader:
     cli
     jsr 0xffcc
     jsr 0xffe7
-    jsr 0xe453 // initialize BASIC vectors
-    jsr 0xe3bf // initialize BASIC RAM
+    jsr 0xc003 // initialize BASIC and install automatic shell return
 len: lda #0
     ldx #0xe0
     ldy #0x03

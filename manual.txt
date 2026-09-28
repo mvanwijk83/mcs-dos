@@ -126,35 +126,29 @@ believable DOS-style environment running
 on the C64, no matter how simple and
 limited; and an opportunity to test
 GPT-6. Once things started to look
-genuinely usable, things snowballed...
+genuinely usable, it became a continuing
+effort to keep improving and polishing
+it.
 
   AI disclosure
-Extensive machine help was enlisted
-through OpenAI's Codex and GPT-6 (Astra)
-LLM. Just as no claims are made as to
-the software's actual usefulness,
-neither does the author claim full
-engineering credit.
-
-Nevertheless, the product was designed
-in detail by human intellect and
-creativity, including but not limited
-to the feature set, architecture,
-behaviour, system output and user
-documentation. LLM assistance is
-limited to implementation help,
-conceptual refinement, and automated
-testing and building. All code is
-manually reviewed (and modified where
-necessary) and tested on hardware.
+While MCS-DOS has been designed in
+detail by human intellect and
+creativity, extensive machine help was
+enlisted through OpenAI's Codex and the
+GPT-6 (Astra) LLM. This includes
+implementation help, review, and auto-
+mated testing and building. All
+generated code has been manually
+reviewed and modified where necessary.
+Hardware testing was 100% done by
+humans.
 
 
   3. Contents of the cartridge
 ----------------------------------------
 MCS-DOS 2.0 is distributed as an Easy-
 Flash cartridge image. The following
-contents files are bundled on the
-storage:
+files are bundled with the software:
 
   MANUAL.TXT
     This user manual.
@@ -184,7 +178,7 @@ cartridge first.
 On a C64 Ultimate, simply run the image
 from the file browser. On a VICE
 emulator, attach it via the relevant
-submenu and reset the machine.
+submenu and reset the emulated machine.
 
   Boot configuration
 If an AUTOEXEC.BAT is present, it will
@@ -198,10 +192,11 @@ how to configure and customize the
 shell via environment variables.
 
 By default, MCS-DOS looks for
-AUTOEXEC.BAT in the writeable area of
+AUTOEXEC.BAT in the writable area of
 the cartridge image. A CONFIG.SYS can
-be created to change this behaviour.
-The following directives are available:
+be created to change this behavior,
+which will be processed first. The
+following directives are available:
 
 BOOTDRV
   Specify one or more drives where
@@ -215,9 +210,10 @@ BOOTDRV
 
 LDAUTOEX
   Whether AUTOEXEC.BAT should be ran at
-  all. LDAUTOEX=0 will disable it. The
-  default value when omitted is 1 (run
-  AUTOEXEC.BAT).
+  all. LDAUTOEX=0 will disable it;
+  BOOTDRV would then not take effect
+  either. The default value when omitted
+  is 1 (i.e. load and run AUTOEXEC.BAT).
 
 The directives are case-insensitive and
 whitespace is ignored.
@@ -232,13 +228,17 @@ configurations that render your shell
 unusable.
 
   Cartridge storage
-64,000 bytes of writeable storage is
+64,000 bytes of writable storage is
 available on the cartridge image. It is
 the default location for your startup
 configuration files and where the
 bundled documentation resides. However,
 nothing stops you from storing anything
-else you may want to keep there.
+else you may want to keep there. Indeed,
+if your boot script references resources
+not bundled with MCS-DOS, you might want
+to copy them there instead of relying on
+an external disk.
 
 A custom journaling file system is
 implemented to allow for fast file
@@ -247,11 +247,11 @@ flash writes. It however requires
 occasional compaction to reclaim space
 from stale metadata records and deleted
 content. This happens automatically,
-which be noticeable as a slowdown during
-writes. Compaction can also be forced
-via CHKDSK /C.
+which is noticeable as a slowdown during
+writes when it occurs. Compaction can
+also be forced via CHKDSK /C.
 
-Changes to the writeable area of the
+Changes to the writable area of the
 cartridge image persist automatically on
 a real EasyFlash cartridge. In VICE, you
 may have to enable writeback settings.
@@ -277,9 +277,9 @@ You can use CRSR LEFT/RIGHT to move
 within the command text. Typing inserts.
 
 When specifying filenames as command
-parameters, quote them if they contain
-spaces or a slash. You can use the
-Commodore key to cycle through file
+parameters, double-quote them if they
+contain spaces or a slash. You can use
+the Commodore key to cycle through file
 names stored on the active disk and to
 autocomplete. (Rely on this feature
 especially when having to enter file
@@ -317,8 +317,8 @@ $C1FF, which contains the MCS-DOS
 shell re-entry hook.
 
 The current shell state is saved prior
-to program excecution, and restored
-upon return to the shell. If restoration
+to program execution, and restored upon
+return to the shell. If restoration
 fails for some reason, MCS-DOS defaults
 will be applied.
 
@@ -436,8 +436,7 @@ ECHO [ON | OFF]
 ECHO [message]
 ECHO.
   Displays messages, or turns command-
-  echoing on or off. Appending ; omits
-  the linebreak (;; to escape).
+  echoing on or off.
 
 EDIT [filename]
   Edits one screen of text.
@@ -511,9 +510,8 @@ VOL
 ----------------------------------------
 Several environment variables are
 available to configure shell layout and
-behaviour. Set these in your
-AUTOEXEC.BAT to customize your
-experience.
+behavior. Set these in your AUTOEXEC.BAT
+to customize your experience.
 
 Syntax:
   SET NAME=VALUE
@@ -542,7 +540,7 @@ CHARSET
   disk. If omitted or empty, the shell
   uses the default C64 ROM font. A
   standard MCS-DOS distribution ships
-  with CGA.CPI for added PC flavour.
+  with CGA.CPI for added PC flavor.
   Extra character sets can be downloaded
   separately from the source code
   repository. Only alphanumeric and
@@ -759,7 +757,8 @@ noughties, and became active in the
 demoscene (albeit as a PC musician and
 under a different handle), where
 Commodore is never far away. I attended
-several editions of X.
+several editions of X, among many other
+events across Europe.
 
 The recent resurrection of Commodore
 excited me, and I bought a C64 Ultimate.

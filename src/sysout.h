@@ -1,7 +1,10 @@
 #ifndef MCS_SYSOUT_H
 #define MCS_SYSOUT_H
-#define SYSOUT_COMPACT_CARTRIDGE_ONLY "Compaction requires cartridge drive 0"
+#define SYSOUT_COMPACT_CARTRIDGE_ONLY "Compaction is not supported on\nnon-cartridge devices"
 #define SYSOUT_COMPACTION_FAILED "Cartridge compaction failed"
+#define SYSOUT_DRIVE_MODEL "Drive model is %s\n"
+#define SYSOUT_VOLUME_IDENTIFIER "Drive identifier is %u (CBM) / %c (DOS)\n"
+#define SYSOUT_VOLUME_IDENTIFIER_CART "Drive identifier is 0"
 #define SYSOUT_COMPACTION_COMPLETE "Cartridge journal compacted."
 #define SYSOUT_JOURNAL_ALREADY_COMPACT "Cartridge journal already compact."
 

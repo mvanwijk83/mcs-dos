@@ -1,7 +1,7 @@
 require('./setup');
 const fs=require('fs');
 const {fn,functions,header}=require("./source");
-let code="static unsigned char noseparators,validate;\n"+functions("decimal","allocated","reportoptions","freememory","memcmd","deletable","delcmd","volcmd");
+let code="static unsigned char noseparators,validate;\n"+functions("decimal","allocated","reportoptions","freememory","memcmd","deletable","delcmd","driveinfo","volcmd");
 code=code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,"static unsigned char deletable(void *p) { return 1; }");
 code=code.replace(/static unsigned int freememory\(void\)\s*\{[\s\S]*?\n\}/,'static unsigned int freememory(void) { return 2000; }');
 const harness=`
@@ -33,6 +33,8 @@ static int match(const char *p,const char *s) {return 1;}
 static int command(int d,const char *s) {return 1;}
 static int directory(int d) {return 1;}
 static int bam(int d) {return 1;}
+static unsigned char model=1;
+static int drivemodel(int d,int report) {return model;}
 static void uppername(const char *s,char *d) {strcpy(d,s);}
 static void volumeheader(int d) {}
 ${code}
@@ -54,11 +56,17 @@ int main(void) {
  drive=0;reset(0,0);volcmd(1);
  if(errors||!strstr(out," 64,000 bytes total disk space")||!strstr(out," 12,345 bytes allocated in 5 files")||!strstr(out," 51,655 bytes available on disk")||strstr(out,"blocks")||strstr(out,"memory"))return 20;
  reset(0,0);noseparators=1;volcmd(1);if(!strstr(out,"  64000 bytes total disk space")||strchr(out,','))return 21;
- reset("/c",0);volcmd(1);if(errors||compactions!=1||!strstr(out,"journal compacted"))return 22;
- compactresult=0;reset("/C",0);volcmd(1);if(errors||!strstr(out,"already compact"))return 23;
+ reset("/c",0);volcmd(1);if(errors||compactions!=1||strcmp(out,SYSOUT_COMPACTION_COMPLETE "\\n"))return 22;
+ compactresult=0;reset("/C",0);volcmd(1);if(errors||strcmp(out,SYSOUT_JOURNAL_ALREADY_COMPACT "\\n"))return 23;
  compactresult=-1;reset("/C",0);volcmd(1);if(!errors||out[0])return 24;
  reset("/V","/C");volcmd(1);if(!errors||compactions!=3)return 25;
  reset("/C",0);memcmd();if(!errors||compactions!=3)return 26;
+ if(strstr(out,"Drive model"))return 28;
+ drive=8;reset(0,0);volcmd(1);if(!strstr(out,"\\n\\nDrive model is 1541\\nDrive identifier is 8 (CBM) / A (DOS)\\n"))return 29;
+ drive=9;model=2;reset(0,0);volcmd(1);if(!strstr(out,"Drive model is 1571\\nDrive identifier is 9 (CBM) / B (DOS)\\n"))return 30;
+ drive=30;model=3;reset(0,0);volcmd(1);if(!strstr(out,"Drive model is 1581\\nDrive identifier is 30 (CBM) / W (DOS)\\n"))return 31;
+ drive=0;reset(0,0);volcmd(1);if(!strstr(out,"\\n\\nDrive model is EasyFlash\\nDrive identifier is 0\\n"))return 32;
+ drive=8;reset("/V",0);volcmd(1);if(errors||strstr(out,"Drive model"))return 33;
  drive=8;
  reset("/C",0);volcmd(1);if(!errors||compactions!=3)return 27;
  reset("8:","/S");volcmd(1);if(!errors||out[0])return 6;

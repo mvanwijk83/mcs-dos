@@ -38,11 +38,13 @@ Preliminary public release.
   2.0 (dd-Mmm-2026)
 ----------------------------------------
 * MCS-DOS is now distributed as an Easy-
-  Flash cartridge image. The cartridge
-  can be used as any other storage
-  device and contains 64k of writeable
-  space.
-* Support added for CONFIG.SYS to
+  Flash cartridge image to enhance
+  feature development and improve
+  performance in some areas. The cart-
+  ridge contains a 64k user-writable
+  area that can be used as any other
+  storage device.
+* Added support for CONFIG.SYS to
   configure boot behaviour.
 * The command help library is no longer
   represented as a file (COMMANDS.HLP)
@@ -52,20 +54,24 @@ Preliminary public release.
   offers a wedge to return to the shell.
 * Changed the DOS-style "R" file
   attribute letter for the file lock bit
-  to "L", matching actual C64 behaviour.
+  to "L", matching actual C64 behavior.
 * Added head, tail and hex view options
   to TYPE (/H, /T, /HEX).
 * Added /P switch to MOVE to suppress
   file overwrite prompt.
 * Added /C switch to CHKDSK to perform
   a cartridge filesystem compaction on
-  demand.
+  demand. Additionally, the standard
+  CHKDSK report now also identifies the
+  drive model and lists the logical
+  device number and corresponding DOS
+  alias.
 * Added DISKINIT command to refresh
   drive cache and status, equivalent to
   the CBM-DOS INITIALIZE command.
 * DELeting files with a wildcard will
   now prompt for individual confirmation
-  for each matching file, unless /P was
+  for each matching file, unless /P is
   specified.
 * Added file redirection support for
   FIND, and removed it from HELP.

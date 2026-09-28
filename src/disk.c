@@ -65,7 +65,7 @@ __noinline unsigned char bank_rawopen(unsigned char dev)
  * final digit's high bit set. Includes 1541-II and 1571CR. Never reset a drive:
  * DIR may be running with a redirected output file already open. Unknown ROMs
  * retain ordinary DOS file access, but cannot perform raw disk operations. */
-__noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
+__noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report)
 {
     unsigned char lfn = statuschannel(dev), i;
     unsigned char probe[6] = {'m', '-', 'r', 0xc4, 0xe5, 4}, signature[4];
@@ -76,12 +76,20 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
         POKE(144, 0);
         if (channel_write(lfn, probe, 6) != 6 || channel_read(lfn, signature, 4) != 4)
             break;
-        if (signature[0] == '1' && signature[1] == '5' && signature[3] == 0xb1) {
-            if (!i && signature[2] == '4')
+        if (signature[0] == '1' && signature[1] == '5') {
+            if (!i && signature[2] == '4' && signature[3] == 0xb1) {
+                /* Stock 1541-II: JMP opcode at $FF33 instead of TAX. */
+                probe[3] = 0x33; probe[4] = 0xff; probe[5] = 1;
+                POKE(144, 0);
+                if (channel_write(lfn, probe, 6) == 6 && channel_read(lfn, signature, 1) == 1 && signature[0] == 0x4c)
+                    return 4;
                 return 1;
-            if (!i && signature[2] == '7')
-                return 2;
-            if (i && signature[2] == '8')
+            }
+            if (!i && signature[2] == '7') {
+                if (signature[3] == 0xb0) return 5; /* 1570 */
+                if (signature[3] == 0xb1) return 2; /* 1571 / 1571CR */
+            }
+            if (i && signature[2] == '8' && signature[3] == 0xb1)
                 return 3;
         }
         probe[3] = 0xe7;
@@ -90,6 +98,13 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
     if (report)
         error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
     return 0;
+}
+
+/* Geometry families stay 1541=1, 1571=2, 1581=3 for all raw operations. */
+__noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
+{
+    unsigned char model = bank_drivemodel(dev, report);
+    return model == 4 || model == 5 ? 1 : model;
 }
 
 __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tracks)
@@ -244,6 +259,20 @@ __noinline unsigned char bank_copyrel(void)
     return ok;
 }
 
+/* The preceding space statistics already end with a blank line. */
+__noinline void bank_driveinfo(unsigned char dev)
+{
+    unsigned char type;
+    if (!dev) {
+        print(SYSOUT_DRIVE_MODEL, "EasyFlash");
+        say(SYSOUT_VOLUME_IDENTIFIER_CART);
+    } else {
+        type = bank_drivemodel(dev, 0);
+        print(SYSOUT_DRIVE_MODEL, type == 1 ? "1541" : type == 2 ? "1571" : type == 3 ? "1581" : type == 4 ? "1541-II" : type == 5 ? "1570" : "Unknown");
+        print(SYSOUT_VOLUME_IDENTIFIER, dev, 'A' + dev - 8);
+    }
+}
+
 __noinline void bank_volcmd(unsigned char stats)
 {
     unsigned int i;
@@ -266,6 +295,7 @@ __noinline void bank_volcmd(unsigned char stats)
             compacted = cart_compact();
             if (compacted < 0) { error(SYSOUT_COMPACTION_FAILED); return; }
             say(compacted ? SYSOUT_COMPACTION_COMPLETE : SYSOUT_JOURNAL_ALREADY_COMPACT);
+            return;
         }
         used = (unsigned int)strtoul(cart_stats(1), 0, 10);
         i = (unsigned int)strtoul(cart_stats(0), 0, 10);
@@ -274,6 +304,7 @@ __noinline void bank_volcmd(unsigned char stats)
         filecount = (unsigned int)strtoul(cart_stats(2), 0, 10);
         print(SYSOUT_DISK_ALLOCATED, decimal(used), filecount);
         print(SYSOUT_DISK_AVAILABLE, decimal(i - used));
+        if (!validate) bank_driveinfo(p1.dev);
         return;
     }
     if (stats && validate) {
@@ -304,6 +335,7 @@ __noinline void bank_volcmd(unsigned char stats)
             newline();
         print(SYSOUT_DISK_TOTAL_BLOCKS, decimal((unsigned long)used + freeblocks));
         print(SYSOUT_DISK_FREE_BLOCKS, decimal(freeblocks));
+        if (!validate) bank_driveinfo(p1.dev);
     } else
         volumeheader(p1.dev);
 }

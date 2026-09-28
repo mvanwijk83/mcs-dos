@@ -12,6 +12,8 @@ const drives = [['drive-compat','1541'], ['drive-compat','1571'], ['drive-compat
     ['drive-compat','1571','--format'], ['drive-compat','1581','--format'],
     ['drive-compat','1581','--mismatch'], ['drive-compat','1541','--badformat'], ['drive-compat','1571','--single']];
 const easyflash = [['banked-image'], ['easyflash','--commands'], ['easyflash','--find-redirection'], ['easyflash','--delete'], ['easyflash','--diskinit'], ['easyflash','--banked'], ['easyflash','--journal'], ['easyflash','--compact'], ['easyflash','--session'], ['easyflash','--run-return']];
+easyflash.push(['easyflash','--drive-info']);
+easyflash.push(['drive-models']);
 const groups = {unit, easyflash, emulator, drives, all: [...unit, ...easyflash]};
 const group = process.argv[2] || 'unit';
 if (process.argv.length > 3 || !groups[group]) {

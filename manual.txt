@@ -242,29 +242,29 @@ else you may want to keep there.
 
 A custom journaling file system is
 implemented to allow for fast file
-operations without having to reconstruct
-the entire sector every turn. It however
-requires occasional compaction to
-reclaim space from stale metadata and
-deleted content. This happens auto-
-matically (leading to a noticeable delay
-on reads and writes when it occurs), but
-can also be forced via CHKDSK /C.
+operations while reducing physical
+flash writes. It however requires
+occasional compaction to reclaim space
+from stale metadata records and deleted
+content. This happens automatically,
+which be noticeable as a slowdown during
+writes. Compaction can also be forced
+via CHKDSK /C.
 
 Changes to the writeable area of the
-image persist automatically on a real
-EasyFlash cartridge. In VICE, you may
-have to enable writeback settings. On
-a C64 Ultimate, you need to press F1
-in the Ultimate menu, go to Power &
-Reset, and select Save Cartridge. This
-updated image must be loaded next time
-you use MCS-DOS.
+cartridge image persist automatically on
+a real EasyFlash cartridge. In VICE, you
+may have to enable writeback settings.
+On an Ultimate, you need to press F1 in
+the Ultimate menu, go to Power & Reset,
+and select Save Cartridge. This updated
+image must be loaded next time you use
+MCS-DOS.
 
 
   5. Using the shell
 ----------------------------------------
-  Entering commands
+  The command prompt
 See chapter 6 for a list of supported
 commands. The command interpreter is
 case-insensitive, and treats spaces
@@ -296,8 +296,8 @@ through the last ten issued commands.
 
 The appearance of the command prompt can
 be configured with SET PROMPT in
-AUTOEXEC.BAT, applied at startup. See
-chapter 7 for more details.
+AUTOEXEC.BAT to be applied at startup.
+See chapter 7 for more details.
 
 RUN/STOP aborts operations where
 possible (think of it as the Ctrl-C
@@ -312,8 +312,9 @@ completion. Native program return is
 not guaranteed; it depends on their
 own exit implementation (if any), and
 whether they preserve BASIC return via
-$0302-$0303 and the MCS-DOS hook at
-$C000–$C1FF.
+$0302-$0303 and don't overwrite $C000–
+$C1FF, which contains the MCS-DOS
+shell re-entry hook.
 
 The current shell state is saved prior
 to program excecution, and restored
@@ -334,7 +335,7 @@ SHELL at the BASIC prompt (provided
 that any programs run within BASIC
 do not overwrite $C000–$C1FF). As
 with native program execution, shell
-state is preserved.
+state is restored upon return.
 
   Devices
 The shell supports standard C64 device

@@ -64,6 +64,9 @@ function diskFile(file,name){
  await delay(3000); let s=await screen();
  for(let i=0;i<20&&!s.includes('0:>');i++){await command('x');await delay(500);s=await screen();}
  console.log('BOOT',s); assert(s.includes('0:>'),s);
+ if(process.argv.includes('--tape')) {
+  await require('./tape')({command,memory,screen,keys,enter,root,disk,crt,diskFile});return;
+ }
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');
  await defaultFont();
  if(process.argv.includes('--drive-info')) {

@@ -11,10 +11,11 @@
 #pragma compile("disk.c")
 #pragma compile("boot.c")
 #pragma compile("session.c")
+#pragma compile("tape.c")
 
 int main(void)
 {
-    unsigned char overflow, startdrive, startup;
+    unsigned char overflow, startdrive, startup, tape_resume;
     unsigned int n;
 
     /* Keep KERNAL available and read PETSCII without library translation. */
@@ -24,8 +25,12 @@ int main(void)
     textcursor(false);
     POKE(207, 0);
     startdrive = 0;
-    resume_requested=RESUME[0]==0xa5;
+    tape_resume=RESUME[0]==0x54 && TAPE_PENDING==0x54;
+    resume_requested=RESUME[0]==0xa5 || tape_resume;
     RESUME[0]=0;
+    /* Native programs can overwrite spare descriptor bytes. Only the tape
+     * bridge's distinct resume request may consume a tape result. */
+    if(!tape_resume)TAPE_PENDING=0;
     if(!resume_requested)bootsplash(1);
 restart:
     startdrive = bootstart(startdrive);
@@ -37,6 +42,7 @@ restart:
             say(SYSOUT_SESSION_RESTORE_WARNING);
         }
         startup=0;resume_requested=0;
+        if(tape_resume)tapecopy_report();
     }
 again:
     while (!quit) {

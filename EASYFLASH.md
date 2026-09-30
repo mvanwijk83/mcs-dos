@@ -88,7 +88,8 @@ the target setup.
 | 8 ROMH | `disk.c`: raw disk services, VOL/CHKDSK, FORMAT, LABEL, DISKID, DISKCOPY |
 | 9 ROMH | `boot.c`, `session.c`: startup/configuration, SET, splash, charset, BASIC/session services |
 | 10 ROML | Indexed internal HELP text |
-| 11–47 | Reserved for future code/data |
+| 11 ROMH | Standalone Datasette copier |
+| 11 ROML, 12–47 | Reserved for future code/data |
 | 48–55 ROML/ROMH | Private session journal: two independent 64 KiB sectors |
 | 56–63 ROML | Filesystem journal A: one physical 64 KiB sector |
 | 56–63 ROMH | Filesystem journal B: one physical 64 KiB sector |
@@ -143,8 +144,9 @@ in RAM. IRQ/NMI handlers and mapping/flash routines must remain resident.
 With the filesystem journal the build uses 29,335 bytes for the resident shell/workspace,
 plus the unchanged 2,048-byte stack. MEM reports **10,600 bytes free** versus
 231 before the banking refactor. Of these, 9,576 bytes are below $A000 and 1,024 are
-at $C300–$C6FF. The latter is available for an explicitly placed future buffer;
-it is not part of the compiler's contiguous main region. RAM beneath the ROM
+at $C300–$C6FF. The latter is outside the compiler's contiguous main region;
+the standalone tape copier uses it temporarily after relinquishing the shell.
+RAM beneath the ROM
 window is not counted. MEM shows the 8,192-byte window separately and does
 not probe REU hardware. Exact figures are generated in `layout.json`.
 
@@ -292,6 +294,51 @@ hook is an optional convenience and does not restrict their memory access.
 Run `node tests/easyflash.js --run-return` for disk/cartridge native returns,
 BASIC errors, absolute launches, saved-state restoration, failed saves and
 programs that deliberately reset the vector.
+
+## Datasette transfer implementation
+
+`TAPECOPY` saves the session and enters a separately linked copier in bank 11
+ROMH. It restores the shell after each saved file, then offers another transfer
+to the same destination. Batch execution is not resumed. Completion and errors
+are printed after restoration. Syntax is `TAPECOPY [filename] [drive:]`.
+The optional filename selects a tape name using BASIC LOAD's prefix matching;
+intervening standard files are displayed and consumed without save prompts.
+Destination names are prompted, and existing names are never overwritten.
+Choosing another transfer clears the search. The search string occupies
+$C610–$C620 during handoff. Skipped files retain the same format and size limits.
+
+The copier uses the original C64 KERNAL block decoder at $F84A. It accepts
+standard program headers ($01/$03) and sequential headers ($04), checks tape
+status after each duplicated block, and recognizes the $05 end marker. It does
+not execute headers, infer whether a program is self-contained, or decode turbo
+formats. Unrecognizable signals may continue searching until RUN/STOP; this
+is not a definitive turbo-format detector. A compatible stock tape KERNAL is
+required, as well as a Datasette-compatible tape interface.
+
+PRG payloads occupy $1000–$BFFF (45,056 bytes), independent of their recorded
+load address. The original address is prepended when saving. Oversized PRGs
+are rejected before payload reception. SEQ data is copied in validated blocks
+of up to 191 bytes, omitting block markers, the logical zero terminator and
+padding. The output remains open between blocks. Disk failures/cancellation
+scratch partial SEQ output; cartridge failures abort the unpublished journal
+record. Cleanup failures are reported explicitly.
+
+The copier screen is at $0C00, its RAM banking gates at $C300–$C5FF, parameters
+at $C600, C state at $C800–$CBFF and stack at $CC00–$CFFF. The standard tape
+buffer $033C–$03FB is temporarily available because the shell cursor is hidden.
+Cartridge filesystem workspace, bridge, EasyAPI and session token are retained.
+The RAM gates disable cartridge mapping during tape decoding and buffer reads;
+filesystem calls return to copier bank 11. Handoff/result bytes $C1E8–$C1EE
+survive shell reloading. The tape bridge requests resume with $54 instead of
+the BASIC/RUN wedge's $A5, so a native program cannot accidentally trigger tape
+result handling by overwriting the spare descriptor bytes. Other startup paths
+clear the pending-result marker.
+
+`node tests/easyflash.js --tape` generates standard TAP pulse streams and tests
+actual KERNAL decoding with tape traps disabled, disk/cartridge PRG and SEQ
+output, large payloads, repeated transfers, collisions, cancellation and error
+cleanup. Add `--ntsc` to exercise NTSC timing. Use disposable tape/disk images
+on hardware to verify motor stop/start behaviour as well.
 
 ## Scope
 

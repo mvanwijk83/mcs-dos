@@ -16,6 +16,8 @@ module.exports=async function({command,memory,screen,keys,enter,check,defaultFon
  }
  const fixtures={return:native(0x41,[0x60]),warm:native(0x42,[0x4c,0x74,0xa4]),
   resetvec:native(0x43,[0x20,0x53,0xe4,0x60]),
+  // Spare descriptor RAM belongs to the launched program, not TAPECOPY.
+  tapebytes:native(0x44,[0xa9,0x54,0x8d,0xee,0xc1,0xa9,1,0x8d,0xe8,0xc1,0x4c,0x74,0xa4]),
   // BASIC division by zero also reaches the prompt hook.
   error:Buffer.from([1,8,10,8,10,0,0x99,49,0xad,48,0,0,0])};
  fixtures.absolute=Buffer.concat([Buffer.from([0,32]),fixtures.warm.subarray(14)]);
@@ -49,6 +51,8 @@ module.exports=async function({command,memory,screen,keys,enter,check,defaultFon
  }
  // Absolute entry still jumps directly; a program that JMPs to READY returns.
  for(const device of [8,0]){
+  await restored(await keys(`run ${device}:tapebytes\\x0d`,3500));
+  assert.equal((await memory(0xc1ee))[0],0,'native return clears unrelated tape result marker');
   await command('> c2f0 00');await restored(await keys(`run ${device}:absolute /a 8192\\x0d`,3500));
   assert.equal((await memory(0xc2f0))[0],0x42,'absolute native entry executed');
  }

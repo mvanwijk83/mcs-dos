@@ -21,6 +21,8 @@ const prg=fs.readFileSync(base+'shell.prg');
 assert.equal(prg.length,layout.payload+2);
 assert.equal(layout.executableBytes,prg.length+layout.commandBanks.reduce((n,b)=>n+b.used,0));
 assert.deepEqual(image.get('10:32768').subarray(0,layout.helpBytes),fs.readFileSync(base+'help.bin'));
+assert.equal(layout.tapeBank,11);assert.equal(layout.tapeBufferBytes,45056);
+assert.deepEqual(image.get('11:40960').subarray(0,layout.tapeBytes),fs.readFileSync(base+'tape.bin'));
 assert.equal(layout.filesystemVersion,3);
 assert.equal(layout.residentBytes,layout.bssEnd-0x801);
 assert.equal(layout.freeRam,layout.freeRanges.reduce((n,[a,b])=>n+b-a,0));

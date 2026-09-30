@@ -1,6 +1,27 @@
 #ifndef MCS_SYSOUT_H
 #define MCS_SYSOUT_H
-#define SYSOUT_COMPACT_CARTRIDGE_ONLY "Compaction is not supported on\nnon-cartridge devices"
+/* Standard Datasette transfer (standalone copier and restored shell). */
+#define SYSOUT_SYNTAX_TAPECOPY "Syntax: TAPECOPY [filename] [drive:]"
+#define SYSOUT_TAPE_SESSION_ERROR "Failed saving shell state"
+#define SYSOUT_TAPE_KERNAL "Could not locate standard KERNAL tape\nreader (custom ROM installed?)"
+#define SYSOUT_TAPE_PLAY "Press play on tape"
+#define SYSOUT_TAPE_FOUND "Found "
+#define SYSOUT_TAPE_SAVE_TO "Save to drive "
+#define SYSOUT_TAPE_QUESTION "?"
+#define SYSOUT_TAPE_YES_NO " (Y/N) "
+#define SYSOUT_TAPE_FILENAME "Filename (ENTER for default name): "
+#define SYSOUT_TAPE_EXISTS "File already exists."
+#define SYSOUT_TAPE_LOADING "Loading"
+#define SYSOUT_TAPE_SAVING "Saving"
+#define SYSOUT_TAPE_SAVED "Saved"
+#define SYSOUT_TAPE_NEXT "Load next file from tape?"
+#define SYSOUT_TAPE_CANCELLED "Tape transfer cancelled"
+#define SYSOUT_TAPE_TOO_LARGE "Tape program too large"
+#define SYSOUT_TAPE_READ_ERROR "Tape read error or unsupported format"
+#define SYSOUT_TAPE_END "End of tape"
+#define SYSOUT_TAPE_UNSUPPORTED "Unsupported tape file"
+#define SYSOUT_TAPE_CLEANUP_ERROR "Transfer failed: cannot delete partial\nfile"
+#define SYSOUT_COMPACT_CARTRIDGE_ONLY "Drive is not system cartridge"
 #define SYSOUT_COMPACTION_FAILED "Cartridge compaction failed"
 #define SYSOUT_DRIVE_MODEL "Drive model is %s\n"
 #define SYSOUT_VOLUME_IDENTIFIER "Drive identifier is %u (CBM) / %c (DOS)\n"
@@ -11,8 +32,8 @@
 /* System output text, including error messages, warnings, prompts, line fragments and format strings */
 #define SYSOUT_SESSION_RESTORE_WARNING "Unable to restore previous shell state.\nUsing defaults."
 #define SYSOUT_BATCH_COMMAND_TOO_LONG "Batch command too long"
-#define SYSOUT_SESSION_SAVE_WARNING "Warning: write error saving shell state. Proceed to BASIC"
-#define SYSOUT_SESSION_RUN_WARNING "Warning: write error saving shell state. Run program anyway"
+#define SYSOUT_SESSION_SAVE_WARNING "Warning: write error saving shell state.\nProceed to BASIC"
+#define SYSOUT_SESSION_RUN_WARNING "Warning: write error saving shell state.\nRun program anyway"
 #define SYSOUT_WRITE_FAULT_ERROR "Write fault error"
 #define SYSOUT_VOLUME_HEADER " Volume in drive %s: is "
 #define SYSOUT_CARTRIDGE_DISK_ID " Disk ID is MC\n"
@@ -154,7 +175,7 @@
 #define SYSOUT_DISK_ID_CHANGED "Disk ID changed"
 #define SYSOUT_SYNTAX_DISKCOPY "Syntax: DISKCOPY source: destination:"
 #define SYSOUT_TWO_DIFFERENT_DRIVES_REQUIRED "Two different drives required"
-#define SYSOUT_INCOMPATIBLE_DRIVE_TYPE "Incompatible drive type"
+#define SYSOUT_INCOMPATIBLE_DRIVE_TYPE "Incompatible drive model"
 #define SYSOUT_DESTINATION_DISK_WILL_BE_OVERWRITTEN "Destination disk will be overwritten"
 #define SYSOUT_PROCEED_WITH_DISK_COPY "Proceed with disk copy"
 #define SYSOUT_COPY_TRACK_PROGRESS "Copying track %u of %u\n"
@@ -175,6 +196,6 @@
 /* Cartridge filesystem statistics */
 #define SYSOUT_CARTRIDGE_VOLUME "Volume MCS-DOS 2.0\nDisk ID is MC\n\n"
 /* VER banner */
-#define SYSOUT_BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS"
+#define SYSOUT_BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS Labs"
 
 #endif

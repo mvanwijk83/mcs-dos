@@ -1,7 +1,7 @@
                  MCS-DOS
                 Changelog
 
-         Copyright (C) 2026 MCS
+       Copyright (C) 2026 MCS Labs
 
 
   1.0 Preview (13-Sep-2026)
@@ -30,7 +30,7 @@ Preliminary public release.
   without user confirmation).
 * ECHO text ending in ; will omit the
   line terminator (use ;; to escape).
-* Extended memory usage report produced
+* Expanded memory usage report produced
   by MEM.
 * Press RESTORE on boot screen for "safe
   mode" (skips executing AUTOEXEC.BAT).
@@ -51,10 +51,13 @@ Preliminary public release.
   but stored as internal cartridge data.
 * The BASIC command replaces EXIT. It
   enters the C64 BASIC environment and
-  offers a wedge to return to the shell.
-* Changed the DOS-style "R" file
-  attribute letter for the file lock bit
-  to "L", matching actual C64 behavior.
+  offers a wedge (SHELL) to return to
+  MCS-DOS.
+* Added TAPECOPY command to transfer
+  files from tape to disk.
+* Added DISKINIT command to refresh
+  drive cache and status, equivalent to
+  the CBM-DOS INITIALIZE command.
 * Added head, tail and hex view options
   to TYPE (/H, /T, /HEX).
 * Added /P switch to MOVE to suppress
@@ -66,9 +69,9 @@ Preliminary public release.
   drive model and lists the logical
   device number and corresponding DOS
   alias.
-* Added DISKINIT command to refresh
-  drive cache and status, equivalent to
-  the CBM-DOS INITIALIZE command.
+* Changed the DOS-style "R" file
+  attribute letter for the file lock bit
+  to "L", matching actual C64 behavior.
 * DELeting files with a wildcard will
   now prompt for individual confirmation
   for each matching file, unless /P is
@@ -76,7 +79,7 @@ Preliminary public release.
 * Added file redirection support for
   FIND, and removed it from HELP.
 * REU test in MEM removed due to
-  register overlap between the EasyFlash
-  RAM and the REU registers.
+  register overlap between EasyFlash and
+  the REU.
 * Revised some system messages.
 

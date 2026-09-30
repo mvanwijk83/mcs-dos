@@ -3,7 +3,7 @@
 
                User manual
 
-         Copyright (C) 2026 MCS
+       Copyright (C) 2026 MCS Labs
 
 
   Contents
@@ -132,16 +132,15 @@ it.
 
   AI disclosure
 While MCS-DOS has been designed in
-detail by human intellect and
-creativity, extensive machine help was
-enlisted through OpenAI's Codex and the
-GPT-6 (Astra) LLM. This includes
-implementation help, review, and auto-
-mated testing and building. All
+detail by human creativity and
+intellect, OpenAI's Codex and GPT-6
+(Astra) LLM have been extensively used
+to assist with implementation, review,
+and automated testing and building. All
 generated code has been manually
 reviewed and modified where necessary.
-Hardware testing was 100% done by
-humans.
+Additionally, all functionality has been
+manually tested on hardware.
 
 
   3. Contents of the cartridge
@@ -182,10 +181,9 @@ submenu and reset the emulated machine.
 
   Boot configuration
 If an AUTOEXEC.BAT is present, it will
-execute first before you arrive at the
-shell prompt. It is not present by
-default; create it or rename the sample
-file.
+execute before you arrive at the shell
+prompt. It is not present by default;
+create it or rename the sample file.
 
 See chapter 7 for more information on
 how to configure and customize the
@@ -198,17 +196,17 @@ be created to change this behavior,
 which will be processed first. The
 following directives are available:
 
-BOOTDRV
+BOOTDRV=drive[,...]
   Specify one or more drives where
-  MCS-DOS should seek AUTOEXEC.BAT.
-  For example, BOOTDRV=8,0 will look
-  for AUTOEXEC.BAT on the first disk
-  drive (device 8) first, and then on
-  the cartridge (device 0) if it wasn't
-  found. If BOOTDRV is omitted, device
-  0 is assumed.
+  MCS-DOS should seek AUTOEXEC.BAT, in
+  that order. For example, BOOTDRV=8,0
+  will look for AUTOEXEC.BAT on the
+  first disk drive (device 8) first, and
+  then on the cartridge (device 0) if it
+  wasn't found. If BOOTDRV is omitted,
+  device 0 is assumed.
 
-LDAUTOEX
+LDAUTOEX=0|1
   Whether AUTOEXEC.BAT should be ran at
   all. LDAUTOEX=0 will disable it;
   BOOTDRV would then not take effect
@@ -220,7 +218,7 @@ whitespace is ignored.
 
   Safe mode
 You can press RESTORE on the boot screen
-to enable a "safe mode"; it will skip
+to enter a "safe mode"; it will skip
 processing of the startup files,
 applying default settings instead. This
 can be useful to correct mis-
@@ -242,14 +240,14 @@ an external disk.
 
 A custom journaling file system is
 implemented to allow for fast file
-operations while reducing physical
-flash writes. It however requires
-occasional compaction to reclaim space
-from stale metadata records and deleted
-content. This happens automatically,
-which is noticeable as a slowdown during
-writes when it occurs. Compaction can
-also be forced via CHKDSK /C.
+operations while reducing physical flash
+writes. It however requires occasional
+compaction to reclaim space from stale
+metadata records and deleted content.
+This happens automatically, which is
+noticeable as a slowdown during writes
+when it occurs. Compaction can also be
+forced via CHKDSK /C.
 
 Changes to the writable area of the
 cartridge image persist automatically on
@@ -348,10 +346,17 @@ letter followed by a colon (e.g. 8:, A:)
 will select that drive as the current
 one.
 
-Commands that can use a printer offer
-DOS-style aliases for devices 4 and 5.
-You can use LPT1 and LPT2 respectively
-to refer to them.
+Similarly, for print commands both
+drive numbers 4 and 5 can be specified,
+or DOS aliases LPT1 and LPT2.
+
+Datasette (tape) support is present in
+the form of the TAPECOPY command which
+can be used to transfer files from tape
+to disk or cartridge. Program (PRG) or
+data (SEQ) files of up to 44 kb can be
+transferred, assuming no custom tape
+loader.
 
   Redirection and piping
 Command output redirection to file is
@@ -377,8 +382,7 @@ entering the HELP command.
 
 Help on a specific command can be
 viewed by typing "HELP command" or
-"COMMAND /?". Help is built into the
-cartridge and needs no file or disk.
+"COMMAND /?".
 
 Wildcards * and ? work for most file
 operations (where they make sense).
@@ -492,6 +496,10 @@ SET /ENV
 
 SPLASH
   Shows the MCS-DOS splash screen.
+
+TAPECOPY drive:
+  Loads and transfers one or more files
+  from tape to disk.
 
 TYPE filename [/H:n | /T:n | /HEX]
   Displays the contents of a file.

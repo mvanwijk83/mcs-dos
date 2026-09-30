@@ -1,4 +1,14 @@
 #include "core.h"
+__noinline void bank_tapecopycmd(void);
+__noinline void bank_tapecopy_report(void);
+void tapecopycmd(void) {
+    unsigned char previous=bank_enter(BANK_BOOT);
+    bank_tapecopycmd();bank_leave(previous);
+}
+void tapecopy_report(void) {
+    unsigned char previous=bank_enter(BANK_BOOT);
+    bank_tapecopy_report();bank_leave(previous);
+}
 __noinline unsigned char bank_session_save(void);
 __noinline unsigned char bank_session_restore(void);
 __noinline void bank_session_basic(void);

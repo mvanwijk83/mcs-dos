@@ -25,6 +25,11 @@ if(!compiler) throw Error('Cannot locate Oscar64 runtime; set OSCAR64_HOME');
 const runtime=fs.readFileSync(path.resolve(path.dirname(compiler),'../include/crt.c'),'utf8')
  .replace('#pragma startup(startup)','').replace(/\bstartup\b/g,'runtime_startup');
 fs.writeFileSync(`${out}/runtime.c`,runtime);
+binary('tape-bridge');
+const tapeBridge=fs.readFileSync(`${out}/tape-bridge.bin`);
+if(tapeBridge.length>0x300)throw Error('Tape bridge overlaps parameter area');
+fs.writeFileSync(`${out}/tape-bridge.h`,'static const unsigned char tape_bridge[]={'+[...tapeBridge].join(',')+'};\n');
+compile(['-n','-Os','-Oo','-psci',`-rt=${out}/runtime.c`,'-tf=bin',`-o=${out}/tape.bin`,'src/easyflash/tape.c']);
 compile(['-n','-Os','-Oo','-psci',`-dCART_RUN_SIZE=${run.length}`,`-rt=${out}/runtime.c`,'-tf=bin',`-o=${out}/fs.bin`,'src/easyflash/fs.c']);
 // Identical runtime and layout for both links: PRG supplies resident RAM,
 // CRT supplies named ROM banks. Assert the complete generated code agrees.
@@ -97,6 +102,7 @@ const driver=fs.readFileSync(`${out}/fs.bin`); if(driver.length>0x3f00)throw Err
 const executableBytes=prg.length+commandBanks.reduce((n,b)=>n+b.used,0);
 if(run.length>120)throw Error('RUN loader exceeds transfer buffer'); insert(4,1,run,0x1f00);
 const help=fs.readFileSync(`${out}/help.bin`);insert(10,0,help);
+const tape=fs.readFileSync(`${out}/tape.bin`);insert(11,1,tape);
 exec(process.execPath,['scripts/make-examples.js'],{stdio:'inherit',windowsHide:true});
 fs.copyFileSync('disk-content/CGA.CPI','build/CGA.CPI');
 fs.writeFileSync('build/AUTOEXEC.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/AUTOEXEC.SAMPLE','utf8')));
@@ -106,7 +112,7 @@ for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
 const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.0',32);
 const packets=[header];
 // Include complete filesystem and session sectors, including erased sides.
-for(let bank=0;bank<64;bank++)if(bank<=10||bank>=48)for(let chip=0;chip<2;chip++){
+for(let bank=0;bank<64;bank++)if(bank<=11||bank>=48)for(let chip=0;chip<2;chip++){
  const h=Buffer.alloc(16);h.write('CHIP');h.writeUInt32BE(8208,4);h.writeUInt16BE(2,8);h.writeUInt16BE(bank,10);h.writeUInt16BE(chip?0xa000:0x8000,12);h.writeUInt16BE(8192,14);
  packets.push(h,rom.subarray(bank*16384+chip*8192,bank*16384+(chip+1)*8192));
 }
@@ -115,7 +121,7 @@ fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
 fs.writeFileSync(`${out}/layout.json`,JSON.stringify({entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
- wedge:wedge.length,sessionBytes:3349,sessionBanks:[48,55],
+ wedge:wedge.length,sessionBytes:3349,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
  freeRam:0xa000-bssEnd+0x400,freeRanges:[[bssEnd,0xa000],[0xc300,0xc700]],
  helpBank:10,helpBytes:help.length,filesystemVersion:3,used,fileBytes,available},null,2));
 console.log('Built '+out+'/MCS-DOS.crt');

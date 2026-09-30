@@ -79,7 +79,8 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators, validate;
-#define COMMANDCOUNT 30
+#define COMMANDCOUNT 31
+#include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 void launch(void);
 void charset_prepare(void);

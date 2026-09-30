@@ -6,6 +6,7 @@
 #define TAPE_LABEL ((char *)0xc1ea)
 #define TAPE_PENDING (*(volatile unsigned char *)0xc1ee)
 #define TAPE_SEARCH ((char *)0xc610)
+#define TAPE_COLORS ((unsigned char *)0xc621)
 #define TAPE_SAVED 1
 #define TAPE_CANCELLED 2
 #define TAPE_READ_ERROR 3

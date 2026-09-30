@@ -212,6 +212,8 @@ void copy_main(void) {
     POKE(0x07f5,TAPE_BANK);
     /* Default ROM character generator, screen outside EasyAPI's $0400 area. */
     POKE(0x288,12);POKE(0xd018,0x36);POKE(0xd015,0);
+    POKE(0x0286,TAPE_COLORS[0]);
+    POKE(0xd021,TAPE_COLORS[1]);POKE(0xd020,TAPE_COLORS[2]);
     krnio_chrout(14);krnio_chrout(147);
     POKE(0xb2,0x3c);POKE(0xb3,3);POKE(0x9d,0);
     if(device) {

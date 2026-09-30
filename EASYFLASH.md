@@ -306,6 +306,9 @@ intervening standard files are displayed and consumed without save prompts.
 Destination names are prompted, and existing names are never overwritten.
 Choosing another transfer clears the search. The search string occupies
 $C610–$C620 during handoff. Skipped files retain the same format and size limits.
+The copier retains the shell text, background and border colours using
+$C621–$C623. For VICE tests use TAP pulse images; T64 containers do not supply
+the Datasette pulses required by this reader.
 
 The copier uses the original C64 KERNAL block decoder at $F84A. It accepts
 standard program headers ($01/$03) and sequential headers ($04), checks tape

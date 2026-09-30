@@ -45,6 +45,29 @@ module.exports=async({command,memory,screen,keys,enter,root,disk,crt,diskFile})=
  s=await enter('tapecopy /?');assert(s.includes('Loads and transfers'),s);
  await enter('set tapetest=retained');
  const data=Buffer.from(Array.from({length:1024},(_,i)=>(i*37)&255));
+ if(process.argv.includes('--tape-t64')) {
+  const source=process.argv[process.argv.indexOf('--tape-t64')+1];
+  const b=fs.readFileSync(source),at=b.readUInt32LE(72),address=b.readUInt16LE(66),end=b.readUInt16LE(68);
+  assert.equal(b[64],1);assert(end>address&&at+end-address<=b.length);
+  const payload=b.subarray(at,at+end-address),name=b.subarray(80,96).toString('latin1').trimEnd();
+  await command('resourceset "VirtualDevice1" "1"');
+  await command(`attach "${source.replaceAll('\\','/')}" 1`);
+  await command('tapectrl 1');await keys('tapecopy 8:\\x0d',1000);
+  assert.equal((await memory(0xd011))[0]&16,0,'T64 leaves the pulse reader waiting with display blanked');
+  s=await screen();assert(!s.includes('Found '),s);
+  // STOP is polled through the keyboard matrix, not the GETIN input queue.
+  await command('> 0091 7f');await command('x');await until('Tape transfer cancelled');
+  console.log('PASS reproduced T64 pulse-reader wait and RUN/STOP recovery');
+  await command('resourceset "VirtualDevice1" "0"');
+  await attach([{name,address,data:payload}]);
+  fs.copyFileSync(root+'/build/easyflash/transfer.tap',root+'/build/easyflash/blue-max-standard.tap');
+  await keys('tapecopy 8:\\x0d',100);await until('Save to drive');
+  await keys('y',100);await until('Filename');await keys('\\x0d',100);
+  s=await until('Load next file',180);assert(s.includes('Saved'),s);await keys('n',100);
+  assert.deepEqual(diskFile(disk,name),Buffer.concat([Buffer.from([address&255,address>>8]),payload]));
+  console.log('PASS actual T64 payload converted to standard TAP and copied byte-for-byte');
+  return;
+ }
  if(process.argv.includes('--tape-search')) {
   await attach([{name:'SKIP',data:Buffer.alloc(200,90)},
    {name:'SKIPSEQ',type:4,data:Buffer.from('skip this')},
@@ -68,8 +91,10 @@ module.exports=async({command,memory,screen,keys,enter,root,disk,crt,diskFile})=
   return;
  }
  await attach([{name:'TAPEONE',data}]);
+ const colors=[(await memory(0x286))[0],(await memory(0xd021))[0]&15,(await memory(0xd020))[0]&15];
  await keys('tapecopy\\x0d',250);
  s=await until('Save to drive');console.log('HEADER',s);
+ assert.deepEqual([(await memory(0x286))[0],(await memory(0xd021))[0]&15,(await memory(0xd020))[0]&15],colors,'copier preserves shell colors');
  await keys('y',150);await until('Filename');await keys('\\x0d',150);
  s=await until('Load next file');console.log('SAVED',s);assert(s.includes('Saved'),s);
  await keys('n',300);

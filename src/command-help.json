@@ -29,5 +29,5 @@
   "SPLASH": "Shows the MCS-DOS splash screen.",
   "FIND": "Searches for a text string in a file.\n\nFIND [/V] [/C] [/N] [/I] \"string\"\n     [[drive:]filename]\n\n /V  Displays all lines NOT containing\n     the specified string.\n /C  Displays only the count of lines\n     containing the string.\n /N  Displays line numbers with the\n     displayed lines\n /I  Ignores the case of characters\n     when searching for the string\n \"string\"\n     Specifies the text string to find.\n [drive:]filename\n     Specifies a file to search.",
   "DISKINIT": "Resets disk drive state and forces a\nreread of the directory.\n\nDISKINIT [drive:]",
-  "TAPECOPY": "Loads and transfers one or more files\nfrom tape to disk.\n\nTAPECOPY [filename] [drive:]"
+  "TAPECOPY": "Loads and transfers one or more files\nfrom tape to disk.\n\nTAPECOPY [filename] [drive:]\n\n  filename  The name of the file to seek\n            and load.\n  drive:    The drive to copy to.\n\n  If no drive is specified, the current\n  one is used. Omitting the filename will\n  seek to the first file and prompt for\n  saving."
 }

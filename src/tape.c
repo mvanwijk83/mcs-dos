@@ -25,6 +25,9 @@ static void start(void) {
     for(i=0;i<sizeof(reader);++i)
         if(PEEK(0xf84a+i)!=reader[i]) {error(SYSOUT_TAPE_KERNAL);return;}
     if (!session_save()) { error(SYSOUT_TAPE_SESSION_ERROR); return; }
+    TAPE_COLORS[0]=PEEK(0x0286);
+    TAPE_COLORS[1]=PEEK(0xd021);
+    TAPE_COLORS[2]=PEEK(0xd020);
     TAPE_RESULT=0;TAPE_PENDING=0x54;
     caret_hide();
     handoff();

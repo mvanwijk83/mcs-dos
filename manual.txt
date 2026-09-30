@@ -355,8 +355,8 @@ the form of the TAPECOPY command which
 can be used to transfer files from tape
 to disk or cartridge. Program (PRG) or
 data (SEQ) files of up to 44 kb can be
-transferred, assuming no custom tape
-loader.
+transferred, assuming no custom loader
+is used on the source tape.
 
   Redirection and piping
 Command output redirection to file is
@@ -497,7 +497,7 @@ SET /ENV
 SPLASH
   Shows the MCS-DOS splash screen.
 
-TAPECOPY drive:
+TAPECOPY [filename] [drive:]
   Loads and transfers one or more files
   from tape to disk.
 

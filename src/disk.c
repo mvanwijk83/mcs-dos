@@ -103,7 +103,8 @@ __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report
 /* Geometry families stay 1541=1, 1571=2, 1581=3 for all raw operations. */
 __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
 {
-    unsigned char model = bank_drivemodel(dev, report);
+    unsigned char model = bank_drivemodel(dev, report == 128 ? 0 : report);
+    if (report == 128) return model;
     return model == 4 || model == 5 ? 1 : model;
 }
 

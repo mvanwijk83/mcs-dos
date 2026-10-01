@@ -79,7 +79,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators, validate;
-#define COMMANDCOUNT 31
+#define COMMANDCOUNT 32
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 void launch(void);
@@ -152,6 +152,7 @@ void runcmd(void);
 unsigned char blockio(unsigned char dev, unsigned char track, unsigned char sector,
                              unsigned char writing);
 unsigned char rawopen(unsigned char dev);
+/* report=128 returns the model rather than the raw-operation family. */
 unsigned char drivetype(unsigned char dev, unsigned char report);
 unsigned char tracksectors(unsigned char track, unsigned char tracks);
 unsigned char bam(unsigned char dev);

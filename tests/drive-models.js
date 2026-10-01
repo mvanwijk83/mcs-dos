@@ -35,6 +35,7 @@ ${functions('drivemodel','drivetype')}
 int main(void){
  for(current=0;current<8;++current){
   errors=0;if(drivemodel(8,0)!=fixtures[current][9]||errors)return 1;
+  if(drivetype(8,128)!=fixtures[current][9]||errors)return 6;
   if(drivetype(8,1)!=fixtures[current][10])return 2;
   if(errors!=(fixtures[current][9]==0))return 3;
  }

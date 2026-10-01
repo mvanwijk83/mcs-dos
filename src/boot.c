@@ -8,6 +8,83 @@ __noinline void bank_startupprompt(void);
 __noinline void bank_startupcolor(void);
 __noinline void bank_startupcharset(unsigned char device);
 __noinline void bank_bootsplash(unsigned char wait);
+__noinline void bank_sysinfo(void);
+__noinline const char *bank_kernalname(void);
+__noinline unsigned char bank_romtext(unsigned int address, const char *text);
+
+/* -psci encodes uppercase literals with bit 7 set. ROM banners use $41-$5A.
+ * Only compare the short supplied prefix; never search the ROM. */
+__noinline unsigned char bank_romtext(unsigned int address, const char *text)
+{
+    while (*text)
+        if (PEEK(address++) != ((unsigned char)*text++ & 127)) return 0;
+    return 1;
+}
+
+/* Fixed ROM fingerprints, not a ROM scan. Code identifies customized banners;
+ * only the known standard name/version field earns a version suffix. */
+__noinline const char *bank_kernalname(void)
+{
+    unsigned char jiffyname = bank_romtext(0xe47c, "JIFFYDOS");
+    if (jiffyname || (PEEK(0xfc00) == 0xa3 && PEEK(0xe4ee) == 0x44))
+        return jiffyname && bank_romtext(0xe484, " V6.01 ") ? "JiffyDOS 6.01" : "JiffyDOS";
+    if ((PEEK(0xfc00) == 0xa2 && PEEK(0xfc01) == 0x02 && PEEK(0xfc02) == 0x20 &&
+         PEEK(0xfc03) == 0x13 && PEEK(0xfc04) == 0xee && PEEK(0xfc05) == 0xa5 &&
+         PEEK(0xfc06) == 0x90 && PEEK(0xfc07) == 0xd0) || bank_romtext(0xe49b, "DOLPHINDOS"))
+        return bank_romtext(0xe49b, "DOLPHINDOS 2.0 ") ? "DolphinDOS 2.0" : "DolphinDOS";
+    return 0;
+}
+
+/* VIC-IIe keyboard register exists in C64 mode. Restore its scan selection;
+ * no CPU-speed changes, VDC RAM tests or case/SID heuristics are needed. */
+__noinline void bank_sysinfo(void)
+{
+    static const char *const models[] = {
+        "Unknown device", "1541 Floppy Drive", "1571 Floppy Drive",
+        "1581 Floppy Drive", "1541-II Floppy Drive", "1570 Floppy Drive"
+    };
+    unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
+    unsigned char dev, model, pal = 0, raster, previous;
+    const char *kernal;
+    POKE(0xd02f, 0xf8);
+    c128 = PEEK(0xd02f) == 0xf8;
+    POKE(0xd02f, saved);
+    /* Observe the high raster region through its wrap. PAL reaches low-byte
+     * 32 (line 288), whereas both NTSC variants wrap before that. */
+    while (!(PEEK(0xd011) & 128)) {}
+    previous = PEEK(0xd012);
+    while (PEEK(0xd011) & 128) {
+        raster = PEEK(0xd012);
+        if (raster < previous) break;
+        if (raster >= 32) pal = 1;
+        previous = raster;
+    }
+    print("Commodore %s %s computer\n", c128 ? "128" : revision == 0x43 ? "SX-64" : "64",
+          !c128 && revision == 0x43 ? "portable" : "personal");
+    print("%u KB RAM\n", c128 ? 128 : 64);
+    say(pal ? "PAL display mode (50 Hz)" : "NTSC display mode (60 Hz)");
+    newline();
+    say(c128 ? "CPU:      MOS 8502" : revision == 0x43 ? "CPU:      MOS 6510" : "CPU:      MOS 6510/8500");
+    kernal = bank_kernalname();
+    if (kernal)
+        print("KERNAL:   %s\n", kernal);
+    else if (revision == 0 || revision == 3)
+        print("KERNAL:   Revision %u\n", revision == 0 ? 2 : 3);
+    else if (revision == 0x43)
+        say("KERNAL:   SX-64 (ROM ID 67)");
+    else if (revision == 0xaa)
+        say("KERNAL:   Revision 1");
+    else
+        print("KERNAL:   ROM ID %u\n", revision);
+    for (dev = 8; dev <= 11; ++dev) {
+        if (!statuschannel(dev)) continue;
+        model = drivetype(dev, 128);
+        if (!model) continue;
+        print("Drive %u: %s%s\n", dev, dev < 10 ? " " : "", models[model]);
+        say(model == 3 ? "          3.5\" 800K DS/DD" :
+            model == 2 ? "          5.25\" 340K DS/DD" : "          5.25\" 170K SS/DD");
+    }
+}
 
 /* SET only stores the value; startup applies it after AUTOEXEC unwinds. */
 __noinline void bank_startupprompt(void)
@@ -127,6 +204,11 @@ __noinline void bank_bootsplash(unsigned char wait)
     static const char copyright[] = SYSOUT_COPYRIGHT;
     unsigned char x, y, oldlo, oldhi;
     clock_t started;
+    /* Reuse the boot bank gate for the shell's SYSINFO command. */
+    if (wait == 4) {
+        bank_sysinfo();
+        return;
+    }
     /* Interactive SPLASH temporarily uses the default screen, which now
      * overlaps EasyAPI and the filesystem state. These scratch buffers are
      * idle here, including when SPLASH is called from a batch file. */
@@ -161,6 +243,14 @@ __noinline void bank_bootsplash(unsigned char wait)
         started = clock();
         while (!skipautoexec && (clock_t)(clock() - started) < 4 * CLOCKS_PER_SEC) {
         }
+        fg = 15;
+        textcolor(fg);
+        clear();
+        bank_sysinfo();
+        started = clock();
+        while (!skipautoexec && (clock_t)(clock() - started) < 2 * CLOCKS_PER_SEC) {}
+        newline();
+        say("Starting MCS-DOS...\n");
         POKE(0x0318, oldlo);
         POKE(0x0319, oldhi);
     } else {
@@ -256,7 +346,7 @@ __noinline void bank_setcmd(const char *s)
 }
 
 __noinline unsigned char bank_bootstart(unsigned char startdrive) {
- unsigned char c;
+ unsigned char c, keepinfo = screenbase == 0x0400 && !resume_requested;
     for (c = 0; c < 2; ++c) {
         if (cmddev[c])
             channel_close(14 + c);
@@ -277,7 +367,8 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive) {
     bg = bd = 0;
     POKE(657, 128); /* Disable Shift+Commodore font switching. */
     colors();
-    clear();
+    /* Carry the cold-boot report into the relocated display. */
+    if (!keepinfo) clear();
     charset_prepare();
     charset_enable();
     screenbase = 0xe000;

@@ -77,7 +77,9 @@ async function run(){
  assert.equal((await memory(0xd021))[0]&15,0);
  await command(`screenshot "${root}/build/bootsplash-${standard}.png" 2`);
  await command('x');await delay(2600);
- assert.equal((await screen())[12].trim(),product,'splash remains before four seconds');
+ assert((await screen()).join('\n').includes('Copyright (C) 2026 MCS'),'splash remains for four seconds');
+ await command('x');await delay(1800);
+ assert((await screen()).join('\n').includes('64 KB RAM'),'BIOS replaces the splash on a cleared screen');
  await command('x');await delay(1800);
  assert((await screen()).join('\n').includes(':>'),'startup completes');
  rows=await enter('reboot',600);

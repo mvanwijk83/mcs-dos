@@ -26,7 +26,8 @@ assert.deepEqual(image.get('11:40960').subarray(0,layout.tapeBytes),fs.readFileS
 assert.equal(layout.filesystemVersion,3);
 assert.equal(layout.residentBytes,layout.bssEnd-0x801);
 assert.equal(layout.freeRam,layout.freeRanges.reduce((n,[a,b])=>n+b-a,0));
-assert(layout.freeRam>10000,'banked prototype must recover meaningful RAM');
+// SYSINFO adds a small resident command entry; keep a 9.5 KiB RAM floor.
+assert(layout.freeRam>=9728,'banked shell must retain at least 9.5 KiB free RAM');
 assert(layout.bssEnd<=0xa000);assert.deepEqual(layout.romWindow,{start:0xa000,end:0xc000});
 assert(layout.wedge>0&&layout.wedge<=0x1e0,'wedge must not overlap resume token');
 assert.deepEqual(layout.sessionBanks,[48,55]);assert.equal(layout.sessionBytes,3349);

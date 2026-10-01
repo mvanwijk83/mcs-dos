@@ -4,37 +4,6 @@
        Copyright (C) 2026 MCS Labs
 
 
-  1.0 Preview (13-Sep-2026)
-----------------------------------------
-Preliminary public release.
-
-  1.0 (15-Sep-2026)
-----------------------------------------
-* Fixed a bug where DEL did not report
-  failed deletion when a file is
-  locked.
-* Removed /S switches (omit decimal
-  separators) from MEM and CHKDSK as
-  they were of limited utility.
-* Small memory usage reduction by
-  various code optimizations.
-* General code cleanup.
-* Finalized inline and offline docu-
-  mentation.
-* Finalized release package.
-* Source code release.
-
-  1.01 (19-Sep-2026)
-----------------------------------------
-* Added /P switch to COPY (overwrite
-  without user confirmation).
-* ECHO text ending in ; will omit the
-  line terminator (use ;; to escape).
-* Expanded memory usage report produced
-  by MEM.
-* Press RESTORE on boot screen for "safe
-  mode" (skips executing AUTOEXEC.BAT).
-
   2.0 (dd-Mmm-2026)
 ----------------------------------------
 * MCS-DOS is now distributed as an Easy-
@@ -49,15 +18,21 @@ Preliminary public release.
 * The command help library is no longer
   represented as a file (COMMANDS.HLP)
   but stored as internal cartridge data.
+* Improved native program support:
+  programs with a clean BASIC exit and
+  that preserve $C000-$C1FF will return
+  to the shell.
 * The BASIC command replaces EXIT. It
   enters the C64 BASIC environment and
-  offers a wedge (SHELL) to return to
-  MCS-DOS.
-* Added TAPECOPY command to transfer
-  files from tape to disk.
+  implements a wedge (SHELL) to return
+  to MCS-DOS.
 * Added DISKINIT command to refresh
   drive cache and status, equivalent to
   the CBM-DOS INITIALIZE command.
+* Added TAPECOPY command to transfer
+  files from tape to disk.
+* Added SYSINFO command that displays
+  basic system information.
 * Added head, tail and hex view options
   to TYPE (/H, /T, /HEX).
 * Added /P switch to MOVE to suppress
@@ -78,8 +53,41 @@ Preliminary public release.
   specified.
 * Added file redirection support for
   FIND, and removed it from HELP.
+* Revised boot sequence with a system
+  information report and a startup
+  message.
 * REU test in MEM removed due to
   register overlap between EasyFlash and
   the REU.
 * Revised some system messages.
 
+  1.01 (19-Sep-2026)
+----------------------------------------
+* Added /P switch to COPY (overwrite
+  without user confirmation).
+* ECHO text ending in ; will omit the
+  line terminator (use ;; to escape).
+* Expanded memory usage report produced
+  by MEM.
+* Press RESTORE on boot screen for "safe
+  mode" (skips executing AUTOEXEC.BAT).
+
+  1.0 (15-Sep-2026)
+----------------------------------------
+* Fixed a bug where DEL did not report
+  failed deletion when a file is
+  locked.
+* Removed /S switches (omit decimal
+  separators) from MEM and CHKDSK as
+  they were of limited utility.
+* Small memory usage reduction by
+  various code optimizations.
+* General code cleanup.
+* Finalized inline and offline docu-
+  mentation.
+* Finalized release package.
+* Source code release.
+
+  1.0 Preview (13-Sep-2026)
+----------------------------------------
+Preliminary public release.

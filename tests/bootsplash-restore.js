@@ -26,7 +26,7 @@ async function run(){
  await command('keybuf run\\x0d');await command('x');await delay(500);
  const vector=await command('m 0318 0319'),vm=vector.match(/>C:0318\s+([\da-f]{2})\s+([\da-f]{2})/i);assert(vm,vector);
  const handler=parseInt(vm[1],16)|(parseInt(vm[2],16)<<8);assert.notEqual(handler,0xfe47,vector);
- const code=await command(`m ${handler.toString(16)} ${(handler+3).toString(16)}`),cm=code.match(/>C:[\da-f]{4}\s+ee\s+([\da-f]{2})\s+([\da-f]{2})\s+40/i);assert(cm,code);
+ const code=await command(`m ${handler.toString(16)} ${(handler+8).toString(16)}`),cm=code.match(/>C:[\da-f]{4}\s+48\s+a9\s+01\s+8d\s+([\da-f]{2})\s+([\da-f]{2})\s+68\s+40/i);assert(cm,code);
  const flag=parseInt(cm[1],16)|(parseInt(cm[2],16)<<8);await command(`> ${flag.toString(16)} 01`);await command('x');await delay(1000);
  let out=await screen();for(let i=0;i<20&&!out.trimEnd().endsWith('8:>');i++){await command('x');await delay(200);out=await screen();}
  assert(out.trimEnd().endsWith('8:>'),out);assert(!out.includes('AUTOEXEC-RAN'),out);

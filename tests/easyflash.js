@@ -3,6 +3,8 @@ const {tool} = require('./setup');
 const fs=require('fs'),net=require('net'),path=require('path'),assert=require('assert/strict');
 const {spawn,execFileSync}=require('child_process');
 const root=path.resolve('.').replaceAll('\\','/'),prg=root+'/build/easyflash/shell.prg';
+const kernalRom=process.argv.find(s=>s.startsWith('--kernal-rom='))?.slice(13);
+const kernalName=process.argv.find(s=>s.startsWith('--kernal-name='))?.slice(14);
 const delay=ms=>new Promise(r=>setTimeout(r,ms));let child,socket;const snapshots=[];
 let monitorPort;
 async function command(text){
@@ -15,7 +17,7 @@ async function command(text){
   socket.write(text+'\n');
  });
 }
-async function memory(a,b=a){const out=await command(`m ${a.toString(16)} ${b.toString(16)}`),bytes=[];for(const line of out.split('\n')){const m=line.match(/>C:([\da-f]{4})\s+(.{1,50})/i);if(m)bytes.push(...m[2].trim().split(/\s+/).filter(v=>/^[\da-f]{2}$/i.test(v)).map(v=>parseInt(v,16)));}assert.equal(bytes.length,b-a+1,out);return bytes;}
+async function memory(a,b=a){let out;const bytes=[];for(let retry=0;retry<2&&!bytes.length;++retry){out=await command(`m ${a.toString(16)} ${b.toString(16)}`);for(const line of out.split('\n')){const m=line.match(/>C:([\da-f]{4})\s+(.{1,50})/i);if(m){const offset=parseInt(m[1],16)-a;if(offset>=0&&offset<=b-a){const row=m[2].trim().split(/\s+/).filter(v=>/^[\da-f]{2}$/i.test(v)).map(v=>parseInt(v,16));row.forEach((v,i)=>{if(offset+i<=b-a)bytes[offset+i]=v;});}}}}assert.equal(bytes.length,b-a+1,out);return bytes;}
 async function screen(){const base=(await memory(0x288))[0]*256;await command('bank ram');const bytes=await memory(base,base+999);await command('bank cpu');let s='';for(let i=0;i<1000;i+=40)s+=bytes.slice(i,i+40).map(v=>{v&=127;return String.fromCharCode(v>=1&&v<=26?v+96:v);}).join('').trimEnd()+'\n';return s.trimEnd();}
 async function keys(s,ms=550){await command('keybuf '+s);await command('x');await delay(ms);const out=await screen();snapshots.push({keys:s,out});return out;}
 async function enter(s,ms){
@@ -42,6 +44,17 @@ function diskFile(file,name){
 (async()=>{
  require('./easyflash-image').verifyDistribution('build/easyflash/MCS-DOS.crt');
  const crt=root+'/build/easyflash/test.crt'; fs.copyFileSync('build/easyflash/MCS-DOS.crt',crt);
+ if(process.argv.includes('--boot-info')) {
+  fs.writeFileSync('build/AUTOEXEC.BAT',require('../scripts/petscii')('@ECHO OFF\rECHO AUTOEXEC-RAN\r'));
+  const journal=require('../scripts/journal-image')(['CGA.CPI','AUTOEXEC.SAMPLE','MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT','AUTOEXEC.BAT']).image;
+  const bytes=fs.readFileSync(crt);
+  for(let p=bytes.readUInt32BE(16);p<bytes.length;p+=bytes.readUInt32BE(p+4)){
+   const bank=bytes.readUInt16BE(p+10);
+   if(bank>=56&&bank<=63&&bytes.readUInt16BE(p+12)===0x8000)
+    journal.copy(bytes,p+16,(bank-56)*8192,(bank-55)*8192);
+  }
+  fs.writeFileSync(crt,bytes);
+ }
  const disk=root+'/build/easyflash/test-v2.d64';
  fs.writeFileSync('build/easyflash/external.bat',Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\r'));
  const blob=Buffer.from(Array.from({length:1024},(_,i)=>(i*37)&255));fs.writeFileSync('build/easyflash/blob',blob);
@@ -53,7 +66,7 @@ function diskFile(file,name){
  '-write','build/easyflash/blob','blob,s','-write','build/DEMO.prg','demo,p','-write','build/easyflash/large','large,s',
  '-write','build/easyflash/big.prg','big,p'],{stdio:'pipe',windowsHide:true});
  const server=net.createServer(); await new Promise(r=>server.listen(0,'127.0.0.1',r)); monitorPort=server.address().port; await new Promise(r=>server.close(r));
- child=spawn(tool('vice','x64sc'),['-logfile','build/easyflash/vice-debug.log','-default',process.argv.includes('--ntsc')?'-ntsc':'-pal','-sounddev','dummy','-warp','-cartcrt',crt,'-easyflashcrtwrite','-remotemonitoraddress','127.0.0.1:'+monitorPort,'-remotemonitor'],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+ child=spawn(tool('vice',process.argv.includes('--c128')?'x128':'x64sc'),['-logfile','build/easyflash/vice-debug.log','-default',...(process.argv.includes('--sx64')?['-model','sx64']:[]),...(kernalRom?['-kernal',path.resolve(kernalRom)]:[]),process.argv.includes('--ntsc')?'-ntsc':'-pal','-sounddev','dummy',...(process.argv.includes('--boot-info')?[]:['-warp']),'-cartcrt',crt,'-easyflashcrtwrite','-remotemonitoraddress','127.0.0.1:'+monitorPort,'-remotemonitor'],{windowsHide:true,stdio:['ignore','ignore','pipe']});
  child.on('exit',code=>console.log('VICE EXIT',code));
  child.stderr.on('data',d=>fs.appendFileSync('build/easyflash/vice-v2.log',d));
  for(let i=0;i<60;i++){
@@ -62,13 +75,51 @@ function diskFile(file,name){
  }
  assert(socket,'VICE monitor did not start');socket.on('error',()=>{});await command('x');
  await delay(3000); let s=await screen();
+ if(process.argv.includes('--boot-info')) {
+  for(let i=0;i<80&&!s.includes('Copyright (C) 2026 MCS');++i){await command('x');await delay(100);s=await screen();}
+  assert(s.includes('Copyright (C) 2026 MCS'),s);
+  assert(!s.includes('KB RAM'),s);
+  await command('x');await delay(2000);s=await screen();
+  assert(s.includes('Copyright (C) 2026 MCS')&&!s.includes('KB RAM'),s);
+  await command('x');await delay(2300);s=await screen();
+  assert(s.startsWith('Commodore 64 personal computer')&&!s.includes('Copyright (C) 2026 MCS'),s);
+  assert(s.includes('64 KB RAM'),s);
+  assert(!s.includes('Unknown device')&&!s.includes('Drive 10:')&&!s.includes('Drive 11:'),s);
+  const vector=await memory(0x318,0x319),handler=vector[0]+256*vector[1];
+  const code=await memory(handler,handler+8);
+  assert.deepEqual(code.slice(0,4),[0x48,0xa9,1,0x8d],'RESTORE latch remains installed during BIOS');
+  const flag=code[4]+256*code[5];
+  await command(`> ${flag.toString(16)} 01`);
+ }
  for(let i=0;i<20&&!s.includes('0:>');i++){await command('x');await delay(500);s=await screen();}
  console.log('BOOT',s); assert(s.includes('0:>'),s);
+ if(process.argv.includes('--boot-info')) {
+  assert(!s.includes('AUTOEXEC-RAN'),s);
+  assert(s.includes('64 KB RAM')&&s.includes('Starting MCS-DOS...'),s);
+ }
  if(process.argv.includes('--tape')) {
   await require('./tape')({command,memory,screen,keys,enter,root,disk,crt,diskFile});return;
  }
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');
  await defaultFont();
+ if(process.argv.includes('--boot-info')) {
+  s=await enter('reboot');
+  assert(s.includes('0:>')&&!s.includes('KB RAM')&&!s.includes('Starting MCS-DOS...'),s);
+  await defaultFont();
+  console.log('PASS four-second splash, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');return;
+ }
+ if(process.argv.includes('--sysinfo')) {
+  await enter('cls');
+  s=await check('sysinfo',process.argv.includes('--c128')?'Commodore 128 personal computer':process.argv.includes('--sx64')?'Commodore SX-64 portable computer':'Commodore 64 personal computer');
+  assert(s.includes(process.argv.includes('--c128')?'128 KB RAM':'64 KB RAM'),s);
+  assert(s.includes(process.argv.includes('--ntsc')?'NTSC display mode (60 Hz)':'PAL display mode (50 Hz)'),s);
+  assert(s.includes(process.argv.includes('--c128')?'CPU:      MOS 8502':process.argv.includes('--sx64')?'CPU:      MOS 6510':'CPU:      MOS 6510/8500'),s);
+  assert(!s.includes('Unknown device')&&!s.includes('Drive 10:')&&!s.includes('Drive 11:'),s);
+  assert(s.includes((kernalName?'KERNAL:   '+kernalName:process.argv.includes('--sx64')?'KERNAL:   SX-64 (ROM ID 67)':'KERNAL:   Revision 3')+'\n'),s);
+  await enter('cls');
+  s=await enter('splash');assert(!s.includes('KB RAM'),s);
+  console.log('PASS SYSINFO machine, RAM, raster standard, CPU, KERNAL and SPLASH exclusion');return;
+ }
  if(process.argv.includes('--drive-info')) {
   s=await check('chkdsk','Drive model is EasyFlash');
   assert(s.includes('\n\nDrive model is EasyFlash\nDrive identifier is 0\n'),s);
@@ -80,10 +131,13 @@ function diskFile(file,name){
    const result=await command(`resourceset "Drive${dev}Type" "${model}"`);assert(!result.includes('ERROR'),result);
    await command(`resourceset "Drive${dev}TrueEmulation" "1"`);
    const attached=await command(`attach "${file}" $${dev.toString(16)}`);assert(!/error|invalid/i.test(attached),attached);
+   await enter('cls');
+   s=await check('sysinfo',`Drive ${dev}: ${dev<10?' ':''}${shown} Floppy Drive`);
+   assert(s.includes('          '+(model===1581?'3.5" 800K DS/DD':model===1571?'5.25" 340K DS/DD':'5.25" 170K SS/DD')),s);
    for(const ids of ['CBM','DOS']){
     await enter('set driveids='+ids);
     s=await check('chkdsk '+dev+':','Drive model is '+shown);
-    assert(s.includes('\n\nDrive model is '+shown+'\nDrive identifier is '+dev+'/'+String.fromCharCode(65+dev-8)+'\n'),s);
+    assert(s.includes('\n\nDrive model is '+shown+'\nDrive identifier is '+dev+' (CBM) / '+String.fromCharCode(65+dev-8)+' (DOS)\n'),s);
    }
   }
   s=await check('chkdsk 8: /v','Disk validation complete');assert(!s.includes('Drive model'),s);

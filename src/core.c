@@ -52,7 +52,7 @@ unsigned char resume_requested;
 const char *const commands[] = {
     "BEEP",   "CHKDSK", "CLS",   "COPY",   "DEL",  "DIR",    "DISKCOPY", "ECHO",   "EDIT", "BASIC",
     "FORMAT", "HELP",   "LABEL", "MEM",    "MOVE", "PAUSE",  "PRINT",    "REM",    "REN",  "RUN",
-    "TYPE",   "VOL",    "VER",   "DISKID", "SET",  "REBOOT", "ATTRIB",   "SPLASH", "FIND", "DISKINIT", "TAPECOPY"};
+    "TYPE",   "VOL",    "VER",   "DISKID", "SET",  "REBOOT", "ATTRIB",   "SPLASH", "FIND", "DISKINIT", "TAPECOPY", "SYSINFO"};
 
 void clear(void)
 {
@@ -925,11 +925,12 @@ void executecommand(char *s)
         attribcmd();
         break;
     case 27:
+    case 31:
         if (argc != 1) {
             error(SYSOUT_INVALID_PARAMETER);
             break;
         }
-        bootsplash(0);
+        bootsplash(id & 4); /* SPLASH=27 -> 0, SYSINFO=31 -> 4. */
         break;
     }
 }

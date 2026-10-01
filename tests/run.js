@@ -3,7 +3,7 @@ const {setup} = require('./setup');
 const {spawnSync} = require('child_process');
 setup();
 const unit = ['amount-switches','cache-capacity','concat-limits','delete-wildcards','dir-sort','diskinit','editor-lines','find','find-redirection',
-    'help-wrap','print','prompt','startup-settings','type-wrap','type-options','journal-crc'].map(name => [name]);
+    'help-wrap','print','prompt','startup-settings','type-wrap','type-options','journal-crc','kernal-models'].map(name => [name]);
 const emulator = ['c64-support','oscar64-regression','help-prompt','find-vice',
     'new-commands','copy-wildcards','redirection','editor-session','charset','bootsplash','bootsplash-restore',
     'input-history','help-recovery','sample-startup','petscii-completion'].map(name => [name]);
@@ -14,6 +14,11 @@ const drives = [['drive-compat','1541'], ['drive-compat','1571'], ['drive-compat
 const easyflash = [['banked-image'], ['easyflash','--commands'], ['easyflash','--find-redirection'], ['easyflash','--delete'], ['easyflash','--diskinit'], ['easyflash','--banked'], ['easyflash','--journal'], ['easyflash','--compact'], ['easyflash','--session'], ['easyflash','--run-return']];
 easyflash.push(['easyflash','--drive-info']);
 easyflash.push(['drive-models']);
+easyflash.push(['easyflash','--sysinfo']);
+easyflash.push(['easyflash','--sysinfo','--ntsc']);
+easyflash.push(['easyflash','--sysinfo','--c128']);
+easyflash.push(['easyflash','--sysinfo','--sx64']);
+easyflash.push(['easyflash','--sysinfo','--boot-info']);
 easyflash.push(['easyflash','--tape']);
 easyflash.push(['easyflash','--tape','--tape-search']);
 const groups = {unit, easyflash, emulator, drives, all: [...unit, ...easyflash]};

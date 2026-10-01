@@ -171,13 +171,12 @@ files are bundled with the software:
   Startup
 If you have a physical EasyFlash cart-
 ridge, start MCS-DOS from the menu. The
-.CRT image must be flashed onto the
-cartridge first.
+.CRT image must have been flashed onto
+the cartridge first.
 
-On a C64 Ultimate, simply run the image
-from the file browser. On a VICE
-emulator, attach it via the relevant
-submenu and reset the emulated machine.
+In VICE, use File -> Attach cartridge
+image. On an Ultimate, enter the file
+browser and run the .CRT.
 
   Boot configuration
 If an AUTOEXEC.BAT is present, it will
@@ -496,6 +495,10 @@ SET /ENV
 
 SPLASH
   Shows the MCS-DOS splash screen.
+
+SYSINFO
+  Provides technical information about
+  your computer.
 
 TAPECOPY [filename] [drive:]
   Loads and transfers one or more files

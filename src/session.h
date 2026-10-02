@@ -1,6 +1,6 @@
 #ifndef MCS_SESSION_H
 #define MCS_SESSION_H
-#define SESSION_SIZE 3349U
+#include "session-format.h"
 /* Survives BASIC and the cartridge loader, outside the shell's C stacks. */
 #define RESUME ((volatile unsigned char *)0xc1e0)
 unsigned char session_save(void);

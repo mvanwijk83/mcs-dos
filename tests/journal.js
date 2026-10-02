@@ -42,7 +42,7 @@ module.exports=async function({command,memory,screen,keys,enter,check,disk,crt,c
   assert(after.end<before.end);assert.equal(after.files.size,before.files.size);
   for(const [name,file] of before.files){assert.deepEqual(after.files.get(name).data,file.data);assert.equal(after.files.get(name).readonly,file.readonly);}
   await check('chkdsk /c 0:','already compact');assert.deepEqual((await inspect()).sides,after.sides);
-  await check('chkdsk 8: /c','Compaction requires cartridge drive 0');
+  await check('chkdsk 8: /c','Drive is not system cartridge');
   await check('chkdsk /v /c','Invalid parameter');
   await enter('echo obsolete >extra.txt');await enter('del extra.txt /p');before=await inspect();
   const point=(await command('break exec df80')).match(/(?:BREAK|WATCH):\s*(\d+)/i);assert(point);

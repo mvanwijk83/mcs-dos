@@ -1,3 +1,5 @@
+/* Full-screen text editing and command-line input. EDIT owns the shared
+ * workspace only while active; other commands may reuse it between edits. */
 #include "core.h"
 #pragma code(edit_code)
 #pragma data(edit_data)
@@ -9,6 +11,7 @@ __noinline void bank_editnumber(unsigned int address, unsigned char n);
 __noinline void bank_renderedit(void);
 __noinline void bank_editcmd(void);
 
+/* Clear and select the reverse-video editor status line. */
 __noinline void bank_editstatus(void)
 {
     ox = 0;
@@ -18,19 +21,26 @@ __noinline void bank_editstatus(void)
     screen_clear(40);
 }
 
+/* Show the saving message in the editor status line. */
 __noinline void bank_editsaving(void)
 {
     bank_editstatus();
     outs(SYSOUT_SAVING);
 }
 
-/* Only these two reverse-video digit cells change while editing. */
+/* Only these two reverse-video digit cells change while editing.
+ *
+ * Update a two-digit counter directly in reverse-video screen cells.
+ *
+ * address: Screen address of the first digit.
+ * n: Value to display as two digits (0-99). */
 __noinline void bank_editnumber(unsigned int address, unsigned char n)
 {
     POKE(address, 176 + n / 10);
     POKE(address + 1, 176 + n % 10);
 }
 
+/* Redraw the 24 editable rows from the shared editor buffer. */
 __noinline void bank_renderedit(void)
 {
     unsigned char r, c;
@@ -41,6 +51,7 @@ __noinline void bank_renderedit(void)
     }
 }
 
+/* Run EDIT: load bounded text, handle editing keys, and save only after confirmation. */
 __noinline void bank_editcmd(void)
 {
     unsigned int pos = 0, idx, last, filled;
@@ -131,7 +142,7 @@ __noinline void bank_editcmd(void)
         blink = clock();
         for (;;) {
             /* KERNAL suppresses CTRL+INST/DEL ($FF in its control table).
-               Read the scanned key index instead; trigger once per press. */
+             * Read the scanned key index instead; trigger once per press. */
             insertdown = (PEEK(197) == 0 && (PEEK(653) & 4));
             if (insertdown && !insertheld) {
                 insertheld = 1;
@@ -276,7 +287,14 @@ done:
     editprompt = 0;
 }
 
-/* One-row horizontal viewport, with an 64-character command behind it. */
+/* One-row horizontal viewport, with an 64-character command behind it.
+ *
+ * Read an editable command line with completion and optional history; return zero on
+ * cancellation.
+ *
+ * buf: Destination buffer, including space for a terminator.
+ * max: Total buffer capacity.
+ * recall: Nonzero enables command history and raw filename tracking. */
 __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall)
 {
     unsigned int len = 0, pos = 0, view = 0, start = 0, i, n;
@@ -400,7 +418,8 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                     ci = 0;
                 if (!strncmp(directory_entries[n].name, prefix, strlen(prefix))) {
                     if (start + strlen(directory_entries[n].name) + strlen(lead) + 2 < max) {
-                        snprintf(buf + start, max - start, "\"%s%s\"", lead, directory_entries[n].name);
+                        snprintf(buf + start, max - start, "\"%s%s\"", lead,
+                                 directory_entries[n].name);
                         for (i = start; i < LINE; ++i)
                             rawset(rawline, i, 0);
                         for (i = start + 1 + strlen(lead); i < strlen(buf) - 1; ++i)
@@ -475,7 +494,13 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
 }
 
 /* Editing a completed name relinquishes exact-byte handling for that name.
- * Other completed arguments retain their provenance as the line shifts. */
+ * Other completed arguments retain their provenance as the line shifts.
+ *
+ * Shift exact-byte flags to follow inserted or deleted command characters.
+ *
+ * pos: Edit position in the command line.
+ * len: Command length before the edit.
+ * deleting: Nonzero deletes a flag; zero inserts a clear flag. */
 __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char deleting)
 {
     unsigned char a = pos, b = pos, i;
@@ -496,5 +521,6 @@ __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char
         rawset(rawline, pos, 0);
     }
 }
+
 #pragma code(code)
 #pragma data(data)

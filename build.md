@@ -69,6 +69,26 @@ No external assembler is needed: the vendor EasyAPI binary is included.
 See [EASYFLASH.md](EASYFLASH.md) for the bank layout, filesystem format,
 CONFIG.SYS behavior, capacity and persistence limitations.
 
+## C source style
+
+C sources use K&R braces, four spaces and a 100-column code limit, configured
+in `.clang-format`. With `clang-format` on PATH, apply or check the style with:
+
+```powershell
+node scripts/format-c.js
+node scripts/format-c.js --check
+```
+
+Set `CLANG_FORMAT` to the executable path if it is installed elsewhere. The
+wrapper preserves Oscar64 assembly blocks, whose syntax a C formatter cannot
+interpret. It formats the maintained C files and headers under `src`; build
+outputs are generated separately.
+
+Document each function's purpose, parameters and return convention beside its
+definition. In function bodies, explain buffer ownership, validation order,
+hardware assumptions and recovery decisions where they are not obvious from
+the statements. Keep short routines readable without narrating every line.
+
 ## Automated tests
 
 Run the simulator tests and the cartridge integration test after building:

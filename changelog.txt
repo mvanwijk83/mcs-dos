@@ -10,7 +10,7 @@
   Flash cartridge image to enhance
   feature development and improve
   performance in some areas. The cart-
-  ridge contains a 64k user-writable
+  ridge contains a 62.5 kb user-writable
   area that can be used as any other
   storage device.
 * Added support for CONFIG.SYS to

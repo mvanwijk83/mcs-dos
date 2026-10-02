@@ -44,7 +44,6 @@ loader_end:
 #pragma section(patches, 0)
 #pragma data(patches)
 #pragma region(patches, 0x0400, 0x0420, , , {patches})
-__export const void * const patches[] = {
- startup.loader_end, startup.len, startup.dev, startup.absolute,
- startup.secondary, startup.addresslo, startup.addresshi, startup.jump
-};
+__export const void *const patches[] = {startup.loader_end, startup.len,       startup.dev,
+                                        startup.absolute,   startup.secondary, startup.addresslo,
+                                        startup.addresshi,  startup.jump};

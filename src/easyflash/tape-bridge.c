@@ -2,7 +2,7 @@
  * both cartridge windows. FS indexes occupy $C200..$C2FF; never touch them.
  * Parameters at $C600: start word, end word, carry result, copy count.
  * The copy gate transfers up to 120 bytes into the filesystem mailbox. */
-#pragma section(startup,0)
+#pragma section(startup, 0)
 #pragma region(startup,0xc300,0xc600,,, {startup})
 #pragma optimize(noasm)
 __asm startup {

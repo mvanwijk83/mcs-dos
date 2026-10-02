@@ -98,14 +98,22 @@ PC-compatibles. Some notable limitations
 and omissions include:
 
 * No subdirectory support. This is a
-  limitation of CBM-DOS and its file
-  system. MCS-DOS does not attempt to
-  extend it.
+  limitation of the CBM-DOS file system.
+* No support for hard disks, SD2IEC,
+  Ultimate storage, etc. Only standard
+  CBM-formatted floppy disks are
+  supported, so no GEOS disks or other
+  custom formats either.
 * Automatic return from native programs
   depends on their exit implementation
   (if any) and their memory allocation.
 * Batch files do not support variables,
   conditionals, labels, or parameters.
+* No fastload or other disk access
+  optimization routines are implemented.
+  Standard disk transfer speeds apply,
+  unless KERNAL replacements such as
+  JiffyDOS or DolphinDOS are used.
 * No piping, output redirection does not
   support printers.
 * Duplicating disks between different
@@ -298,7 +306,7 @@ When specifying filenames as command
 parameters, double-quote them if they
 contain spaces or a slash. You can use
 the Commodore key to cycle through file
-names stored on the active disk and to
+names stored on the active drive and to
 autocomplete. (Rely on this feature
 especially when having to enter file
 names containing certain PETSCII
@@ -406,16 +414,17 @@ entering the HELP command.
 
 Help on a specific command can be
 viewed by typing "HELP command" or
-"COMMAND /?".
+"COMMAND /?". Refer to this inline help
+for more detailed information on command
+switches.
 
 Wildcards * and ? work for most file
 operations (where they make sense).
 
 drive:
-  Switches to a drive to operate on.
-  Native C64 drive numbers and DOS-style
-  drive letters (with 8=A, 9=B, etc.)
-  are both recognized.
+  Changes the active drive. Native C64
+  device numbers and DOS-style drive
+  letters are both recognized.
 
 ATTRIB [+L | -L] [[drive:]filename]
   Displays or changes file attributes.

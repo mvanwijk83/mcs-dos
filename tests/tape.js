@@ -149,7 +149,7 @@ module.exports=async({command,memory,screen,keys,enter,root,disk,crt,diskFile})=
  await attach([{name:'TOOBIG',data:Buffer.alloc(45057,0x5a)}]);
  await keys('tapecopy\\x0d',100);await until('Tape program too large');
  await attach([{name:'UNKNOWN',type:6,data}]);
- await keys('tapecopy\\x0d',100);await until('Unsupported tape file');
+ await keys('tapecopy\\x0d',100);await until('Unsupported tape');
  await attach([{name:'END',type:5,data}]);
  await keys('tapecopy\\x0d',100);await until('End of tape');
  console.log('PASS checksum failures, partial SEQ cleanup on cartridge/disk, cancellation and size limit');

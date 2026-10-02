@@ -1,3 +1,5 @@
+/* Directory-based file commands. There is one shared directory cache, so
+ * reading another device replaces it; retain names rather than stale indices. */
 #include "core.h"
 #pragma code(filemgmt_code)
 #pragma data(filemgmt_data)
@@ -20,7 +22,13 @@ __noinline void bank_attribcmd(void);
 __noinline void bank_concatcmd(void);
 __noinline void bank_renamecmd(void);
 
-/* Compare cached entries without disturbing physical directory order. */
+/* Compare cached entries without disturbing physical directory order.
+ *
+ * Compare cached directory entries for sorting; return negative, zero or positive.
+ *
+ * a: First entry index.
+ * b: Second entry index.
+ * flags: DIR sort flags, including reverse order. */
 __noinline int bank_dircompare(unsigned int a, unsigned int b, unsigned char flags)
 {
     int result = 0;
@@ -33,6 +41,7 @@ __noinline int bank_dircompare(unsigned int a, unsigned int b, unsigned char fla
     return flags & 64 ? -result : result;
 }
 
+/* Parse DIR options, build a bounded directory order, and print the selected listing. */
 __noinline void bank_dircmd(void)
 {
     unsigned char bare = 0, lower = 0, sort = 0, wide = 0, col = 0;
@@ -70,6 +79,7 @@ __noinline void bank_dircmd(void)
         volumeheader(p1.dev);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev));
     }
+    /* Sort an index rather than the shared entries, preserving lookup and completion order. */
     for (i = 0; i < count; ++i)
         order[i] = i;
     if (sort)
@@ -102,7 +112,8 @@ __noinline void bank_dircmd(void)
                 col = 0;
             }
         } else {
-            print(SYSOUT_DIR_ENTRY, shown, typename(directory_entries[j].type), allocated(directory_entries[j].blocks));
+            print(SYSOUT_DIR_ENTRY, shown, typename(directory_entries[j].type),
+                  allocated(directory_entries[j].blocks));
             print(SYSOUT_DIR_BLOCKS, decimal(directory_entries[j].blocks));
             /* Short block labels also fit four-digit free-block counts. */
             if (redirected ? outputcol : ox)
@@ -121,6 +132,9 @@ __noinline void bank_dircmd(void)
     }
 }
 
+/* Copy p1 to p2 with overwrite confirmation and I/O checks; return nonzero on success.
+ *
+ * moving: Nonzero removes the source after a successful copy. */
 __noinline unsigned char bank_copyfile(unsigned char moving)
 {
     int n, i;
@@ -147,6 +161,7 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
         }
         if (!bank_preparewrite(&p2))
             return 0;
+        /* Same-disk copies can run inside DOS; cross-device copies must stream through RAM. */
         if (p1.dev && p1.dev == p2.dev) {
             snprintf(diskcmd, sizeof(diskcmd), "c0:%s=0:%s", p2.name, p1.name);
             ok = command(p1.dev, diskcmd);
@@ -167,7 +182,9 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
             }
             if (n < 0)
                 ok = 0;
-            if (!ok) channel_abort(3);
+            /* An unsuccessful cartridge copy must discard its unfinished record rather than commit it. */
+            if (!ok)
+                channel_abort(3);
             channel_close(2);
             channel_close(3);
             newline();
@@ -180,11 +197,15 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
         say(SYSOUT_COPY_NOT_COMPLETED);
         return 0;
     }
+    /* MOVE deletes the source only after the destination closes successfully. */
     if (moving && !bank_scratch(&p1))
         return 0;
     return 1;
 }
 
+/* Execute COPY or MOVE, including wildcard expansion and concatenation handling.
+ *
+ * moving: Nonzero selects MOVE; zero selects COPY. */
 __noinline void bank_copycmd(unsigned char moving)
 {
     unsigned int i, limit, total = 0;
@@ -256,7 +277,11 @@ __noinline void bank_copycmd(unsigned char moving)
         say(moving ? SYSOUT_ONE_FILE_MOVED : SYSOUT_ONE_FILE_COPIED);
 }
 
-/* Check every match before scratching: DOS silently skips locked files. */
+/* Check every match before scratching: DOS silently skips locked files.
+ *
+ * Check a file can be deleted; return zero for an unreadable or read-only file.
+ *
+ * p: Path or wildcard selection to inspect. */
 __noinline unsigned char bank_deletable(const Path *p)
 {
     struct DirectoryEntry ent;
@@ -283,6 +308,7 @@ __noinline unsigned char bank_deletable(const Path *p)
     return 1;
 }
 
+/* Expand DEL wildcards and confirm the complete selection before deleting files. */
 __noinline void bank_delcmd(void)
 {
     unsigned char i, suppress = 0;
@@ -327,7 +353,9 @@ __noinline void bank_delcmd(void)
         bank_scratch(&p1);
 }
 
-/* Native lock bit: preserve every other directory byte. */
+/* Native lock bit: preserve every other directory byte.
+ *
+ * Read or change cartridge file attributes for the selected names. */
 __noinline void bank_attribcmd(void)
 {
     unsigned char a = 1, mode = 0, track, sector, n, dirty, found = 0, visited[5];
@@ -347,14 +375,24 @@ __noinline void bank_attribcmd(void)
     if (!p1.name[0])
         strcpy(p1.name, "*");
     if (!p1.dev) {
-        if(!bank_directory(0)) return;
-        for(offset=0;offset<count;++offset) if(match(p1.name,directory_entries[offset].name)) {
-            found=1; n=cart_attribute(directory_entries[offset].name,mode);
-            if(diskstatus(0,1)>=20) break;
-/* Swapping a disk with an open output file would write to the wrong disk. */
-            if(!mode) { uppername(directory_entries[offset].name,shown); print(SYSOUT_ATTR_ENTRY,n?'L':' ',shown); }
-        }
-        cachevalid=0; if(!found) error(SYSOUT_FILE_NOT_FOUND); return;
+        if (!bank_directory(0))
+            return;
+        for (offset = 0; offset < count; ++offset)
+            if (match(p1.name, directory_entries[offset].name)) {
+                found = 1;
+                n = cart_attribute(directory_entries[offset].name, mode);
+                if (diskstatus(0, 1) >= 20)
+                    break;
+                /* Swapping a disk with an open output file would write to the wrong disk. */
+                if (!mode) {
+                    uppername(directory_entries[offset].name, shown);
+                    print(SYSOUT_ATTR_ENTRY, n ? 'L' : ' ', shown);
+                }
+            }
+        cachevalid = 0;
+        if (!found)
+            error(SYSOUT_FILE_NOT_FOUND);
+        return;
     }
     if (!bam(p1.dev))
         return;
@@ -409,6 +447,7 @@ done:
         error(SYSOUT_FILE_NOT_FOUND);
 }
 
+/* Build a bounded device-side concatenation command from COPY arguments. */
 __noinline void bank_concatcmd(void)
 {
     unsigned char len, first = 1;
@@ -454,6 +493,7 @@ __noinline void bank_concatcmd(void)
         say(SYSOUT_ONE_FILE_COPIED);
 }
 
+/* Validate two paths and rename within one device, checking the destination first. */
 __noinline void bank_renamecmd(void)
 {
     if (argc != 3 || !path(args[1], &p1) || !path(args[2], &p2)) {
@@ -480,6 +520,9 @@ __noinline void bank_renamecmd(void)
     return;
 }
 
+/* Replace the shared directory cache; publish it only after a complete successful read.
+ *
+ * dev: Device to enumerate; return nonzero on success. */
 __noinline unsigned char bank_directory(unsigned char dev)
 {
     struct DirectoryEntry ent;
@@ -518,11 +561,15 @@ __noinline unsigned char bank_directory(unsigned char dev)
         error(SYSOUT_ERR_READING_BANK_DIR);
         return 0;
     }
+    /* Publish a cache only after the free-block footer confirms complete enumeration. */
     freeblocks = ent.size;
     cachevalid = 1;
     return 1;
 }
 
+/* Find an exact cached filename, refreshing the directory when needed.
+ *
+ * p: File path; return its index, -1 if absent, or -2 if directory reading fails. */
 __noinline int bank_findfile(const Path *p)
 {
     unsigned int i;
@@ -535,6 +582,9 @@ __noinline int bank_findfile(const Path *p)
     return -1;
 }
 
+/* Validate a destination and ask before replacement; disks scratch the old file first.
+ *
+ * p: Exact destination path; return nonzero when writing may proceed. */
 __noinline unsigned char bank_preparewrite(const Path *p)
 {
     int i;
@@ -557,7 +607,13 @@ __noinline unsigned char bank_preparewrite(const Path *p)
     return 1;
 }
 
-/* Reuse metadata already obtained during this operation. */
+/* Reuse metadata already obtained during this operation.
+ *
+ * Open a file using already-known metadata and clear its per-channel EOF state.
+ *
+ * p: Source path.
+ * lfn: Logical file number to open.
+ * type: Supported CBM_T_SEQ, CBM_T_PRG or CBM_T_USR type; return nonzero on success. */
 __noinline unsigned char bank_openreadtype(const Path *p, unsigned char lfn, unsigned char type)
 {
     char t = 's';
@@ -583,6 +639,10 @@ __noinline unsigned char bank_openreadtype(const Path *p, unsigned char lfn, uns
     return 1;
 }
 
+/* Look up the file type and open a read channel; return nonzero on success.
+ *
+ * p: Source path.
+ * lfn: Logical file number to open. */
 __noinline unsigned char bank_openread(const Path *p, unsigned char lfn)
 {
     int i = bank_findfile(p);
@@ -594,6 +654,10 @@ __noinline unsigned char bank_openread(const Path *p, unsigned char lfn)
     return bank_openreadtype(p, lfn, directory_entries[i].type);
 }
 
+/* Open the destination on logical file 3; replacement must already be approved.
+ *
+ * p: Destination path.
+ * type: Commodore file type; return nonzero on success. */
 __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
 {
     char t = 's';
@@ -614,12 +678,19 @@ __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
     return 1;
 }
 
+/* Delete the specified native filename through its device command interface.
+ *
+ * p: Path to scratch; return nonzero on success. */
 __noinline unsigned char bank_scratch(const Path *p)
 {
     snprintf(diskcmd, sizeof(diskcmd), "s0:%s", p->name);
     return command(p->dev, diskcmd);
 }
 
+/* Apply one DIR switch to the accumulated flags; return zero for an invalid switch.
+ *
+ * s: Terminated switch beginning with a slash.
+ * flags: Input/output listing and sort flags. */
 __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
 {
     if (!stricmp(s, "/B"))
@@ -657,6 +728,10 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
     return 1;
 }
 
+/* Parse the DIRCMD switch string into listing flags; return zero for invalid input.
+ *
+ * s: Terminated defaults, with optional spaces between switches.
+ * flags: Input/output listing and sort flags. */
 __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags)
 {
     char option[6];
@@ -681,5 +756,6 @@ __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags)
     }
     return 1;
 }
+
 #pragma code(code)
 #pragma data(data)

@@ -1,3 +1,5 @@
+/* Startup, settings and hardware reporting. Stored SET values are applied
+ * after AUTOEXEC finishes; hardware probes restore registers they borrow. */
 #include "core.h"
 #pragma code(boot_code)
 #pragma data(boot_data)
@@ -14,16 +16,24 @@ __noinline unsigned char bank_romtext(unsigned int address, const char *text);
 __noinline const char *bank_ultimate(void);
 
 /* -psci encodes uppercase literals with bit 7 set. ROM banners use $41-$5A.
- * Only compare the short supplied prefix; never search the ROM. */
+ * Only compare the short supplied prefix; never search the ROM.
+ *
+ * Compare a fixed ROM address with a short banner, accounting for compiler PETSCII literals.
+ *
+ * address: Address of the first ROM byte.
+ * text: Prefix to compare; return nonzero if every byte matches. */
 __noinline unsigned char bank_romtext(unsigned int address, const char *text)
 {
     while (*text)
-        if (PEEK(address++) != ((unsigned char)*text++ & 127)) return 0;
+        if (PEEK(address++) != ((unsigned char)*text++ & 127))
+            return 0;
     return 1;
 }
 
 /* Fixed ROM fingerprints, not a ROM scan. Code identifies customized banners;
- * only the known standard name/version field earns a version suffix. */
+ * only the known standard name/version field earns a version suffix.
+ *
+ * Return a known replacement KERNAL name, or null when fingerprints do not identify it. */
 __noinline const char *bank_kernalname(void)
 {
     unsigned char jiffyname = bank_romtext(0xe47c, "JIFFYDOS");
@@ -31,21 +41,26 @@ __noinline const char *bank_kernalname(void)
         return jiffyname && bank_romtext(0xe484, " V6.01 ") ? "JiffyDOS 6.01" : "JiffyDOS";
     if ((PEEK(0xfc00) == 0xa2 && PEEK(0xfc01) == 0x02 && PEEK(0xfc02) == 0x20 &&
          PEEK(0xfc03) == 0x13 && PEEK(0xfc04) == 0xee && PEEK(0xfc05) == 0xa5 &&
-         PEEK(0xfc06) == 0x90 && PEEK(0xfc07) == 0xd0) || bank_romtext(0xe49b, "DOLPHINDOS"))
+         PEEK(0xfc06) == 0x90 && PEEK(0xfc07) == 0xd0) ||
+        bank_romtext(0xe49b, "DOLPHINDOS"))
         return bank_romtext(0xe49b, "DOLPHINDOS 2.0 ") ? "DolphinDOS 2.0" : "DolphinDOS";
     return 0;
 }
 
 /* UCI can use IO2 or IO1 when EasyFlash occupies IO2. Verify the read-only ID before
  * pushing a command: ordinary EasyFlash RAM must be restored, not queried.
- * Only our own bounded request is accepted/aborted; leave a busy UCI alone. */
+ * Only our own bounded request is accepted/aborted; leave a busy UCI alone.
+ *
+ * Query an idle Ultimate interface with a bounded wait; return a recognized board name or null. */
 __noinline const char *bank_ultimate(void)
 {
     unsigned char n, c, ok, started;
     unsigned int base = 0xdf1c;
-    if (PEEK(base + 1) != 0xc9) base = 0xde1c;
+    if (PEEK(base + 1) != 0xc9)
+        base = 0xde1c;
     /* DATA_ACC can remain set after an earlier reply; it is not a busy flag. */
-    if (PEEK(base + 1) != 0xc9 || (PEEK(base) & 0xfd)) return 0;
+    if (PEEK(base + 1) != 0xc9 || (PEEK(base) & 0xfd))
+        return 0;
     POKE(base + 1, 4);
     if (PEEK(base + 1) != 0xc9) {
         POKE(base + 1, 0xc9);
@@ -66,55 +81,77 @@ __noinline const char *bank_ultimate(void)
         io[n] = c >= 97 && c <= 122 ? c - 32 : c;
     }
     io[n] = 0;
-    if (n == 20) ok = 0;
+    if (n == 20)
+        ok = 0;
     c = n;
     for (n = 0; n < 5; ++n)
-        if (!(PEEK(base) & 64) || PEEK(base + 3) != ("00,OK"[n] & 127)) ok = 0;
-    if (PEEK(base) & 64) ok = 0;
+        if (!(PEEK(base) & 64) || PEEK(base + 3) != ("00,OK"[n] & 127))
+            ok = 0;
+    if (PEEK(base) & 64)
+        ok = 0;
     POKE(base, ok ? 2 : 4);
-    if (!ok) return 0;
+    if (!ok)
+        return 0;
     if (bank_romtext((unsigned int)io, "ULTIMATE 64")) {
-        if (c == 11) return "Ultimate 64";
-        if (c == 17 && bank_romtext((unsigned int)io + 11, " ELITE")) return "Ultimate 64 Elite";
-        if (c == 14 && bank_romtext((unsigned int)io + 11, "-II")) return "Ultimate 64 Elite-II";
+        if (c == 11)
+            return "Ultimate 64";
+        if (c == 17 && bank_romtext((unsigned int)io + 11, " ELITE"))
+            return "Ultimate 64 Elite";
+        if (c == 14 && bank_romtext((unsigned int)io + 11, "-II"))
+            return "Ultimate 64 Elite-II";
     }
-    if (c == 12 && bank_romtext((unsigned int)io, "C64 ULTIMATE")) return "Commodore 64 Ultimate";
+    if (c == 12 && bank_romtext((unsigned int)io, "C64 ULTIMATE"))
+        return "Commodore 64 Ultimate";
     return 0;
 }
 
 /* VIC-IIe keyboard register exists in C64 mode. Restore its scan selection;
- * the VDC status revision identifies DCR without changing VDC registers. */
+ * the VDC status revision identifies DCR without changing VDC registers.
+ *
+ * Report computer, video timing, KERNAL and attached drive models using bounded hardware probes. */
 __noinline void bank_sysinfo(void)
 {
-    static const char *const models[] = {
-        "", "1541 Floppy Drive", "1571 Floppy Drive",
-        "1581 Floppy Drive", "1541-II Floppy Drive", "1570 Floppy Drive"
-    };
+    static const char *const models[] = {"",
+                                         "1541 Floppy Drive",
+                                         "1571 Floppy Drive",
+                                         "1581 Floppy Drive",
+                                         "1541-II Floppy Drive",
+                                         "1570 Floppy Drive"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
     unsigned char dev, model, pal = 0, raster, previous;
     const char *kernal, *board = bank_ultimate();
     POKE(0xd02f, 0xf8);
     c128 = PEEK(0xd02f) == 0xf8;
     POKE(0xd02f, saved);
-    if (board) c128 = 0;
+    if (board)
+        c128 = 0;
     /* Observe the high raster region through its wrap. PAL reaches low-byte
      * 32 (line 288), whereas both NTSC variants wrap before that. */
-    while (!(PEEK(0xd011) & 128)) {}
+    while (!(PEEK(0xd011) & 128)) {
+    }
     previous = PEEK(0xd012);
     while (PEEK(0xd011) & 128) {
         raster = PEEK(0xd012);
-        if (raster < previous) break;
-        if (raster >= 32) pal = 1;
+        if (raster < previous)
+            break;
+        if (raster >= 32)
+            pal = 1;
         previous = raster;
     }
     print("Commodore %s %s computer\n",
-          c128 ? ((PEEK(0xd600) & 7) == 2 ? "128DCR" : "128") : !board && revision == 0x43 ? "SX-64" : "64",
+          c128                         ? ((PEEK(0xd600) & 7) == 2 ? "128DCR" : "128")
+          : !board && revision == 0x43 ? "SX-64"
+                                       : "64",
           !board && !c128 && revision == 0x43 ? "portable" : "personal");
     print("%u KB RAM\n", c128 ? 128 : 64);
     say(pal ? "PAL display mode (50 Hz)" : "NTSC display mode (60 Hz)");
     newline();
-    if (board) print("CPU:      MOS 6510 (FPGA)\nBoard:    %s\n", board);
-    else say(c128 ? "CPU:      MOS 8502" : revision == 0x43 ? "CPU:      MOS 6510" : "CPU:      MOS 6510/8500");
+    if (board)
+        print("CPU:      MOS 6510 (FPGA)\nBoard:    %s\n", board);
+    else
+        say(c128               ? "CPU:      MOS 8502"
+            : revision == 0x43 ? "CPU:      MOS 6510"
+                               : "CPU:      MOS 6510/8500");
     kernal = bank_kernalname();
     if (kernal)
         print("KERNAL:   %s\n", kernal);
@@ -127,16 +164,21 @@ __noinline void bank_sysinfo(void)
     else
         print("KERNAL:   ROM ID %u\n", revision);
     for (dev = 8; dev <= 11; ++dev) {
-        if (!statuschannel(dev)) continue;
+        if (!statuschannel(dev))
+            continue;
         model = drivetype(dev, 128);
-        if (!model) continue;
+        if (!model)
+            continue;
         print("Drive %u: %s%s\n", dev, dev < 10 ? " " : "", models[model]);
-        say(model == 3 ? "          3.5\" 800K DS/DD" :
-            model == 2 ? "          5.25\" 340K DS/DD" : "          5.25\" 170K SS/DD");
+        say(model == 3   ? "          3.5\" 800K DS/DD"
+            : model == 2 ? "          5.25\" 340K DS/DD"
+                         : "          5.25\" 170K SS/DD");
     }
 }
 
-/* SET only stores the value; startup applies it after AUTOEXEC unwinds. */
+/* SET only stores the value; startup applies it after AUTOEXEC unwinds.
+ *
+ * Apply the stored PROMPT value after startup batch processing finishes. */
 __noinline void bank_startupprompt(void)
 {
     const char *value = envget("PROMPT");
@@ -144,7 +186,9 @@ __noinline void bank_startupprompt(void)
         strcpy(prompttext, value);
 }
 
-/* Parse all three colors before changing any display state. */
+/* Parse all three colors before changing any display state.
+ *
+ * Validate all COLOR components before changing display colors and existing text. */
 __noinline void bank_startupcolor(void)
 {
     const char *s = envget("COLOR");
@@ -184,7 +228,11 @@ invalid:
 
 /* Apply once after AUTOEXEC unwinds, always using the startup disk.
  * MCPI v1 patches shared text slots and the backslash slot. Staging beneath
- * KERNAL keeps the default RAM font intact until validation completes. */
+ * KERNAL keeps the default RAM font intact until validation completes.
+ *
+ * Validate and stage a .CPI font before replacing the active RAM charset.
+ *
+ * device: Startup device from which to load the configured charset. */
 __noinline void bank_startupcharset(unsigned char device)
 {
     char *v = envget("CHARSET");
@@ -247,7 +295,11 @@ failed:
     error(fmtbuf);
 }
 
-/* Use the ROM font for the artwork; interactive SPLASH restores the shell. */
+/* Use the ROM font for the artwork; interactive SPLASH restores the shell.
+ *
+ * Display the startup logo and manage the temporary screen and NMI state.
+ *
+ * wait: 0=interactive splash, 1=timed startup, 4=SYSINFO without the splash. */
 __noinline void bank_bootsplash(unsigned char wait)
 {
     static const char product[] = SYSOUT_SPLASH_PRODUCT;
@@ -314,6 +366,9 @@ __noinline void bank_bootsplash(unsigned char wait)
     }
 }
 
+/* List, validate, replace or remove a packed environment variable.
+ *
+ * s: Unparsed text following SET; an empty string lists all variables. */
 __noinline void bank_setcmd(const char *s)
 {
     static char value[ENVVALUE + 1];
@@ -340,8 +395,8 @@ __noinline void bank_setcmd(const char *s)
         while (*eq == ' ')
             ++eq;
         if (!*eq) {
-            print(SYSOUT_ENV_STATS,
-                  (unsigned int)ENVSIZE, envused, (unsigned int)(ENVSIZE - envused));
+            print(SYSOUT_ENV_STATS, (unsigned int)ENVSIZE, envused,
+                  (unsigned int)(ENVSIZE - envused));
             return;
         }
     }
@@ -374,6 +429,7 @@ __noinline void bank_setcmd(const char *s)
         error(SYSOUT_ENV_INVALID_VALUE);
         return;
     }
+    /* Validate the replacement and available space before removing the old packed entry. */
     old = envget(name);
     size = old ? strlen(old) + strlen(name) + 2 : 0;
     if (envused - size + (len ? n + len + 2 : 0) > ENVSIZE) {
@@ -393,8 +449,12 @@ __noinline void bank_setcmd(const char *s)
     }
 }
 
-__noinline unsigned char bank_bootstart(unsigned char startdrive) {
- unsigned char c, keepinfo = screenbase == 0x0400 && !resume_requested;
+/* Reset shell state, mount cartridge storage and search configured devices for AUTOEXEC.
+ *
+ * startdrive: Initial device; return the device selected for startup. */
+__noinline unsigned char bank_bootstart(unsigned char startdrive)
+{
+    unsigned char c, keepinfo = screenbase == 0x0400 && !resume_requested;
     for (c = 0; c < 2; ++c) {
         if (cmddev[c])
             channel_close(14 + c);
@@ -416,24 +476,36 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive) {
     POKE(657, 128); /* Disable Shift+Commodore font switching. */
     colors();
     /* Carry the cold-boot report into the relocated display. */
-    if (!keepinfo) clear();
+    if (!keepinfo)
+        clear();
     charset_prepare();
     charset_enable();
     screenbase = 0xe000;
     gotoxy(ox, oy);
-    c=cart_init(); if(c) error(SYSOUT_CRT_FS_UNAVAILABLE);
+    c = cart_init();
+    if (c)
+        error(SYSOUT_CRT_FS_UNAVAILABLE);
+    /* A restored session bypasses startup files, retaining the saved environment and history. */
     if (!c && !skipautoexec && !resume_requested) {
-        unsigned char bootdevs[24], bi, bn=cart_config(bootdevs);
-        if(cart_status()) error(SYSOUT_INVALID_DIRECTIVE);
-        startdrive=drive=0;
-        for(bi=0;bi<bn;++bi) {
-            p1.dev=bootdevs[bi]; filename("AUTOEXEC.BAT",p1.name);
-            if(p1.dev && !statuschannel(p1.dev)) continue;
-            if(findfile(&p1)>=0) { startdrive=drive=p1.dev; runbatch(); break; }
+        unsigned char bootdevs[24], bi, bn = cart_config(bootdevs);
+        if (cart_status())
+            error(SYSOUT_INVALID_DIRECTIVE);
+        startdrive = drive = 0;
+        for (bi = 0; bi < bn; ++bi) {
+            p1.dev = bootdevs[bi];
+            filename("AUTOEXEC.BAT", p1.name);
+            if (p1.dev && !statuschannel(p1.dev))
+                continue;
+            if (findfile(&p1) >= 0) {
+                startdrive = drive = p1.dev;
+                runbatch();
+                break;
+            }
         }
     }
     skipautoexec = 0;
-return startdrive;
+    return startdrive;
 }
+
 #pragma code(code)
 #pragma data(data)

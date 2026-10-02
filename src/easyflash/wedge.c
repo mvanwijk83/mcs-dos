@@ -1,6 +1,6 @@
 /* RAM return code for BASIC and RUN. The shell installs it after saving state.
  * $C1E0..$C1FF is the handoff descriptor, outside this executable image. */
-#pragma section(startup,0)
+#pragma section(startup, 0)
 #pragma region(startup,0xc000,0xc1e0,,, {startup})
 #pragma optimize(noasm)
 __asm startup {

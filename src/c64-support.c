@@ -8,6 +8,10 @@
 typedef const char *StringPtr;
 static unsigned char reverse_mask;
 
+/* Find the first character belonging to a set; return its address, or null if absent.
+ *
+ * s: String to search.
+ * accept: Terminated set of accepted characters. */
 char *strpbrk(const char *s, const char *accept)
 {
     while (*s) {
@@ -18,6 +22,10 @@ char *strpbrk(const char *s, const char *accept)
     return 0;
 }
 
+/* Compare two terminated strings without case sensitivity; return their ordering.
+ *
+ * a: First string.
+ * b: Second string. */
 int stricmp(const char *a, const char *b)
 {
     /* Fold each byte once; this form also works in aggressively inlined builds. */
@@ -31,6 +39,11 @@ int stricmp(const char *a, const char *b)
     return 0;
 }
 
+/* Compare at most n characters without case sensitivity; return their ordering.
+ *
+ * a: First string.
+ * b: Second string.
+ * n: Maximum characters to compare. */
 int strnicmp(const char *a, const char *b, unsigned int n)
 {
     unsigned char x, y;
@@ -45,11 +58,17 @@ int strnicmp(const char *a, const char *b, unsigned int n)
     return 0;
 }
 
+/* Set the reverse-video mask used by direct screen output.
+ *
+ * r: Nonzero enables reverse video; zero disables it. */
 void screen_reverse(unsigned char r)
 {
     reverse_mask = r ? 128 : 0;
 }
 
+/* Convert PETSCII to a screen code and write at the hardware text cursor.
+ *
+ * c: Character to display; control codes are not executed. */
 void screen_putc(unsigned char c)
 {
     /* Write screen RAM directly: no KERNAL control codes or scrolling. */
@@ -68,37 +87,63 @@ void screen_putc(unsigned char c)
     gotoxy(x, y);
 }
 
+/* Display a terminated string directly in screen RAM.
+ *
+ * s: PETSCII text to display. */
 void screen_puts(const char *s)
 {
     while (*s)
         screen_putc(*s++);
 }
 
+/* Write spaces starting at the hardware text cursor.
+ *
+ * n: Number of screen cells to clear. */
 void screen_clear(unsigned char n)
 {
     while (n--)
         screen_putc(' ');
 }
 
+/* Route a logical file to cartridge storage or KERNAL; return zero on success.
+ *
+ * f: Logical file number.
+ * d: Device (0=cartridge).
+ * s: Secondary address.
+ * n: Terminated native open request. */
 unsigned char channel_open(char f, char d, char s, const char *n)
 {
-    if (!d) return cart_open(f,s,n);
-    if (f>=0 && f<6) cart_channels[f]=0;
+    if (!d)
+        return cart_open(f, s, n);
+    if (f >= 0 && f < CART_CHANNEL_COUNT)
+        cart_channels[f] = 0;
     krnio_setnam(n);
     return krnio_open(f, d, s) ? 0 : 1;
 }
 
+/* Read from the owner of a channel, resetting KERNAL read status for disk access.
+ *
+ * f: Open logical file.
+ * p: Destination buffer.
+ * n: Maximum byte count; return bytes read or a negative error. */
 int channel_read(char f, void *p, unsigned int n)
 {
-    if (f>=0 && f<6 && cart_channels[f]) return cart_read(f,p,n);
+    if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f])
+        return cart_read(f, p, n);
     /* The shell owns EOF state and resets it after a U1 block command. */
     krnio_pstatus[f] = KRNIO_OK;
     return krnio_read(f, (char *)p, n);
 }
 
+/* Write to the owner of a channel; disk writes stop on the first KERNAL error.
+ *
+ * f: Open logical file.
+ * p: Source buffer.
+ * n: Requested byte count; return bytes written or a negative error. */
 int channel_write(char f, const void *p, unsigned int n)
 {
-    if (f>=0 && f<6 && cart_channels[f]) return cart_write(f,p,n);
+    if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f])
+        return cart_write(f, p, n);
     unsigned int i = 0;
     const char *s = p;
     if (!krnio_chkout(f))
@@ -114,19 +159,29 @@ int channel_write(char f, const void *p, unsigned int n)
     return i;
 }
 
+/* Open directory enumeration and skip the disk directory load address.
+ *
+ * f: Logical file number.
+ * d: Device; return zero on success. */
 unsigned char directory_open(char f, char d)
 {
     char address[2];
-    if (!d) return cart_directory(f,1,0);
+    if (!d)
+        return cart_directory(f, 1, 0);
     if (channel_open(f, d, 0, "$"))
         return 1;
     return channel_read(f, address, 2) != 2;
 }
 
+/* Decode one BASIC directory line into a bounded entry.
+ *
+ * f: Open directory logical file.
+ * e: Output entry; return 0 for an item, 2 for free blocks, or 1 on error. */
 unsigned char directory_read(char f, struct DirectoryEntry *e)
 {
     unsigned char h[4], c, n = 0, quoted = 0, seen = 0, t = 0;
-    if (f>=0 && f<6 && cart_channels[f]) return cart_directory(f,0,e);
+    if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f])
+        return cart_directory(f, 0, e);
     if (channel_read(f, h, 4) != 4)
         return 1;
     e->size = h[2] | ((unsigned int)h[3] << 8);
@@ -166,7 +221,14 @@ unsigned char directory_read(char f, struct DirectoryEntry *e)
 }
 
 /* The shell needs only %s, %u, %c, %% and left/right field widths.
- * Return the full length, even when the destination is truncated. */
+ * Return the full length, even when the destination is truncated.
+ *
+ * Format the small subset of printf needed by the shell, always respecting destination capacity.
+ *
+ * dst: Output buffer; unused when cap is zero.
+ * cap: Capacity including the terminator.
+ * fmt: Format with %s, %u, %c, %% and left/right field widths.
+ * ap: Argument list; return the full length even when output is truncated. */
 int vsnprintf(char *dst, unsigned int cap, const char *fmt, va_list ap)
 {
     unsigned int total = 0, width, len, i;
@@ -227,6 +289,12 @@ int vsnprintf(char *dst, unsigned int cap, const char *fmt, va_list ap)
     return total;
 }
 
+/* Provide the variadic wrapper for the shell bounded formatter.
+ *
+ * dst: Output buffer.
+ * cap: Capacity including the terminator.
+ * fmt: Supported format string.
+ * ...: Values to format; return the untruncated length. */
 int snprintf(char *dst, unsigned int cap, const char *fmt, ...)
 {
     va_list ap;

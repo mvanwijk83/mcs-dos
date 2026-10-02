@@ -1,10 +1,13 @@
+/* Raw disk operations for supported floppy geometries. io holds one sector;
+ * the header read supplies the current track count and label/ID positions. */
 #include "core.h"
 #pragma code(disk_code)
 #pragma data(disk_data)
-__noinline unsigned char bank_blockchannel(unsigned char dev, unsigned char lfn, unsigned char track,
-                                  unsigned char sector, unsigned char writing);
+__noinline unsigned char bank_blockchannel(unsigned char dev, unsigned char lfn,
+                                           unsigned char track, unsigned char sector,
+                                           unsigned char writing);
 __noinline unsigned char bank_blockio(unsigned char dev, unsigned char track, unsigned char sector,
-                             unsigned char writing);
+                                      unsigned char writing);
 __noinline unsigned char bank_rawchannel(unsigned char dev, unsigned char lfn);
 __noinline unsigned char bank_rawopen(unsigned char dev);
 __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report);
@@ -19,9 +22,18 @@ __noinline void bank_diskinitcmd(void);
 __noinline void bank_diskcopycmd(void);
 
 /* CBM DOS raw block interface. Each drive uses secondary address 2;
- * separate host logical files let two drives keep their buffers open. */
-__noinline unsigned char bank_blockchannel(unsigned char dev, unsigned char lfn, unsigned char track,
-                                  unsigned char sector, unsigned char writing)
+ * separate host logical files let two drives keep their buffers open.
+ *
+ * Transfer one raw disk sector through the shared io buffer; return nonzero on success.
+ *
+ * dev: Target disk device.
+ * lfn: Open direct-access logical file.
+ * track: One-based track number.
+ * sector: Zero-based sector number.
+ * writing: Nonzero writes io; zero reads into io. */
+__noinline unsigned char bank_blockchannel(unsigned char dev, unsigned char lfn,
+                                           unsigned char track, unsigned char sector,
+                                           unsigned char writing)
 {
     if (writing) {
         if (!command(dev, "b-p:2 0"))
@@ -38,12 +50,22 @@ __noinline unsigned char bank_blockchannel(unsigned char dev, unsigned char lfn,
     return 1;
 }
 
+/* Transfer one sector using the standard direct-access logical file 2.
+ *
+ * dev: Target disk device.
+ * track: One-based track number.
+ * sector: Zero-based sector number.
+ * writing: Nonzero writes io; zero reads into io. Return nonzero on success. */
 __noinline unsigned char bank_blockio(unsigned char dev, unsigned char track, unsigned char sector,
-                             unsigned char writing)
+                                      unsigned char writing)
 {
     return bank_blockchannel(dev, 2, track, sector, writing);
 }
 
+/* Open a direct-access drive buffer and clear its EOF state.
+ *
+ * dev: Disk device.
+ * lfn: Logical file to use; return nonzero on success. */
 __noinline unsigned char bank_rawchannel(unsigned char dev, unsigned char lfn)
 {
     if (channel_open(lfn, dev, 2, "#") != 0) {
@@ -56,6 +78,9 @@ __noinline unsigned char bank_rawchannel(unsigned char dev, unsigned char lfn)
     return 1;
 }
 
+/* Open the standard direct-access buffer on logical file 2.
+ *
+ * dev: Disk device; return nonzero on success. */
 __noinline unsigned char bank_rawopen(unsigned char dev)
 {
     return bank_rawchannel(dev, 2);
@@ -64,12 +89,21 @@ __noinline unsigned char bank_rawopen(unsigned char dev)
 /* Read-only stock ROM identification: compressed DOS model strings have the
  * final digit's high bit set. Includes 1541-II and 1571CR. Never reset a drive:
  * DIR may be running with a redirected output file already open. Unknown ROMs
- * retain ordinary DOS file access, but cannot perform raw disk operations. */
+ * retain ordinary DOS file access, but cannot perform raw disk operations.
+ *
+ * Identify supported stock drive ROMs using fixed read-only fingerprints.
+ *
+ * dev: Disk device.
+ * report: Nonzero reports unsupported models; return model ID or zero if unknown. */
 __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report)
 {
     unsigned char lfn = statuschannel(dev), i;
     unsigned char probe[6] = {'m', '-', 'r', 0xc4, 0xe5, 4}, signature[4];
-    if (!dev) { if(report) error(SYSOUT_UNSUPPORTED_OP_CRT); return 0; }
+    if (!dev) {
+        if (report)
+            error(SYSOUT_UNSUPPORTED_OP_CRT);
+        return 0;
+    }
     if (!lfn)
         return 0;
     for (i = 0; i < 2; ++i) {
@@ -79,15 +113,20 @@ __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report
         if (signature[0] == '1' && signature[1] == '5') {
             if (!i && signature[2] == '4' && signature[3] == 0xb1) {
                 /* Stock 1541-II: JMP opcode at $FF33 instead of TAX. */
-                probe[3] = 0x33; probe[4] = 0xff; probe[5] = 1;
+                probe[3] = 0x33;
+                probe[4] = 0xff;
+                probe[5] = 1;
                 POKE(144, 0);
-                if (channel_write(lfn, probe, 6) == 6 && channel_read(lfn, signature, 1) == 1 && signature[0] == 0x4c)
+                if (channel_write(lfn, probe, 6) == 6 && channel_read(lfn, signature, 1) == 1 &&
+                    signature[0] == 0x4c)
                     return 4;
                 return 1;
             }
             if (!i && signature[2] == '7') {
-                if (signature[3] == 0xb0) return 5; /* 1570 */
-                if (signature[3] == 0xb1) return 2; /* 1571 / 1571CR */
+                if (signature[3] == 0xb0)
+                    return 5; /* 1570 */
+                if (signature[3] == 0xb1)
+                    return 2; /* 1571 / 1571CR */
             }
             if (i && signature[2] == '8' && signature[3] == 0xb1)
                 return 3;
@@ -100,14 +139,24 @@ __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report
     return 0;
 }
 
-/* Geometry families stay 1541=1, 1571=2, 1581=3 for all raw operations. */
+/* Geometry families stay 1541=1, 1571=2, 1581=3 for all raw operations.
+ *
+ * Return a supported geometry family, or the precise model when requested.
+ *
+ * dev: Disk device.
+ * report: 0=quiet, 1=report errors, 128=return precise model instead of geometry. */
 __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
 {
     unsigned char model = bank_drivemodel(dev, report == 128 ? 0 : report);
-    if (report == 128) return model;
+    if (report == 128)
+        return model;
     return model == 4 || model == 5 ? 1 : model;
 }
 
+/* Return the sector count for a track in the detected disk geometry.
+ *
+ * track: One-based track number.
+ * tracks: Total tracks: 35, 70 or 80. */
 __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tracks)
 {
     if (tracks == 80)
@@ -117,6 +166,9 @@ __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tr
     return track <= 17 ? 21 : track <= 24 ? 19 : track <= 30 ? 18 : 17;
 }
 
+/* Read and validate the disk header into io, updating shared geometry and label offsets.
+ *
+ * dev: Disk device; return nonzero for a supported readable format. */
 __noinline unsigned char bank_bam(unsigned char dev)
 {
     unsigned char ok, type = bank_drivetype(dev, 1);
@@ -143,7 +195,9 @@ __noinline unsigned char bank_bam(unsigned char dev)
 /* Read the source's data chain through a direct-access buffer, leaving the
  * drive's REL buffer available for the destination even on a single 1541.
  * DOS creates the destination side sectors; none of their links are copied.
- * editbuf is idle during COPY and holds one complete binary record. */
+ * editbuf is idle during COPY and holds one complete binary record.
+ *
+ * Copy a REL file record by record from p1 to p2, letting DOS create destination side sectors. */
 __noinline unsigned char bank_copyrel(void)
 {
     static unsigned char tr, se, r, len, next, sector, ok, code, lfn, tracks, dirtrack;
@@ -260,7 +314,11 @@ __noinline unsigned char bank_copyrel(void)
     return ok;
 }
 
-/* The preceding space statistics already end with a blank line. */
+/* The preceding space statistics already end with a blank line.
+ *
+ * Report the detected drive model and its supported disk capacity.
+ *
+ * dev: Device to inspect. */
 __noinline void bank_driveinfo(unsigned char dev)
 {
     unsigned char type;
@@ -269,11 +327,19 @@ __noinline void bank_driveinfo(unsigned char dev)
         say(SYSOUT_VOL_ID_CART);
     } else {
         type = bank_drivemodel(dev, 0);
-        print(SYSOUT_DRIVE_MODEL, type == 1 ? "1541" : type == 2 ? "1571" : type == 3 ? "1581" : type == 4 ? "1541-II" : type == 5 ? "1570" : "Unknown");
+        print(SYSOUT_DRIVE_MODEL, type == 1   ? "1541"
+                                  : type == 2 ? "1571"
+                                  : type == 3 ? "1581"
+                                  : type == 4 ? "1541-II"
+                                  : type == 5 ? "1570"
+                                              : "Unknown");
         print(SYSOUT_VOL_ID, dev, 'A' + dev - 8);
     }
 }
 
+/* Display volume information, optionally including CHKDSK allocation checks.
+ *
+ * stats: Nonzero selects CHKDSK; zero selects VOL. */
 __noinline void bank_volcmd(unsigned char stats)
 {
     unsigned int i;
@@ -291,10 +357,16 @@ __noinline void bank_volcmd(unsigned char stats)
         return;
     }
     if (stats && !p1.dev) {
-        if (validate == 1) { error(SYSOUT_UNSUPPORTED_OP_CRT); return; }
+        if (validate == 1) {
+            error(SYSOUT_UNSUPPORTED_OP_CRT);
+            return;
+        }
         if (validate == 2) {
             compacted = cart_compact();
-            if (compacted < 0) { error(SYSOUT_COMPACT_FAIL); return; }
+            if (compacted < 0) {
+                error(SYSOUT_COMPACT_FAIL);
+                return;
+            }
             say(compacted ? SYSOUT_COMPACT_COMPLETE : SYSOUT_ALREADY_COMPACT);
             return;
         }
@@ -305,7 +377,8 @@ __noinline void bank_volcmd(unsigned char stats)
         filecount = (unsigned int)strtoul(cart_stats(2), 0, 10);
         print(SYSOUT_DISK_ALLOCATED, decimal(used), filecount);
         print(SYSOUT_DISK_AVAILABLE, decimal(i - used));
-        if (!validate) bank_driveinfo(p1.dev);
+        if (!validate)
+            bank_driveinfo(p1.dev);
         return;
     }
     if (stats && validate) {
@@ -336,11 +409,13 @@ __noinline void bank_volcmd(unsigned char stats)
             newline();
         print(SYSOUT_DISK_TOTAL_BLOCKS, decimal((unsigned long)used + freeblocks));
         print(SYSOUT_DISK_FREE_BLOCKS, decimal(freeblocks));
-        if (!validate) bank_driveinfo(p1.dev);
+        if (!validate)
+            bank_driveinfo(p1.dev);
     } else
         volumeheader(p1.dev);
 }
 
+/* Validate LABEL and update the volume name in the disk header. */
 __noinline void bank_labelcmd(void)
 {
     unsigned char i, a = 1;
@@ -390,6 +465,7 @@ __noinline void bank_labelcmd(void)
         say(SYSOUT_VOL_LABEL_CHANGED);
 }
 
+/* Validate FORMAT, confirm with the user, and format the selected disk. */
 __noinline void bank_formatcmd(void)
 {
     char name[17], id[3];
@@ -427,6 +503,7 @@ __noinline void bank_formatcmd(void)
         say(SYSOUT_FORMAT_COMPLETE);
 }
 
+/* Execute DISKINIT to initialize a disk through its command channel. */
 __noinline void bank_diskinitcmd(void)
 {
     if (argc > 2) {
@@ -449,6 +526,7 @@ __noinline void bank_diskinitcmd(void)
     command(p1.dev, "i0");
 }
 
+/* Read or change the two-byte disk ID after validating the disk header. */
 __noinline void bank_diskidcmd(void)
 {
     char id[3];
@@ -509,6 +587,7 @@ __noinline void bank_diskidcmd(void)
         say(SYSOUT_DISK_ID_CHANGED);
 }
 
+/* Copy compatible disk geometries sector by sector, with optional verification. */
 __noinline void bank_diskcopycmd(void)
 {
     unsigned char tr, se, sectors, ok = 1, type, other, tracks;
@@ -575,5 +654,6 @@ __noinline void bank_diskcopycmd(void)
     cachevalid = 0;
     say(ok ? SYSOUT_COPY_COMPLETE : SYSOUT_DISK_COPY_NOT_COMPLETED);
 }
+
 #pragma code(code)
 #pragma data(data)

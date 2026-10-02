@@ -1,3 +1,5 @@
+/* Streaming file commands and internal help. Large inputs stay on their
+ * devices; io and the idle editor workspace hold only bounded chunks. */
 #include "core.h"
 #pragma code(fileutil_code)
 #pragma data(fileutil_data)
@@ -9,6 +11,8 @@ __noinline unsigned char bank_diskhelp(unsigned char topic);
 __noinline void bank_help(int id);
 
 __noinline int bank_typehex(void);
+
+/* Display logical file 2 as eight-byte hex rows; return the final read result. */
 __noinline int bank_typehex(void)
 {
     int n, i;
@@ -30,38 +34,57 @@ __noinline int bank_typehex(void)
             hexline[8 + i * 3] = digits[c & 15];
             hexline[31 + i] = c < 32 || (c >= 128 && c < 160) ? '.' : c;
         }
-        for (i = 0; i < 39; ++i) outc(hexline[i]);
+        for (i = 0; i < 39; ++i)
+            outc(hexline[i]);
         newline();
         offset += n;
-        if (!page()) break;
+        if (!page())
+            break;
         stop();
     }
     return n;
 }
 
-/* Validate before opening a redirected destination, too. */
+/* Validate before opening a redirected destination, too.
+ *
+ * Validate TYPE arguments before any redirected destination is opened.
+ *
+ * mode: Output: 0=text, 1=head, 2=tail, 3=hex.
+ * limit: Output line count for head/tail; return nonzero on success. */
 __noinline unsigned char bank_typeoptions(unsigned char *mode, unsigned long *limit)
 {
     unsigned char i;
     const char *q;
     *mode = 0;
     *limit = 0;
-    if (argc < 2 || argc > 3 || args[1][0] == '/') return 0;
-    if (argc == 2) return 1;
-    if (!stricmp(args[2], "/HEX")) { *mode = 3; return 1; }
-    if (args[2][0] != '/' || !args[2][1] || args[2][2] != ':') return 0;
+    if (argc < 2 || argc > 3 || args[1][0] == '/')
+        return 0;
+    if (argc == 2)
+        return 1;
+    if (!stricmp(args[2], "/HEX")) {
+        *mode = 3;
+        return 1;
+    }
+    if (args[2][0] != '/' || !args[2][1] || args[2][2] != ':')
+        return 0;
     i = toupper(args[2][1]);
-    if (i != 'H' && i != 'T') return 0;
+    if (i != 'H' && i != 'T')
+        return 0;
     q = args[2] + 3;
-    if (!*q) return 0;
+    if (!*q)
+        return 0;
     while (*q) {
-        if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10) return 0;
+        if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10)
+            return 0;
         *limit = *limit * 10 + *q++ - '0';
     }
     *mode = i == 'H' ? 1 : 2;
     return 1;
 }
 
+/* Stream TYPE output or PRINT data, handling line limits, wrapping and cleanup.
+ *
+ * printer: Nonzero selects PRINT and parses its printer destination. */
 __noinline void bank_typecmd(unsigned char printer)
 {
     int n, i;
@@ -97,23 +120,28 @@ __noinline void bank_typecmd(unsigned char printer)
     }
     pagelines = 0;
     n = 0;
-    if ((mode == 1 || mode == 2) && !limit) goto done;
+    if ((mode == 1 || mode == 2) && !limit)
+        goto done;
     if (mode == 2) {
         /* Count logical lines, then reopen: no file-size RAM limit. */
         while ((n = readio(2, io, sizeof(io))) > 0 && !aborted) {
             for (i = 0; i < n; ++i) {
                 c = io[i];
-                if (c == 13 || (c == 10 && !lastcr)) ++lines;
+                if (c == 13 || (c == 10 && !lastcr))
+                    ++lines;
                 pending = c != 13 && c != 10;
                 lastcr = c == 13;
             }
             stop();
         }
-        if (n < 0 || aborted) goto done;
-        if (pending) ++lines;
+        if (n < 0 || aborted)
+            goto done;
+        if (pending)
+            ++lines;
         skip = lines > limit ? lines - limit : 0;
         channel_close(2);
-        if (!openread(&p1, 2)) return;
+        if (!openread(&p1, 2))
+            return;
         lastcr = 0;
     }
     if (mode == 3) {
@@ -133,15 +161,22 @@ __noinline void bank_typecmd(unsigned char printer)
                 /* A CRLF belongs to one logical line, even across reads. */
                 if (c == 10 && lastcr) {
                     lastcr = 0;
-                    if (selected && redirected) outputbyte(c);
+                    if (selected && redirected)
+                        outputbyte(c);
                     continue;
                 }
-                if (mode == 1 && line >= limit) goto done;
+                if (mode == 1 && line >= limit)
+                    goto done;
                 selected = line >= skip;
                 lastcr = c == 13;
-                if (c == 13 || c == 10) ++line;
-                if (!selected) continue;
-                if (redirected) { outputbyte(c); continue; }
+                if (c == 13 || c == 10)
+                    ++line;
+                if (!selected)
+                    continue;
+                if (redirected) {
+                    outputbyte(c);
+                    continue;
+                }
                 /* Full screen rows already advanced past their terminator. */
                 if ((c == 13 || c == 10) && wrapped) {
                     wrapped = 0;
@@ -149,7 +184,8 @@ __noinline void bank_typecmd(unsigned char printer)
                 }
                 outc(c);
                 wrapped = c != 13 && c != 10 && !ox;
-                if (!ox && !page()) break;
+                if (!ox && !page())
+                    break;
             }
             stop();
         }
@@ -165,7 +201,13 @@ done:
 }
 
 /* Reuse EDIT's idle buffer for two disk cursors and a sliding search window.
- * The second cursor preserves full lines without imposing a line-size limit. */
+ * The second cursor preserves full lines without imposing a line-size limit.
+ *
+ * Read the next byte through one of two buffered FIND readers.
+ *
+ * reader: Reader index, 0 or 1; channels are 2 and 3.
+ * pos: Two current buffer positions, updated in place.
+ * len: Two buffered lengths, updated in place; return -1 for EOF or -2 for error. */
 __noinline int bank_findbyte(unsigned char reader, unsigned int *pos, unsigned int *len)
 {
     int n;
@@ -179,7 +221,12 @@ __noinline int bank_findbyte(unsigned char reader, unsigned int *pos, unsigned i
     return (unsigned char)editbuf[reader * 256 + pos[reader]++];
 }
 
-/* Share FIND validation with redirection before opening output. */
+/* Share FIND validation with redirection before opening output.
+ *
+ * Validate FIND arguments and set p1 to its source path before opening any output.
+ *
+ * flags: Output: /V=1, /C=2, /N=4, /I=8.
+ * needle: Output pointer to the search text; return nonzero on success. */
 __noinline unsigned char bank_findoptions(unsigned char *flags, char **needle)
 {
     unsigned char i;
@@ -222,10 +269,11 @@ __noinline unsigned char bank_findoptions(unsigned char *flags, char **needle)
     return 1;
 }
 
+/* Search lines with a sliding window; a second reader reproduces selected lines without storing
+ * them. */
 __noinline void bank_findcmd(void)
 {
-    unsigned char flags = 0, size, used = 0, hit, lastcr = 0, pending = 0, skip = 0, selected,
-                     col;
+    unsigned char flags = 0, size, used = 0, hit, lastcr = 0, pending = 0, skip = 0, selected, col;
     unsigned int pos[2], len[2];
     unsigned long number = 0, total = 0, digits;
     int c = -1, d;
@@ -255,6 +303,7 @@ __noinline void bank_findcmd(void)
     if (!(flags & 2))
         newline();
     pagelines = 1;
+    /* The first reader decides whether a line matches; the second reproduces it without a line-size limit. */
     while (!aborted) {
         c = bank_findbyte(0, pos, len);
         if (c == -2)
@@ -340,6 +389,7 @@ __noinline void bank_findcmd(void)
         print(SYSOUT_FIND_COUNT, decimal(total));
 }
 
+/* Validate RUN, then schedule a batch or save the shell and launch a native program. */
 __noinline void bank_runcmd(void)
 {
     char *end;
@@ -382,40 +432,58 @@ __noinline void bank_runcmd(void)
     strcpy(launchname, p1.name);
     launchlength = n;
     launchdevice = p1.dev;
+    /* Install the return wedge before the loader overwrites the running shell. */
     if (!session_run())
         return;
     say(SYSOUT_LOADING);
-/* Swapping a disk with an open output file would write to the wrong disk. */
-    if(!launchdevice) { if(!cart_launch(launchname,launchabsolute,launchaddress)) error(SYSOUT_CANNOT_LOAD_CRT_PRG); return; }
+    /* Swapping a disk with an open output file would write to the wrong disk. */
+    if (!launchdevice) {
+        if (!cart_launch(launchname, launchabsolute, launchaddress))
+            error(SYSOUT_CANNOT_LOAD_CRT_PRG);
+        return;
+    }
     launch();
 }
 
-/* Indexed internal cartridge text; no filesystem channels or persistent buffer. */
+/* Indexed internal cartridge text; no filesystem channels or persistent buffer.
+ *
+ * Stream one indexed help topic, with wrapping and paging; return nonzero on success.
+ *
+ * topic: Internal command-help index. */
 __noinline unsigned char bank_diskhelp(unsigned char topic)
 {
     unsigned char c, wrapped = 0, i;
     unsigned int offset = 0;
     int n;
     pagelines = 0;
+    /* Internal help remains usable even when writable cartridge files cannot be mounted. */
     while (!aborted && (n = cart_help(topic, offset, io, 120)) > 0) {
         offset += n;
         for (i = 0; i < n; ++i) {
             c = io[i];
-            if (!c) { newline(); return 1; }
+            if (!c) {
+                newline();
+                return 1;
+            }
             if (!redirected && wrapped && (c == 10 || c == 13)) {
                 wrapped = 0;
                 continue;
             }
             outc(c);
             wrapped = !redirected && c != 10 && c != 13 && !ox;
-            if (!redirected && !ox && !page()) return 0;
+            if (!redirected && !ox && !page())
+                return 0;
         }
         stop();
     }
-    if (!aborted) error(SYSOUT_CRT_HELP_UNAVAILABLE);
+    if (!aborted)
+        error(SYSOUT_CRT_HELP_UNAVAILABLE);
     return 0;
 }
 
+/* Show one command help topic or an alphabetically sorted command overview.
+ *
+ * id: Command index; a negative value selects the overview. */
 __noinline void bank_help(int id)
 {
     unsigned char i, j, tmp, order[COMMANDCOUNT];
@@ -444,5 +512,6 @@ __noinline void bank_help(int id)
     newline();
     say(SYSOUT_HELP_ALIASES);
 }
+
 #pragma code(code)
 #pragma data(data)

@@ -125,7 +125,7 @@ function diskFile(file,name){
  if(process.argv.includes('--ultimate-report')) {
   await enter('cls');s=await enter('sysinfo');
   assert(s.includes('Commodore 64 personal computer'),s);
-  assert(s.includes('CPU:      6510 (FPGA)\nBoard:    Ultimate 64\nKERNAL:'),s);
+  assert(s.includes('CPU:      MOS 6510 (FPGA)\nBoard:    Ultimate 64\nKERNAL:'),s);
   console.log('PASS linked Ultimate report retains detection through real formatting and aligns Board after CPU');return;
  }
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');

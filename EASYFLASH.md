@@ -83,10 +83,10 @@ the target setup.
 | 1–3 | Shell load image, copied to RAM at startup |
 | 4 | Filesystem/session flash driver and external-program loader |
 | 5 ROMH | `edit.c`: editor, command-line input/history/completion |
-| 6 ROMH | `fileutil.c`: TYPE, PRINT, FIND, HELP, RUN |
+| 6 ROMH | `fileutil.c`, `session.c`: TYPE, PRINT, FIND, HELP, RUN, BASIC/session services |
 | 7 ROMH | `filemgmt.c`: DIR, COPY/MOVE, DEL, REN, ATTRIB, shared file helpers |
 | 8 ROMH | `disk.c`: raw disk services, VOL/CHKDSK, FORMAT, LABEL, DISKID, DISKCOPY |
-| 9 ROMH | `boot.c`, `session.c`: startup/configuration, SET, splash, charset, BASIC/session services |
+| 9 ROMH | `boot.c`, `tape.c`: startup/configuration, SET, splash, charset, tape handoff |
 | 10 ROML | Indexed internal HELP text |
 | 11 ROMH | Standalone Datasette copier |
 | 11 ROML, 12–47 | Reserved for future code/data |

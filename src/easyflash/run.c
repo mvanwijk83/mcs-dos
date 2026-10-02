@@ -1,7 +1,7 @@
 /* Execute a contiguous flash file after the shell itself may be overwritten.
  * Parameters: $F7/$F8 length; $FB/$FC source; $FD/$FE destination;
  * $02A0 bank, $02A1 source base high, $02A2 absolute flag, $02A3/4 entry. */
-#pragma section(startup,0)
+#pragma section(startup, 0)
 #pragma region(startup,0x0334,0x03e0,,, {startup})
 #pragma optimize(noasm)
 __asm startup {

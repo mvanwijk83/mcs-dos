@@ -1,3 +1,5 @@
+/* Resident shell state and services. Command banks share these buffers and
+ * call back here for output, parsing and I/O while their ROM bank is visible. */
 #include "core.h"
 #include "memory.h"
 Entry directory_entries[MAXFILES];
@@ -50,16 +52,19 @@ unsigned char noseparators, validate;
 unsigned char resume_requested;
 
 const char *const commands[] = {
-    "BEEP",   "CHKDSK", "CLS",   "COPY",   "DEL",  "DIR",    "DISKCOPY", "ECHO",   "EDIT", "BASIC",
-    "FORMAT", "HELP",   "LABEL", "MEM",    "MOVE", "PAUSE",  "PRINT",    "REM",    "REN",  "RUN",
-    "TYPE",   "VOL",    "VER",   "DISKID", "SET",  "REBOOT", "ATTRIB",   "SPLASH", "FIND", "DISKINIT", "TAPECOPY", "SYSINFO"};
+    "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
+    "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
+    "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO"};
 
+/* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
 {
     clrscr();
     ox = oy = 0;
 }
 
+/* Start a new output line, scrolling the screen or writing a redirected newline. */
 void newline(void)
 {
     if (redirected) {
@@ -83,12 +88,19 @@ void newline(void)
 }
 
 /* Screen-only compatibility: external byte 96 is an ordinary space.
- * PETSCII $a0 (Shift-SPACE) selects the new backslash at screen slot 96. */
+ * PETSCII $a0 (Shift-SPACE) selects the new backslash at screen slot 96.
+ *
+ * Display one file character, treating byte 96 as a space for font compatibility.
+ *
+ * c: PETSCII character to display. */
 void displayc(unsigned char c)
 {
     screen_putc(c == 96 ? ' ' : c);
 }
 
+/* Write one character to the current output, wrapping screen lines at 40 columns.
+ *
+ * c: Character to write; control bytes in file text are shown as dots. */
 void outc(unsigned char c)
 {
     if (redirected) {
@@ -113,12 +125,18 @@ void outc(unsigned char c)
         newline();
 }
 
+/* Write a terminated string through the current output destination.
+ *
+ * s: Text to write. */
 void outs(const char *s)
 {
     while (*s)
         outc(*s++);
 }
 
+/* Write a message and newline, leaving the editor status area when necessary.
+ *
+ * s: Message text. */
 void say(const char *s)
 {
     /* Save errors leave EDIT visibly, retaining the error on the clean screen. */
@@ -131,14 +149,19 @@ void say(const char *s)
     newline();
 }
 
+/* Show an error on screen even while normal output is redirected.
+ *
+ * s: Error message. */
 void error(const char *s)
 {
+    /* Errors must remain visible even if the output file is full or its write failed. */
     unsigned char saved = redirected;
     redirected = 0;
     say(s);
     redirected = saved;
 }
 
+/* Write buffered redirected output; a short write aborts the current command. */
 void outputflush(void)
 {
     if (outputused && !outputfailed) {
@@ -150,6 +173,9 @@ void outputflush(void)
     outputused = 0;
 }
 
+/* Queue one redirected byte and flush when the output buffer fills.
+ *
+ * c: Byte to append. */
 void outputbyte(unsigned char c)
 {
     if (outputfailed)
@@ -159,6 +185,10 @@ void outputbyte(unsigned char c)
         outputflush();
 }
 
+/* Format a bounded message in the shared scratch buffer and write it.
+ *
+ * s: Format string supported by the local vsnprintf routine.
+ * ...: Values used by the format string. */
 void print(const char *s, ...)
 {
     va_list ap;
@@ -168,6 +198,7 @@ void print(const char *s, ...)
     outs(fmtbuf);
 }
 
+/* Apply the current foreground, background and border settings to the display. */
 void colors(void)
 {
     textcolor(fg);
@@ -176,7 +207,12 @@ void colors(void)
 }
 
 #pragma optimize(push, 0)
-/* Oscar64 needs this routine unoptimized for 32-bit decimal division. */
+
+/* Oscar64 needs this routine unoptimized for 32-bit decimal division.
+ *
+ * Format a byte count with optional thousands separators; the result uses static storage.
+ *
+ * bytes: Unsigned count to format. */
 char *decimal(unsigned long bytes)
 {
     static char number[14];
@@ -195,11 +231,18 @@ char *decimal(unsigned long bytes)
 }
 
 #pragma optimize(pop)
+
+/* Format allocated disk space, counting the full 256 bytes of each block.
+ *
+ * blocks: Number of allocated disk blocks. */
 char *allocated(unsigned int blocks)
 {
     return decimal((unsigned long)blocks * 256);
 }
 
+/* Print the cached volume name and, for disks, read and display its ID.
+ *
+ * dev: Device whose directory metadata is currently cached. */
 void volumeheader(unsigned char dev)
 {
     char shown[17];
@@ -210,7 +253,10 @@ void volumeheader(unsigned char dev)
     outs(shown);
     if (ox)
         newline();
-    if (!dev) { outs(SYSOUT_CRT_ID_HEADER); return; }
+    if (!dev) {
+        outs(SYSOUT_CRT_ID_HEADER);
+        return;
+    }
     if (bam(dev)) {
         diskid[0] = toupper(io[idoff]);
         diskid[1] = toupper(io[idoff + 1]);
@@ -221,12 +267,15 @@ void volumeheader(unsigned char dev)
 
 /* A single-color sprite supplies a true eight-pixel underscore without
  * changing the ROM font or the character under the cursor. Cassette RAM
- * $0340-$037f is no longer needed when the launch trampoline overwrites it. */
+ * $0340-$037f is no longer needed when the launch trampoline overwrites it.
+ *
+ * Hide the underscore cursor sprite without disturbing other sprites. */
 void caret_hide(void)
 {
     POKE(0xd015, PEEK(0xd015) & 254);
 }
 
+/* Create the cursor sprite and select its location for the current screen bank. */
 void caret_init(void)
 {
     memset((void *)0x0340, 0, 64);
@@ -241,6 +290,10 @@ void caret_init(void)
     caret_hide();
 }
 
+/* Position and show the underscore cursor in the current text color.
+ *
+ * x: Zero-based text column.
+ * y: Zero-based text row. */
 void caret_show(unsigned char x, unsigned char y)
 {
     unsigned int sx = 24 + (unsigned int)x * 8;
@@ -253,6 +306,7 @@ void caret_show(unsigned char x, unsigned char y)
     POKE(0xd015, PEEK(0xd015) | 1);
 }
 
+/* Poll for RUN/STOP, setting the command abort flag when pressed; return nonzero on abort. */
 unsigned char stop(void)
 {
     if (kbhit() && getch() == CH_STOP) {
@@ -262,6 +316,9 @@ unsigned char stop(void)
     return 0;
 }
 
+/* Ask for confirmation; RUN/STOP counts as No. Return nonzero only for Yes.
+ *
+ * s: Question to display before the Yes/No suffix. */
 unsigned char yesno(const char *s)
 {
     unsigned char c;
@@ -280,6 +337,7 @@ unsigned char yesno(const char *s)
     return toupper(c) == 'Y';
 }
 
+/* Pause after a screenful of output; return zero if the user aborts. */
 unsigned char page(void)
 {
     unsigned char c;
@@ -298,6 +356,10 @@ unsigned char page(void)
     return !aborted;
 }
 
+/* Copy a terminated name in uppercase; source and destination may be the same buffer.
+ *
+ * s: Original text.
+ * d: Destination with room for the text and its terminator. */
 void uppername(const char *s, char *d)
 {
     while (*s)
@@ -305,11 +367,20 @@ void uppername(const char *s, char *d)
     *d = 0;
 }
 
+/* Test whether a character must retain its exact original filename byte.
+ *
+ * map: Packed flags, one bit per character.
+ * pos: Character offset; must be within the map. */
 unsigned char rawget(const unsigned char *map, unsigned char pos)
 {
     return map[pos >> 3] & (1 << (pos & 7));
 }
 
+/* Update the exact-byte flag for a character in a packed map.
+ *
+ * map: Writable packed flags.
+ * pos: Character offset; must be within the map.
+ * value: Nonzero sets the flag; zero clears it. */
 void rawset(unsigned char *map, unsigned char pos, unsigned char value)
 {
     unsigned char bit = 1 << (pos & 7);
@@ -319,6 +390,10 @@ void rawset(unsigned char *map, unsigned char pos, unsigned char value)
         map[pos >> 3] &= ~bit;
 }
 
+/* Copy a native filename, converting typed letters while preserving completed raw bytes.
+ *
+ * s: Terminated source, optionally within parsebuf.
+ * d: Destination with room for the name and terminator. */
 void filename(const char *s, char *d)
 {
     unsigned char c, exact;
@@ -334,7 +409,11 @@ void filename(const char *s, char *d)
     *d = 0;
 }
 
-/* Packed NAME=value strings; absent entries use shell defaults. */
+/* Packed NAME=value strings; absent entries use shell defaults.
+ *
+ * Find a packed environment value; return a pointer into environment or null if absent.
+ *
+ * name: Exact uppercase variable name without an equals sign. */
 char *envget(const char *name)
 {
     unsigned int p = 0, n = strlen(name);
@@ -346,6 +425,7 @@ char *envget(const char *name)
     return 0;
 }
 
+/* Return nonzero when the active DRIVEIDS setting selects DOS drive letters. */
 unsigned char dosdrives(void)
 {
     char *v = envready ? envget("DRIVEIDS") : (char *)0;
@@ -356,6 +436,9 @@ unsigned char dosdrives(void)
     return toupper(*v) == 'D';
 }
 
+/* Format a device using the current drive naming setting; result uses static storage.
+ *
+ * dev: Device number (0 for cartridge storage, 8-30 for disks). */
 const char *drivename(unsigned char dev)
 {
     static char text[4];
@@ -367,6 +450,7 @@ const char *drivename(unsigned char dev)
     return text;
 }
 
+/* Expand the configured dollar codes and display the command prompt. */
 void showprompt(void)
 {
     const char *s = prompttext;
@@ -426,7 +510,11 @@ void showprompt(void)
     }
 }
 
-/* A 12-character stem leaves room for .CPI in a native 16-byte filename. */
+/* A 12-character stem leaves room for .CPI in a native 16-byte filename.
+ *
+ * Check that a charset stem is valid and leaves room for its .CPI suffix.
+ *
+ * s: Terminated stem; return nonzero if accepted. */
 unsigned char charsetname(const char *s)
 {
     unsigned char n = 0;
@@ -439,6 +527,10 @@ unsigned char charsetname(const char *s)
     return n != 0;
 }
 
+/* Parse a device prefix and native filename; report invalid input and return zero on failure.
+ *
+ * s: Path text; no prefix uses the current drive.
+ * p: Output device and terminated filename. */
 unsigned char path(const char *s, Path *p)
 {
     unsigned int d = 0;
@@ -476,11 +568,16 @@ unsigned char path(const char *s, Path *p)
 }
 
 /* Closing a 1541 command channel also closes its data channels. Keep two
- * command channels resident so two-drive copying never closes a live file. */
+ * command channels resident so two-drive copying never closes a live file.
+ *
+ * Reuse or open a drive command channel; return its logical file number, or zero on failure.
+ *
+ * dev: Device number; cartridge status uses the private service instead. */
 unsigned char statuschannel(unsigned char dev)
 {
     unsigned char i;
-    if (!dev) return 13;
+    if (!dev)
+        return 13;
     for (i = 0; i < 2; ++i)
         if (cmddev[i] == dev)
             return 14 + i;
@@ -497,11 +594,20 @@ unsigned char statuschannel(unsigned char dev)
     return 14 + i;
 }
 
+/* Read the current device error code; return 255 if the disk cannot be reached.
+ *
+ * dev: Device to query.
+ * report: Nonzero displays errors of code 20 or higher. */
 unsigned char diskstatus(unsigned char dev, unsigned char report)
 {
     int n;
     unsigned char code, lfn = statuschannel(dev);
-    if (!dev) { code=cart_status(); if(code>=20 && report) error(SYSOUT_CRT_FILE_OP_FAILED); return code; }
+    if (!dev) {
+        code = cart_status();
+        if (code >= 20 && report)
+            error(SYSOUT_CRT_FILE_OP_FAILED);
+        return code;
+    }
     if (!lfn) {
         if (report)
             error(SYSOUT_NOT_READY_READING);
@@ -525,11 +631,18 @@ unsigned char diskstatus(unsigned char dev, unsigned char report)
 }
 
 /* KERNAL ST belongs to the current serial operation, not to a file.
- * Preserve EOF per logical file while switching data/status channels. */
+ * Preserve EOF per logical file while switching data/status channels.
+ *
+ * Read a file while tracking EOF separately for each channel; return bytes read or -1 on error.
+ *
+ * lfn: Open logical file number, within the eof array.
+ * buf: Destination buffer.
+ * size: Maximum number of bytes to read. */
 int readio(unsigned char lfn, void *buf, unsigned int size)
 {
     int n;
     unsigned char st;
+    /* KERNAL has one status byte for all channels; this array preserves each file EOF independently. */
     if (eof[lfn])
         return 0;
     POKE(144, 0);
@@ -542,10 +655,21 @@ int readio(unsigned char lfn, void *buf, unsigned int size)
     return n;
 }
 
+/* Send a device command and invalidate cached directory data; return nonzero on success.
+ *
+ * dev: Target device.
+ * s: Terminated Commodore DOS command. */
 unsigned char command(unsigned char dev, const char *s)
 {
     unsigned char lfn = statuschannel(dev);
-    if (!dev) { cachevalid=0; if(cart_command(s)) { error(SYSOUT_CRT_OP_FAILED); return 0; } return 1; }
+    if (!dev) {
+        cachevalid = 0;
+        if (cart_command(s)) {
+            error(SYSOUT_CRT_OP_FAILED);
+            return 0;
+        }
+        return 1;
+    }
     if (!lfn) {
         error(SYSOUT_DRIVE_NOT_READY);
         return 0;
@@ -559,6 +683,10 @@ unsigned char command(unsigned char dev, const char *s)
     return diskstatus(dev, 1) < 20;
 }
 
+/* Match a complete filename against * and ? wildcards; return nonzero for a match.
+ *
+ * p: Wildcard pattern.
+ * s: Native filename, compared byte for byte. */
 unsigned char match(const char *p, const char *s)
 {
     while (*p) {
@@ -577,6 +705,9 @@ unsigned char match(const char *p, const char *s)
     return !*s;
 }
 
+/* Return the display label for a Commodore file type.
+ *
+ * t: CBM_T_* file type. */
 const char *typename(unsigned char t)
 {
     switch (t) {
@@ -595,6 +726,7 @@ const char *typename(unsigned char t)
     }
 }
 
+/* Load p1 into the separate batch buffer and schedule execution; reject nesting or overflow. */
 void runbatch(void)
 {
     int n;
@@ -618,6 +750,9 @@ void runbatch(void)
     batching = 1;
 }
 
+/* Validate MEM or volume-report switches and update the shared validate flags.
+ *
+ * disk: Nonzero permits a drive path and the mutually exclusive /V and /C switches. */
 unsigned char reportoptions(unsigned char disk)
 {
     unsigned char i, seenpath = 0;
@@ -643,11 +778,13 @@ unsigned char reportoptions(unsigned char disk)
     return 1;
 }
 
+/* Return free shell RAM after the linked end of global data and reserved regions. */
 unsigned int freememory(void)
 {
     return 0xa000U - ((unsigned int)&BSSEnd) + 0x0400U;
 }
 
+/* Validate and execute MEM, showing how the fixed memory layout uses RAM. */
 void memcmd(void)
 {
     unsigned long reserved;
@@ -662,6 +799,9 @@ void memcmd(void)
     print(SYSOUT_MEM_FREE, decimal(freememory()));
 }
 
+/* Resolve a command or alias; return its commands index, or -1 if unknown.
+ *
+ * s: Terminated command name, compared without case sensitivity. */
 int commandid(const char *s)
 {
     unsigned char i;
@@ -677,6 +817,9 @@ int commandid(const char *s)
     return -1;
 }
 
+/* Split command arguments into parsebuf, preserving quoted text and exact filename flags.
+ *
+ * s: Command text within line; return zero for malformed quotes or too many arguments. */
 unsigned char tokenize(char *s)
 {
     char *r = s, *w = parsebuf;
@@ -692,6 +835,7 @@ unsigned char tokenize(char *s)
             return 0;
         argquoted[argc] = *r == '"';
         args[argc++] = w;
+        /* Quotes protect spaces and slashes, while switches may otherwise be joined without spaces. */
         quote = 0;
         /* Keep the switch's leading slash, then split at the next one.
          * Separate output storage permits DIR/W/O without overwriting /W. */
@@ -715,6 +859,9 @@ unsigned char tokenize(char *s)
     return 1;
 }
 
+/* Validate and dispatch one command using the shared argument and path workspaces.
+ *
+ * s: Writable command text, including any switches. */
 void executecommand(char *s)
 {
     char *tail, *end;
@@ -844,8 +991,10 @@ void executecommand(char *s)
         editcmd();
         break;
     case 9:
-        if(argc!=1)error(SYSOUT_SYNTAX_BASIC);
-        else quit = 1;
+        if (argc != 1)
+            error(SYSOUT_SYNTAX_BASIC);
+        else
+            quit = 1;
         break;
     case 10:
         formatcmd();
@@ -936,7 +1085,11 @@ void executecommand(char *s)
 }
 
 /* One destination per built-in command. Keep the wrapper responsible for
- * closing output even when command handlers return early. */
+ * closing output even when command handlers return early.
+ *
+ * Separate output redirection, execute the command, then close and finalize its output.
+ *
+ * s: Writable command line; redirection markers may be replaced with terminators. */
 void execute(char *s)
 {
     char *r, *op = 0, *target, *end;
@@ -1042,6 +1195,7 @@ void execute(char *s)
         error(SYSOUT_DEST_MUST_BE_SEQ);
         return;
     }
+    /* Delay truncation until syntax, source type and self-redirection checks have all passed. */
     if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
         return;
     if (!statuschannel(outputpath.dev)) {
@@ -1061,6 +1215,7 @@ void execute(char *s)
     outputused = outputfailed = outputcol = 0;
     redirected = 1;
     executecommand(s);
+    /* Command handlers may return early; this outer path still flushes and closes their output. */
     outputflush();
     redirected = 0;
     channel_close(5);

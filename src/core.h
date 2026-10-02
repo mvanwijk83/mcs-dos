@@ -29,13 +29,14 @@ extern unsigned char resume_requested;
 #define BATCHMAX 2048
 
 typedef struct Path {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; /* 0 is cartridge storage; disk devices are 8-30. */
+    char name[17];     /* Native filename bytes, at most 16 plus a terminator. */
 } Path;
+
 typedef struct Entry {
     char name[17];
-    unsigned int blocks;
-    unsigned char type;
+    unsigned int blocks; /* Allocated disk blocks; not an exact byte count. */
+    unsigned char type;  /* CBM_T_* value, also used by cartridge entries. */
 } Entry;
 
 extern Entry directory_entries[MAXFILES];
@@ -82,6 +83,7 @@ extern unsigned char noseparators, validate;
 #define COMMANDCOUNT 32
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
+/* Display and loader services implemented in resident RAM or generated code. */
 void launch(void);
 void charset_prepare(void);
 void charset_commit(void);
@@ -100,8 +102,8 @@ void outputflush(void);
 void outputbyte(unsigned char c);
 void print(const char *s, ...);
 void colors(void);
-char * decimal(unsigned long bytes);
-char * allocated(unsigned int blocks);
+char *decimal(unsigned long bytes);
+char *allocated(unsigned int blocks);
 void volumeheader(unsigned char dev);
 void caret_hide(void);
 void caret_init(void);
@@ -111,20 +113,23 @@ void editstatus(void);
 void editsaving(void);
 unsigned char yesno(const char *s);
 unsigned char page(void);
+/* Filename byte tracking, environment lookup and path parsing. */
 void uppername(const char *s, char *d);
 unsigned char rawget(const unsigned char *map, unsigned char pos);
 void rawset(unsigned char *map, unsigned char pos, unsigned char value);
 void rawedit(unsigned char pos, unsigned char len, unsigned char deleting);
 void filename(const char *s, char *d);
-char * envget(const char *name);
+char *envget(const char *name);
 unsigned char dosdrives(void);
-const char * drivename(unsigned char dev);
+const char *drivename(unsigned char dev);
 void showprompt(void);
 unsigned char diroption(const char *s, unsigned char *flags);
 unsigned char dirdefaults(const char *s, unsigned char *flags);
 unsigned char charsetname(const char *s);
 void setcmd(const char *s);
 unsigned char path(const char *s, Path *p);
+/* Channel services and shared file helpers. Success is nonzero unless a
+ * routine explicitly returns a count, status code or directory index. */
 unsigned char statuschannel(unsigned char dev);
 unsigned char diskstatus(unsigned char dev, unsigned char report);
 int readio(unsigned char lfn, void *buf, unsigned int size);
@@ -135,13 +140,14 @@ unsigned char command(unsigned char dev, const char *s);
 unsigned char directory(unsigned char dev);
 int findfile(const Path *p);
 unsigned char match(const char *p, const char *s);
-const char * typename(unsigned char t);
+const char *typename(unsigned char t);
 unsigned char scratch(const Path *p);
 unsigned char preparewrite(const Path *p);
 unsigned char openreadtype(const Path *p, unsigned char lfn, unsigned char type);
 unsigned char openread(const Path *p, unsigned char lfn);
 unsigned char openwrite(const Path *p, unsigned char type);
 unsigned char input(char *buf, unsigned int max, unsigned char recall);
+/* Command entry points consume args/argc and use the shared workspaces. */
 void dircmd(void);
 void copycmd(unsigned char moving);
 void typecmd(unsigned char printer);
@@ -150,7 +156,7 @@ void editcmd(void);
 void runbatch(void);
 void runcmd(void);
 unsigned char blockio(unsigned char dev, unsigned char track, unsigned char sector,
-                             unsigned char writing);
+                      unsigned char writing);
 unsigned char rawopen(unsigned char dev);
 /* report=128 returns the model rather than the raw-operation family. */
 unsigned char drivetype(unsigned char dev, unsigned char report);
@@ -168,6 +174,7 @@ void diskidcmd(void);
 void diskinitcmd(void);
 void diskcopycmd(void);
 void attribcmd(void);
+/* Parsing and dispatch remain resident so a command can safely switch banks. */
 int commandid(const char *s);
 void help(int id);
 unsigned char tokenize(char *s);

@@ -89,19 +89,19 @@ int main(void) {
  reset(2,"Ultimate 64","00,O");if(ultimate()||control!=4)return 17;
  reset(2,"C64 Ultimate","00,OK");revision=67;c128=1;vdc=2;sysinfo();
  if(!strstr(output,"Commodore 64 personal computer\\n64 KB RAM")||
-    !strstr(output,"CPU:      6510 (FPGA)\\nBoard:    Commodore 64 Ultimate\\nKERNAL:")||strstr(output,"portable"))return 18;
+    !strstr(output,"CPU:      MOS 6510 (FPGA)\\nBoard:    Commodore 64 Ultimate\\nKERNAL:")||strstr(output,"portable"))return 18;
  reset(2,"Ultimate II+","00,OK");revision=3;c128=1;vdc=2;sysinfo();
  if(!strstr(output,"Commodore 128DCR personal computer\\n128 KB RAM")||!strstr(output,"CPU:      MOS 8502")||strstr(output,"Board:"))return 19;
  reset(0,"","00,OK");c128=0;revision=67;sysinfo();
  if(!strstr(output,"Commodore SX-64 portable computer"))return 20;
  reset(8,"ULTIMATE 64","00,OK");revision=3;c128=0;sysinfo();
- if(!strstr(output,"CPU:      6510 (FPGA)")||!strstr(output,"Board:    Ultimate 64"))return 21;
+ if(!strstr(output,"CPU:      MOS 6510 (FPGA)")||!strstr(output,"Board:    Ultimate 64"))return 21;
  reset(9,"ULTIMATE 64","00,OK");
  if(!ultimate()||control!=2)return 22;
  reset(10,"ULTIMATE 64","00,OK");
  if(ultimate()||control!=4||ticks>300)return 23;
  reset(2,"ULTIMATE 64","00,OK");window=0xde1c;revision=3;c128=0;sysinfo();
- if(!strstr(output,"CPU:      6510 (FPGA)")||!strstr(output,"Board:    Ultimate 64"))return 24;
+ if(!strstr(output,"CPU:      MOS 6510 (FPGA)")||!strstr(output,"Board:    Ultimate 64"))return 24;
  if(control!=2||commandcount!=3)return 25;
  reset(1,"ULTIMATE 64","00,OK");window=0xde1c;
  if(ultimate()||id!=201||writes!=2)return 26;

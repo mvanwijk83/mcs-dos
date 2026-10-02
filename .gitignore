@@ -17,5 +17,6 @@ scripts/*
 !scripts/verify-image.js
 !scripts/build-easyflash.js
 !scripts/journal-image.js
+!scripts/format-c.js
 tools/
 SYSINFO.md

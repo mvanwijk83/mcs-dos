@@ -39,7 +39,7 @@ restart:
         if(!session_restore()) {
             bootstart(0);
             envready=1;
-            say(SYSOUT_SESSION_RESTORE_WARNING);
+            say(SYSOUT_SHELL_RESTORE_FAILED);
         }
         startup=0;resume_requested=0;
         if(tape_resume)tapecopy_report();
@@ -72,7 +72,7 @@ again:
                 ++batchpos;
             line[n] = 0;
             if (overflow) {
-                say(SYSOUT_BATCH_COMMAND_TOO_LONG);
+                say(SYSOUT_BATCH_CMD_TOO_LONG);
                 batching = 0;
                 continue;
             }
@@ -101,7 +101,7 @@ again:
         if (!batching && !quit)
             newline();
     }
-    if(session_save() || yesno(SYSOUT_SESSION_SAVE_WARNING))
+    if(session_save() || yesno(SYSOUT_SHELL_SAVE_WARNING_BASIC))
         session_basic();
     quit=0;
     goto again;

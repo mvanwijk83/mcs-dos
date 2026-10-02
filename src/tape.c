@@ -24,7 +24,7 @@ static void start(void) {
     unsigned char i;
     for(i=0;i<sizeof(reader);++i)
         if(PEEK(0xf84a+i)!=reader[i]) {error(SYSOUT_TAPE_KERNAL);return;}
-    if (!session_save()) { error(SYSOUT_TAPE_SESSION_ERROR); return; }
+    if (!session_save()) { error(SYSOUT_SHELL_SAVE_ERR); return; }
     TAPE_COLORS[0]=PEEK(0x0286);
     TAPE_COLORS[1]=PEEK(0xd021);
     TAPE_COLORS[2]=PEEK(0xd020);
@@ -55,7 +55,7 @@ __noinline void bank_tapecopycmd(void) {
     TAPE_DEVICE=p1.dev;
     if (n) {
         --n;
-        if(n>3){error(SYSOUT_INVALID_DRIVE_SPECIFICATION);return;}
+        if(n>3){error(SYSOUT_INVALID_DRIVE_SPEC);return;}
         memcpy(TAPE_LABEL,destination,n);TAPE_LABEL[n]=0;
     } else strcpy(TAPE_LABEL,drivename(p1.dev));
     start();
@@ -75,11 +75,11 @@ __noinline void bank_tapecopy_report(void) {
         break;
     case TAPE_CANCELLED:say(SYSOUT_TAPE_CANCELLED);break;
     case TAPE_TOO_LARGE:error(SYSOUT_TAPE_TOO_LARGE);break;
-    case TAPE_WRITE_ERROR:error(SYSOUT_WRITE_FAULT_ERROR);break;
+    case TAPE_WRITE_ERROR:error(SYSOUT_WRITE_FAULT_ERR);break;
     case TAPE_END:say(SYSOUT_TAPE_END);break;
     case TAPE_UNSUPPORTED:error(SYSOUT_TAPE_UNSUPPORTED);break;
     case TAPE_CLEANUP_ERROR:error(SYSOUT_TAPE_CLEANUP_ERROR);break;
     case TAPE_DISK_ERROR:error(SYSOUT_DRIVE_NOT_READY);break;
-    default:error(SYSOUT_TAPE_READ_ERROR);break;
+    default:error(SYSOUT_TAPE_READ_ERR);break;
     }
 }

@@ -3,7 +3,7 @@ const {setup} = require('./setup');
 const {spawnSync} = require('child_process');
 setup();
 const unit = ['amount-switches','cache-capacity','concat-limits','delete-wildcards','dir-sort','diskinit','editor-lines','find','find-redirection',
-    'help-wrap','print','prompt','startup-settings','type-wrap','type-options','journal-crc','kernal-models'].map(name => [name]);
+    'help-wrap','print','prompt','startup-settings','type-wrap','type-options','journal-crc','kernal-models','ultimate-models'].map(name => [name]);
 const emulator = ['c64-support','oscar64-regression','help-prompt','find-vice',
     'new-commands','copy-wildcards','redirection','editor-session','charset','bootsplash','bootsplash-restore',
     'input-history','help-recovery','sample-startup','petscii-completion'].map(name => [name]);

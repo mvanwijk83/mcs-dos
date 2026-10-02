@@ -123,7 +123,7 @@ __noinline void bank_typecmd(unsigned char printer)
     while ((n = readio(2, io, sizeof(io))) > 0 && !aborted) {
         if (printer) {
             if (channel_write(4, io, n) != n) {
-                error(SYSOUT_WRITE_FAULT_ERROR);
+                error(SYSOUT_WRITE_FAULT_ERR);
                 break;
             }
             stop();
@@ -161,7 +161,7 @@ done:
     if (!redirected && ox)
         newline();
     if (n < 0)
-        error(SYSOUT_READ_FAULT_ERROR);
+        error(SYSOUT_READ_FAULT_ERR);
 }
 
 /* Reuse EDIT's idle buffer for two disk cursors and a sliding search window.
@@ -335,7 +335,7 @@ __noinline void bank_findcmd(void)
     if (!(flags & 2))
         channel_close(3);
     if (c == -2)
-        error(SYSOUT_READ_FAULT_ERROR);
+        error(SYSOUT_READ_FAULT_ERR);
     else if ((flags & 2) && !aborted)
         print(SYSOUT_FIND_COUNT, decimal(total));
 }
@@ -354,7 +354,7 @@ __noinline void bank_runcmd(void)
     n = strlen(p1.name);
     if (n >= 4 && !stricmp(p1.name + n - 4, ".BAT")) {
         if (argc != 2) {
-            error(SYSOUT_INVALID_SWITCH_FOR_BATCH_FILE);
+            error(SYSOUT_INVALID_SWITCH_BATCH);
             return;
         }
         runbatch();
@@ -368,7 +368,7 @@ __noinline void bank_runcmd(void)
         }
         address = strtoul(args[3], &end, 10);
         if (!args[3][0] || *end || address < 2049 || address > 65535UL) {
-            error(SYSOUT_INVALID_LOAD_ADDRESS);
+            error(SYSOUT_INVALID_LOAD_ADDR);
             return;
         }
         launchabsolute = 1;
@@ -386,7 +386,7 @@ __noinline void bank_runcmd(void)
         return;
     say(SYSOUT_LOADING);
 /* Swapping a disk with an open output file would write to the wrong disk. */
-    if(!launchdevice) { if(!cart_launch(launchname,launchabsolute,launchaddress)) error(SYSOUT_CANNOT_LOAD_CARTRIDGE_PROGRAM); return; }
+    if(!launchdevice) { if(!cart_launch(launchname,launchabsolute,launchaddress)) error(SYSOUT_CANNOT_LOAD_CRT_PRG); return; }
     launch();
 }
 
@@ -412,7 +412,7 @@ __noinline unsigned char bank_diskhelp(unsigned char topic)
         }
         stop();
     }
-    if (!aborted) error(SYSOUT_CARTRIDGE_HELP_UNAVAILABLE);
+    if (!aborted) error(SYSOUT_CRT_HELP_UNAVAILABLE);
     return 0;
 }
 
@@ -437,7 +437,7 @@ __noinline void bank_help(int id)
         order[j] = tmp;
     }
     for (i = 0; i < COMMANDCOUNT; ++i) {
-        print(SYSOUT_HELP_COMMAND, commands[order[i]]);
+        print(SYSOUT_HELP_CMD, commands[order[i]]);
         if (i % 3 == 2)
             newline();
     }

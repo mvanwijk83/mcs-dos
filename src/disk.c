@@ -69,7 +69,7 @@ __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report
 {
     unsigned char lfn = statuschannel(dev), i;
     unsigned char probe[6] = {'m', '-', 'r', 0xc4, 0xe5, 4}, signature[4];
-    if (!dev) { if(report) error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE); return 0; }
+    if (!dev) { if(report) error(SYSOUT_UNSUPPORTED_OP_CRT); return 0; }
     if (!lfn)
         return 0;
     for (i = 0; i < 2; ++i) {
@@ -266,11 +266,11 @@ __noinline void bank_driveinfo(unsigned char dev)
     unsigned char type;
     if (!dev) {
         print(SYSOUT_DRIVE_MODEL, "EasyFlash");
-        say(SYSOUT_VOLUME_IDENTIFIER_CART);
+        say(SYSOUT_VOL_ID_CART);
     } else {
         type = bank_drivemodel(dev, 0);
         print(SYSOUT_DRIVE_MODEL, type == 1 ? "1541" : type == 2 ? "1571" : type == 3 ? "1581" : type == 4 ? "1541-II" : type == 5 ? "1570" : "Unknown");
-        print(SYSOUT_VOLUME_IDENTIFIER, dev, 'A' + dev - 8);
+        print(SYSOUT_VOL_ID, dev, 'A' + dev - 8);
     }
 }
 
@@ -287,20 +287,20 @@ __noinline void bank_volcmd(unsigned char stats)
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;
     if (stats && validate == 2 && p1.dev) {
-        error(SYSOUT_COMPACT_CARTRIDGE_ONLY);
+        error(SYSOUT_COMPACT_CRT_ONLY);
         return;
     }
     if (stats && !p1.dev) {
-        if (validate == 1) { error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE); return; }
+        if (validate == 1) { error(SYSOUT_UNSUPPORTED_OP_CRT); return; }
         if (validate == 2) {
             compacted = cart_compact();
-            if (compacted < 0) { error(SYSOUT_COMPACTION_FAILED); return; }
-            say(compacted ? SYSOUT_COMPACTION_COMPLETE : SYSOUT_JOURNAL_ALREADY_COMPACT);
+            if (compacted < 0) { error(SYSOUT_COMPACT_FAIL); return; }
+            say(compacted ? SYSOUT_COMPACT_COMPLETE : SYSOUT_ALREADY_COMPACT);
             return;
         }
         used = (unsigned int)strtoul(cart_stats(1), 0, 10);
         i = (unsigned int)strtoul(cart_stats(0), 0, 10);
-        outs(SYSOUT_CARTRIDGE_VOLUME);
+        outs(SYSOUT_CRT_VOL);
         print(SYSOUT_DISK_TOTAL_SPACE, decimal(i));
         filecount = (unsigned int)strtoul(cart_stats(2), 0, 10);
         print(SYSOUT_DISK_ALLOCATED, decimal(used), filecount);
@@ -320,7 +320,7 @@ __noinline void bank_volcmd(unsigned char stats)
         return;
     if (stats) {
         uppername(volume, shown);
-        print(SYSOUT_DISK_VOLUME, shown);
+        print(SYSOUT_DISK_VOL, shown);
         if (!bank_bam(p1.dev))
             return;
         print(SYSOUT_DISK_ID_SPACED, toupper(io[idoff]), toupper(io[idoff + 1]));
@@ -350,7 +350,7 @@ __noinline void bank_labelcmd(void)
         if (!path(args[1], &p1))
             return;
         if (p1.name[0]) {
-            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+            error(SYSOUT_INVALID_DRIVE_SPEC);
             return;
         }
         ++a;
@@ -387,7 +387,7 @@ __noinline void bank_labelcmd(void)
     channel_close(2);
     cachevalid = 0;
     if (i && command(p1.dev, "i0"))
-        say(SYSOUT_VOLUME_LABEL_CHANGED);
+        say(SYSOUT_VOL_LABEL_CHANGED);
 }
 
 __noinline void bank_formatcmd(void)
@@ -401,8 +401,8 @@ __noinline void bank_formatcmd(void)
     type = bank_drivetype(p1.dev, 1);
     if (!type)
         return;
-    print(SYSOUT_INSERT_DISK_IN_DRIVE, drivename(p1.dev));
-    say(SYSOUT_ALL_DATA_ON_THIS_DISK_WILL_BE_LOST);
+    print(SYSOUT_INSERT_DISK, drivename(p1.dev));
+    say(SYSOUT_ALL_DATA_LOST);
     if (!yesno(SYSOUT_PROCEED_WITH_FORMAT))
         return;
     outs(SYSOUT_FORMAT_LABEL_PROMPT);
@@ -415,7 +415,7 @@ __noinline void bank_formatcmd(void)
     if (!input(line, LINE, 0))
         return;
     if (strlen(line) != 2 || !isalnum(line[0]) || !isalnum(line[1])) {
-        say(SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS);
+        say(SYSOUT_DISK_ID_FORMAT);
         return;
     }
     filename(line, id);
@@ -438,12 +438,12 @@ __noinline void bank_diskinitcmd(void)
         if (!path(args[1], &p1))
             return;
         if (!strchr(args[1], ':') || p1.name[0]) {
-            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+            error(SYSOUT_INVALID_DRIVE_SPEC);
             return;
         }
     }
     if (!p1.dev) {
-        error(SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE);
+        error(SYSOUT_UNSUPPORTED_OP_CRT);
         return;
     }
     command(p1.dev, "i0");
@@ -457,7 +457,7 @@ __noinline void bank_diskidcmd(void)
     p1.name[0] = 0;
     if (argc > 1 && strchr(args[1], ':')) {
         if (!path(args[1], &p1) || p1.name[0]) {
-            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+            error(SYSOUT_INVALID_DRIVE_SPEC);
             return;
         }
         ++a;
@@ -468,7 +468,7 @@ __noinline void bank_diskidcmd(void)
     }
     if (argc == a + 1) {
         if (strlen(args[a]) != 2) {
-            say(SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS);
+            say(SYSOUT_DISK_ID_FORMAT);
             return;
         }
         filename(args[a], id);
@@ -477,7 +477,7 @@ __noinline void bank_diskidcmd(void)
         if (!input(line, LINE, 0))
             return;
         if (strlen(line) != 2) {
-            say(SYSOUT_DISK_ID_MUST_BE_TWO_LETTERS_OR_DIGITS);
+            say(SYSOUT_DISK_ID_FORMAT);
             return;
         }
         filename(line, id);
@@ -518,11 +518,11 @@ __noinline void bank_diskcopycmd(void)
         return;
     }
     if (p1.dev == p2.dev) {
-        say(SYSOUT_TWO_DIFFERENT_DRIVES_REQUIRED);
+        say(SYSOUT_TWO_DIFF_DRIVES);
         return;
     }
     if (p1.name[0] || p2.name[0]) {
-        error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+        error(SYSOUT_INVALID_DRIVE_SPEC);
         return;
     }
     type = bank_drivetype(p1.dev, 1);
@@ -530,7 +530,7 @@ __noinline void bank_diskcopycmd(void)
     if (!type || !other)
         return;
     if (type != other) {
-        error(SYSOUT_INCOMPATIBLE_DRIVE_TYPE);
+        error(SYSOUT_INCOMPATIBLE_DRIVE);
         return;
     }
     if (!bank_bam(p1.dev))
@@ -538,8 +538,8 @@ __noinline void bank_diskcopycmd(void)
     tracks = disktracks;
     id[0] = io[idoff];
     id[1] = io[idoff + 1];
-    say(SYSOUT_DESTINATION_DISK_WILL_BE_OVERWRITTEN);
-    if (!yesno(SYSOUT_PROCEED_WITH_DISK_COPY))
+    say(SYSOUT_DEST_DISK_OVERWRITTEN);
+    if (!yesno(SYSOUT_DISKCOPY_PROCEED))
         return;
     if (type == 2 && !command(p2.dev, tracks == 70 ? "u0>m1" : "u0>m0"))
         return;

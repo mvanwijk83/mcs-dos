@@ -44,6 +44,20 @@ function diskFile(file,name){
 (async()=>{
  require('./easyflash-image').verifyDistribution('build/easyflash/MCS-DOS.crt');
  const crt=root+'/build/easyflash/test.crt'; fs.copyFileSync('build/easyflash/MCS-DOS.crt',crt);
+ if(process.argv.includes('--ultimate-report')) {
+  // Replace only the hardware query in a disposable image. Exercise the
+  // actual linked report and resident formatting, not mocked print helpers.
+  const bytes=fs.readFileSync(crt),map=fs.readFileSync('build/easyflash/shell.map','utf8');
+  const address=parseInt(map.match(/^([\da-f]+) - [\da-f]+ : bank_ultimate, /m)[1],16);
+  for(let p=64;p<bytes.length;p+=bytes.readUInt32BE(p+4)) {
+   if(bytes.readUInt16BE(p+10)!==9||bytes.readUInt16BE(p+12)!==0xa000)continue;
+   const name=require('../scripts/petscii')('Ultimate 64\0');
+   const offset=bytes.subarray(p+16,p+16+8192).indexOf(name);assert(offset>=0);
+   const pointer=0xa000+offset;
+   Buffer.from([0xa9,pointer&255,0x85,0x1b,0xa9,pointer>>8,0x85,0x1c,0x60]).copy(bytes,p+16+address-0xa000);
+  }
+  fs.writeFileSync(crt,bytes);
+ }
  if(process.argv.includes('--boot-info')) {
   fs.writeFileSync('build/AUTOEXEC.BAT',require('../scripts/petscii')('@ECHO OFF\rECHO AUTOEXEC-RAN\r'));
   const journal=require('../scripts/journal-image')(['CGA.CPI','AUTOEXEC.SAMPLE','MANUAL.TXT','CHANGELOG.TXT','LICENSE.TXT','AUTOEXEC.BAT']).image;
@@ -81,15 +95,23 @@ function diskFile(file,name){
   assert(!s.includes('KB RAM'),s);
   await command('x');await delay(2000);s=await screen();
   assert(s.includes('Copyright (C) 2026 MCS')&&!s.includes('KB RAM'),s);
+  const map=fs.readFileSync(prg.replace(/\.prg$/,'.map'),'utf8');
+  const address=map.match(/^([0-9a-f]+) - [0-9a-f]+ : bank_sysinfo,/m);
+  assert(address,'SYSINFO entry in link map');
+  const point=(await command('break exec '+address[1])).match(/(?:BREAK|WATCH):\s*(\d+)/i);
+  assert(point,'SYSINFO breakpoint installed');
   await command('x');await delay(2300);s=await screen();
-  assert(s.startsWith('Commodore 64 personal computer')&&!s.includes('Copyright (C) 2026 MCS'),s);
-  assert(s.includes('64 KB RAM'),s);
-  assert(!s.includes('Unknown device')&&!s.includes('Drive 10:')&&!s.includes('Drive 11:'),s);
+  assert(!s.includes('Copyright (C) 2026 MCS')&&!s.includes('KB RAM'),s);
+  assert((await command('r')).toLowerCase().includes(address[1]),'paused at SYSINFO');
   const vector=await memory(0x318,0x319),handler=vector[0]+256*vector[1];
   const code=await memory(handler,handler+8);
   assert.deepEqual(code.slice(0,4),[0x48,0xa9,1,0x8d],'RESTORE latch remains installed during BIOS');
   const flag=code[4]+256*code[5];
   await command(`> ${flag.toString(16)} 01`);
+  await command('delete '+point[1]);
+  await command('x');await delay(500);s=await screen();
+  assert(s.startsWith('Commodore 64 personal computer')&&s.includes('Starting MCS-DOS...'),s);
+  assert(!s.includes('Unknown device')&&!s.includes('Drive 10:')&&!s.includes('Drive 11:'),s);
  }
  for(let i=0;i<20&&!s.includes('0:>');i++){await command('x');await delay(500);s=await screen();}
  console.log('BOOT',s); assert(s.includes('0:>'),s);
@@ -100,6 +122,12 @@ function diskFile(file,name){
  if(process.argv.includes('--tape')) {
   await require('./tape')({command,memory,screen,keys,enter,root,disk,crt,diskFile});return;
  }
+ if(process.argv.includes('--ultimate-report')) {
+  await enter('cls');s=await enter('sysinfo');
+  assert(s.includes('Commodore 64 personal computer'),s);
+  assert(s.includes('CPU:      6510 (FPGA)\nBoard:    Ultimate 64\nKERNAL:'),s);
+  console.log('PASS linked Ultimate report retains detection through real formatting and aligns Board after CPU');return;
+ }
  assert.deepEqual(await memory(0x283,0x284),[0,0xa0],'normal BASIC RAM limit after cartridge boot');
  await defaultFont();
  if(process.argv.includes('--boot-info')) {
@@ -109,6 +137,22 @@ function diskFile(file,name){
   console.log('PASS four-second splash, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');return;
  }
  if(process.argv.includes('--sysinfo')) {
+  // A coincidental UCI signature in EasyFlash IO2 RAM must not identify a board
+  // or leave the command/register bytes changed.
+  const io2=await memory(0xdf1c,0xdf1f);
+  await command('> df1c 00 c9 aa bb');
+  if(process.argv.includes('--c128')) {
+   for(const revision of [0,1,2]) {
+    const result=await command(`resourceset "VDCRevision" "${revision}"`);
+    assert(!result.includes('ERROR'),result);
+    await enter('cls');
+    const before=await memory(0xd600);
+    s=await check('sysinfo',`Commodore ${revision===2?'128DCR':'128'} personal computer`);
+    assert(s.includes('128 KB RAM')&&s.includes('CPU:      MOS 8502'),s);
+    assert.equal((await memory(0xd600))[0]&7,before[0]&7,'VDC revision remains unchanged');
+   }
+   await command('resourceset "VDCRevision" "0"');
+  }
   await enter('cls');
   s=await check('sysinfo',process.argv.includes('--c128')?'Commodore 128 personal computer':process.argv.includes('--sx64')?'Commodore SX-64 portable computer':'Commodore 64 personal computer');
   assert(s.includes(process.argv.includes('--c128')?'128 KB RAM':'64 KB RAM'),s);
@@ -116,6 +160,8 @@ function diskFile(file,name){
   assert(s.includes(process.argv.includes('--c128')?'CPU:      MOS 8502':process.argv.includes('--sx64')?'CPU:      MOS 6510':'CPU:      MOS 6510/8500'),s);
   assert(!s.includes('Unknown device')&&!s.includes('Drive 10:')&&!s.includes('Drive 11:'),s);
   assert(s.includes((kernalName?'KERNAL:   '+kernalName:process.argv.includes('--sx64')?'KERNAL:   SX-64 (ROM ID 67)':'KERNAL:   Revision 3')+'\n'),s);
+  assert.deepEqual(await memory(0xdf1c,0xdf1f),[0,0xc9,0xaa,0xbb],'false UCI signature leaves IO2 RAM intact');
+  await command('> df1c '+io2.map(b=>b.toString(16).padStart(2,'0')).join(' '));
   await enter('cls');
   s=await enter('splash');assert(!s.includes('KB RAM'),s);
   console.log('PASS SYSINFO machine, RAM, raster standard, CPU, KERNAL and SPLASH exclusion');return;

@@ -80,7 +80,7 @@ __noinline void bank_session_basic(void) {
 /* Install only the RAM image here. The low-RAM loaders initialize BASIC and
  * hook $0302 through $C003 once execution has left the shell permanently. */
 __noinline unsigned char bank_session_run(void) {
- if(!bank_session_save() && !yesno(SYSOUT_SESSION_RUN_WARNING))return 0;
+ if(!bank_session_save() && !yesno(SYSOUT_SHELL_SAVE_WARNING_RUN))return 0;
  memcpy((void*)0xc000,wedge_image,sizeof(wedge_image));
  RESUME[0]=0;
  return 1;

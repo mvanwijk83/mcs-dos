@@ -55,7 +55,7 @@ __noinline void bank_editcmd(void)
             error(SYSOUT_INVALID_SWITCH);
             return;
         } else if (p1.name[0]) {
-            say(SYSOUT_TOO_MANY_PARAMETERS);
+            say(SYSOUT_TOO_MANY_PARAMS);
             return;
         } else if (!path(args[i], &p1))
             return;
@@ -115,7 +115,7 @@ __noinline void bank_editcmd(void)
     textcursor(0);
     caret_init();
     bank_editstatus();
-    outs(SYSOUT_EDIT_INITIAL_POSITION);
+    outs(SYSOUT_EDIT_INITIAL_POS);
     if (p1.name[0]) {
         uppername(p1.name, statusbuf);
         outs(statusbuf);
@@ -268,7 +268,7 @@ __noinline void bank_editcmd(void)
     channel_close(3);
     cachevalid = 0;
     if (diskstatus(p1.dev, 1) < 20 && n < 0)
-        error(SYSOUT_WRITE_FAULT_ERROR);
+        error(SYSOUT_WRITE_FAULT_ERR);
 done:
     screen_reverse(0);
     if (editprompt)

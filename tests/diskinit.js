@@ -21,8 +21,8 @@ int main(void) {
  run(0);if(errors||calls!=1||device!=8||strcmp(sent,"i0"))return 1;
  run("9:");if(errors||calls!=1||device!=9||drive!=8)return 2;
  run("b:");if(errors||calls!=1||device!=9)return 3;
- run("0:");if(errors!=1||calls||strcmp(message,SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE))return 4;
- drive=0;run(0);if(errors!=1||calls||strcmp(message,SYSOUT_UNSUPPORTED_OPERATION_ON_CARTRIDGE))return 5;
+ run("0:");if(errors!=1||calls||strcmp(message,SYSOUT_UNSUPPORTED_OP_CRT))return 4;
+ drive=0;run(0);if(errors!=1||calls||strcmp(message,SYSOUT_UNSUPPORTED_OP_CRT))return 5;
  run("8:");if(errors||calls!=1||device!=8||drive!=0)return 6;
  run("8:file");if(errors!=1||calls)return 7;
  run("8");if(errors!=1||calls)return 8;

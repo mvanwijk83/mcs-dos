@@ -68,7 +68,7 @@ __noinline void bank_dircmd(void)
         return;
     if (!bare) {
         volumeheader(p1.dev);
-        print(SYSOUT_DIRECTORY_HEADER, drivename(p1.dev));
+        print(SYSOUT_DIR_HEADER, drivename(p1.dev));
     }
     for (i = 0; i < count; ++i)
         order[i] = i;
@@ -96,14 +96,14 @@ __noinline void bank_dircmd(void)
         if (bare)
             say(shown);
         else if (wide) {
-            print(SYSOUT_DIRECTORY_WIDE_ENTRY, shown);
+            print(SYSOUT_DIR_WIDE_ENTRY, shown);
             if (++col == 2) {
                 newline();
                 col = 0;
             }
         } else {
-            print(SYSOUT_DIRECTORY_ENTRY, shown, typename(directory_entries[j].type), allocated(directory_entries[j].blocks));
-            print(SYSOUT_DIRECTORY_BLOCKS, decimal(directory_entries[j].blocks));
+            print(SYSOUT_DIR_ENTRY, shown, typename(directory_entries[j].type), allocated(directory_entries[j].blocks));
+            print(SYSOUT_DIR_BLOCKS, decimal(directory_entries[j].blocks));
             /* Short block labels also fit four-digit free-block counts. */
             if (redirected ? outputcol : ox)
                 newline();
@@ -114,10 +114,10 @@ __noinline void bank_dircmd(void)
     if (col)
         newline();
     if (!bare && !aborted) {
-        print(SYSOUT_DIRECTORY_TOTAL, total, allocated(usedblocks));
-        print(SYSOUT_DIRECTORY_BLOCKS_LINE, decimal(usedblocks));
-        print(SYSOUT_DIRECTORY_FREE, allocated(freeblocks));
-        print(SYSOUT_DIRECTORY_BLOCKS_LINE, decimal(freeblocks));
+        print(SYSOUT_DIR_TOTAL, total, allocated(usedblocks));
+        print(SYSOUT_DIR_BLOCKS_LINE, decimal(usedblocks));
+        print(SYSOUT_DIR_FREE, allocated(freeblocks));
+        print(SYSOUT_DIR_BLOCKS_LINE, decimal(freeblocks));
     }
 }
 
@@ -128,7 +128,7 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
     if (!p2.name[0])
         strcpy(p2.name, p1.name);
     if (p1.dev == p2.dev && !strcmp(p1.name, p2.name)) {
-        say(SYSOUT_FILE_CANNOT_BE_COPIED_ONTO_ITSELF);
+        say(SYSOUT_FILE_COPY_ON_SELF);
         return 0;
     }
     cachevalid = 0;
@@ -215,11 +215,11 @@ __noinline void bank_copycmd(unsigned char moving)
         return;
     if (!moving && strpbrk(p1.name, "*?")) {
         if (p2.name[0]) {
-            error(SYSOUT_WILDCARDS_REQUIRE_A_DESTINATION_DRIVE);
+            error(SYSOUT_WILDCARDS_DEST_DRV);
             return;
         }
         if (p1.dev == p2.dev) {
-            say(SYSOUT_FILE_CANNOT_BE_COPIED_ONTO_ITSELF);
+            say(SYSOUT_FILE_COPY_ON_SELF);
             return;
         }
         strcpy(pattern, p1.name);
@@ -277,7 +277,7 @@ __noinline unsigned char bank_deletable(const Path *p)
         }
     channel_close(2);
     if (r != 2) {
-        error(SYSOUT_ERROR_READING_BANK_DIRECTORY);
+        error(SYSOUT_ERR_READING_BANK_DIR);
         return 0;
     }
     return 1;
@@ -339,7 +339,7 @@ __noinline void bank_attribcmd(void)
     }
     if (argc > a + 1 ||
         (argc > a && (args[a][0] == '/' || args[a][0] == '+' || args[a][0] == '-'))) {
-        error(SYSOUT_INVALID_PARAMETER);
+        error(SYSOUT_INVALID_PARAM);
         return;
     }
     if (!path(argc > a ? args[a] : "", &p1))
@@ -352,7 +352,7 @@ __noinline void bank_attribcmd(void)
             found=1; n=cart_attribute(directory_entries[offset].name,mode);
             if(diskstatus(0,1)>=20) break;
 /* Swapping a disk with an open output file would write to the wrong disk. */
-            if(!mode) { uppername(directory_entries[offset].name,shown); print(SYSOUT_ATTRIBUTE_ENTRY,n?'L':' ',shown); }
+            if(!mode) { uppername(directory_entries[offset].name,shown); print(SYSOUT_ATTR_ENTRY,n?'L':' ',shown); }
         }
         cachevalid=0; if(!found) error(SYSOUT_FILE_NOT_FOUND); return;
     }
@@ -368,7 +368,7 @@ __noinline void bank_attribcmd(void)
         if (track != headertrack || sector < (headertrack == 40 ? 3 : 1) ||
             sector >= tracksectors(track, disktracks) ||
             (visited[sector / 8] & (1 << (sector % 8)))) {
-            error(SYSOUT_INVALID_BANK_DIRECTORY_CHAIN);
+            error(SYSOUT_INVALID_BANK_DIR_CHAIN);
             break;
         }
         visited[sector / 8] |= 1 << (sector % 8);
@@ -392,7 +392,7 @@ __noinline void bank_attribcmd(void)
                 }
             } else {
                 uppername(name, shown);
-                print(SYSOUT_ATTRIBUTE_ENTRY, io[offset] & 0x40 ? 'L' : ' ', shown);
+                print(SYSOUT_ATTR_ENTRY, io[offset] & 0x40 ? 'L' : ' ', shown);
                 if (!page())
                     goto done;
             }
@@ -417,7 +417,7 @@ __noinline void bank_concatcmd(void)
     if (!path(args[2], &p1))
         return;
     if (!p1.name[0] || strpbrk(p1.name, "*?=@")) {
-        error(SYSOUT_INVALID_DESTINATION);
+        error(SYSOUT_INVALID_DEST);
         return;
     }
     strcpy(request, "c0:");
@@ -432,7 +432,7 @@ __noinline void bank_concatcmd(void)
         if (!strchr(source, ':'))
             p2.dev = p1.dev;
         if (p2.dev != p1.dev) {
-            error(SYSOUT_FILES_MUST_BE_ON_THE_SAME_DISK);
+            error(SYSOUT_FILES_SAME_DISK);
             return;
         }
         if (!p2.name[0] || strpbrk(p2.name, "*?=")) {
@@ -498,14 +498,14 @@ __noinline unsigned char bank_directory(unsigned char dev)
     r = directory_read(2, &ent);
     if (r) {
         channel_close(2);
-        error(SYSOUT_ERROR_READING_BANK_DIRECTORY);
+        error(SYSOUT_ERR_READING_BANK_DIR);
         return 0;
     }
     strcpy(volume, ent.name);
     while (!(r = directory_read(2, &ent))) {
         if (count == MAXFILES) {
             channel_close(2);
-            error(SYSOUT_DIRECTORY_TOO_LARGE);
+            error(SYSOUT_DIR_TOO_LARGE);
             return 0;
         }
         strcpy(directory_entries[count].name, ent.name);
@@ -515,7 +515,7 @@ __noinline unsigned char bank_directory(unsigned char dev)
     }
     channel_close(2);
     if (r != 2) {
-        error(SYSOUT_ERROR_READING_BANK_DIRECTORY);
+        error(SYSOUT_ERR_READING_BANK_DIR);
         return 0;
     }
     freeblocks = ent.size;
@@ -539,7 +539,7 @@ __noinline unsigned char bank_preparewrite(const Path *p)
 {
     int i;
     if (!p->name[0] || strchr(p->name, '*') || strchr(p->name, '?')) {
-        error(SYSOUT_INVALID_DESTINATION);
+        error(SYSOUT_INVALID_DEST);
         return 0;
     }
     cachevalid = 0;
@@ -547,7 +547,7 @@ __noinline unsigned char bank_preparewrite(const Path *p)
     if (i == -2)
         return 0;
     if (i >= 0) {
-        if (!copysuppress && !yesno(SYSOUT_OVERWRITE_EXISTING_FILE))
+        if (!copysuppress && !yesno(SYSOUT_OVERWRITE_FILE))
             return 0;
         if (editprompt)
             editsaving();
@@ -604,7 +604,7 @@ __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
     snprintf(diskcmd, sizeof(diskcmd), "0:%s,%c,w", p->name, t);
     if (channel_open(3, p->dev, 3, diskcmd) != 0) {
         channel_close(3);
-        error(SYSOUT_WRITE_FAULT_ERROR);
+        error(SYSOUT_WRITE_FAULT_ERR);
         return 0;
     }
     if (diskstatus(p->dev, 1) >= 20) {

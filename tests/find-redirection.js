@@ -39,7 +39,7 @@ static void run(const char *s) {
 static int rejected(const char *s) {run(s);return errors==1&&!opened&&!deleted&&!executed;}
 int main(void) {
  if(!rejected("HELP >out")||!rejected("HELP FIND >>out")||!rejected("FIND /? >out")||!rejected("DIR /? >out"))return 1;
- if(!rejected("FIND \\\"word\\\" input >input")||strcmp(message,SYSOUT_CANNOT_REDIRECT_FIND_ONTO_ITSELF))return 2;
+ if(!rejected("FIND \\\"word\\\" input >input")||strcmp(message,SYSOUT_CANNOT_REDIR_FIND_ON_SELF))return 2;
  if(!rejected("FIND /C \\\"word\\\" input >>A:input"))return 3;
  if(!rejected("FIND \\\"word\\\" missing >out")||strcmp(message,SYSOUT_FILE_NOT_FOUND))return 4;
  if(!rejected("FIND /X \\\"word\\\" input >out")||!rejected("FIND word input >out"))return 5;

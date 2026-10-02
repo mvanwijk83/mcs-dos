@@ -56,8 +56,8 @@ int main(void) {
  drive=0;reset(0,0);volcmd(1);
  if(errors||!strstr(out," 64,000 bytes total disk space")||!strstr(out," 12,345 bytes allocated in 5 files")||!strstr(out," 51,655 bytes available on disk")||strstr(out,"blocks")||strstr(out,"memory"))return 20;
  reset(0,0);noseparators=1;volcmd(1);if(!strstr(out,"  64000 bytes total disk space")||strchr(out,','))return 21;
- reset("/c",0);volcmd(1);if(errors||compactions!=1||strcmp(out,SYSOUT_COMPACTION_COMPLETE "\\n"))return 22;
- compactresult=0;reset("/C",0);volcmd(1);if(errors||strcmp(out,SYSOUT_JOURNAL_ALREADY_COMPACT "\\n"))return 23;
+ reset("/c",0);volcmd(1);if(errors||compactions!=1||strcmp(out,SYSOUT_COMPACT_COMPLETE "\\n"))return 22;
+ compactresult=0;reset("/C",0);volcmd(1);if(errors||strcmp(out,SYSOUT_ALREADY_COMPACT "\\n"))return 23;
  compactresult=-1;reset("/C",0);volcmd(1);if(!errors||out[0])return 24;
  reset("/V","/C");volcmd(1);if(!errors||compactions!=3)return 25;
  reset("/C",0);memcmd();if(!errors||compactions!=3)return 26;

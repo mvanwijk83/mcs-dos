@@ -144,7 +144,7 @@ void outputflush(void)
     if (outputused && !outputfailed) {
         if (channel_write(5, outputbuf, outputused) != outputused) {
             outputfailed = aborted = 1;
-            error(SYSOUT_WRITE_FAULT_ERROR);
+            error(SYSOUT_WRITE_FAULT_ERR);
         }
     }
     outputused = 0;
@@ -204,13 +204,13 @@ void volumeheader(unsigned char dev)
 {
     char shown[17];
     uppername(volume, shown);
-    print(SYSOUT_VOLUME_HEADER, drivename(dev));
+    print(SYSOUT_VOL_HEADER, drivename(dev));
     if (ox + strlen(shown) > 40)
         newline();
     outs(shown);
     if (ox)
         newline();
-    if (!dev) { outs(SYSOUT_CARTRIDGE_DISK_ID); return; }
+    if (!dev) { outs(SYSOUT_CRT_ID_HEADER); return; }
     if (bam(dev)) {
         diskid[0] = toupper(io[idoff]);
         diskid[1] = toupper(io[idoff + 1]);
@@ -287,7 +287,7 @@ unsigned char page(void)
         return !aborted && !stop();
     if (++pagelines < 22)
         return !stop();
-    outs(SYSOUT_PRESS_ANY_KEY_TO_CONTINUE);
+    outs(SYSOUT_PRESS_ANY_KEY);
     c = getch();
     gotoxy(0, oy);
     screen_clear(40);
@@ -457,7 +457,7 @@ unsigned char path(const char *s, Path *p)
     }
     if (!letter && q > s && *q == ':') {
         if (d != 0 && (d < 8 || d > 30)) {
-            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+            error(SYSOUT_INVALID_DRIVE_SPEC);
             return 0;
         }
         p->dev = d;
@@ -501,10 +501,10 @@ unsigned char diskstatus(unsigned char dev, unsigned char report)
 {
     int n;
     unsigned char code, lfn = statuschannel(dev);
-    if (!dev) { code=cart_status(); if(code>=20 && report) error(SYSOUT_CARTRIDGE_FILE_OPERATION_FAILED); return code; }
+    if (!dev) { code=cart_status(); if(code>=20 && report) error(SYSOUT_CRT_FILE_OP_FAILED); return code; }
     if (!lfn) {
         if (report)
-            error(SYSOUT_NOT_READY_READING_DRIVE);
+            error(SYSOUT_NOT_READY_READING);
         return 255;
     }
     POKE(144, 0);
@@ -518,7 +518,7 @@ unsigned char diskstatus(unsigned char dev, unsigned char report)
     statusbuf[n] = 0;
     code = atoi(statusbuf);
     if (code >= 20 && report) {
-        error(SYSOUT_DISK_ERROR);
+        error(SYSOUT_DISK_ERR);
         error(statusbuf);
     }
     return code;
@@ -545,7 +545,7 @@ int readio(unsigned char lfn, void *buf, unsigned int size)
 unsigned char command(unsigned char dev, const char *s)
 {
     unsigned char lfn = statuschannel(dev);
-    if (!dev) { cachevalid=0; if(cart_command(s)) { error(SYSOUT_CARTRIDGE_OPERATION_FAILED); return 0; } return 1; }
+    if (!dev) { cachevalid=0; if(cart_command(s)) { error(SYSOUT_CRT_OP_FAILED); return 0; } return 1; }
     if (!lfn) {
         error(SYSOUT_DRIVE_NOT_READY);
         return 0;
@@ -581,15 +581,15 @@ const char *typename(unsigned char t)
 {
     switch (t) {
     case CBM_T_DEL:
-        return SYSOUT_TYPE_DELETED;
+        return SYSOUT_TYPE_DEL;
     case CBM_T_PRG:
-        return SYSOUT_TYPE_PROGRAM;
+        return SYSOUT_TYPE_PRG;
     case CBM_T_SEQ:
-        return SYSOUT_TYPE_SEQUENTIAL;
+        return SYSOUT_TYPE_SEQ;
     case CBM_T_USR:
-        return SYSOUT_TYPE_USER;
+        return SYSOUT_TYPE_USR;
     case CBM_T_REL:
-        return SYSOUT_TYPE_RELATIVE;
+        return SYSOUT_TYPE_REL;
     default:
         return SYSOUT_TYPE_UNKNOWN;
     }
@@ -599,7 +599,7 @@ void runbatch(void)
 {
     int n;
     if (batching) {
-        say(SYSOUT_NESTED_BATCH_DIRECTORY_ENTRIES_NOT_SUPPORTED);
+        say(SYSOUT_NESTED_BATCH);
         return;
     }
     if (!openread(&p1, 2))
@@ -610,7 +610,7 @@ void runbatch(void)
         n = -1;
     channel_close(2);
     if (n < 0) {
-        say(SYSOUT_BATCH_FILE_TOO_LARGE_OR_UNREADABLE);
+        say(SYS_BATCH_TOO_LARGE_OR_UNREADABLE);
         return;
     }
     batch[batchlen] = 0;
@@ -637,7 +637,7 @@ unsigned char reportoptions(unsigned char disk)
         }
     }
     if (i < argc || validate == 3) {
-        error(SYSOUT_INVALID_PARAMETER);
+        error(SYSOUT_INVALID_PARAM);
         return 0;
     }
     return 1;
@@ -773,7 +773,7 @@ void executecommand(char *s)
         }
     }
     if (!tokenize(s)) {
-        say(SYSOUT_SYNTAX_ERROR);
+        say(SYSOUT_SYNTAX_ERR);
         return;
     }
     if (!argc)
@@ -785,12 +785,12 @@ void executecommand(char *s)
             drive = p1.dev;
             cachevalid = 0;
         } else
-            error(SYSOUT_INVALID_DRIVE_SPECIFICATION);
+            error(SYSOUT_INVALID_DRIVE_SPEC);
         return;
     }
     id = commandid(args[0]);
     if (id < 0) {
-        say(SYSOUT_BAD_COMMAND_OR_FILE_NAME);
+        say(SYSOUT_BAD_CMD_OR_FILE_NAME);
         return;
     }
     for (i = 1; i < argc; ++i)
@@ -854,7 +854,7 @@ void executecommand(char *s)
         if (argc > 1) {
             id = commandid(args[1]);
             if (id < 0) {
-                error(SYSOUT_INVALID_COMMAND);
+                error(SYSOUT_INVALID_CMD);
                 break;
             }
         } else
@@ -871,7 +871,7 @@ void executecommand(char *s)
         copycmd(1);
         break;
     case 15:
-        outs(SYSOUT_PRESS_ANY_KEY_TO_CONTINUE);
+        outs(SYSOUT_PRESS_ANY_KEY);
         getch();
         newline();
         break;
@@ -900,14 +900,14 @@ void executecommand(char *s)
         break;
     case 24:
         if (argc > 2) {
-            error(SYSOUT_INVALID_PARAMETER);
+            error(SYSOUT_INVALID_PARAM);
             break;
         }
         setcmd(argc == 2 ? args[1] : "");
         break;
     case 25:
         if (argc != 1) {
-            error(SYSOUT_INVALID_PARAMETER);
+            error(SYSOUT_INVALID_PARAM);
             break;
         }
         reboot = 1;
@@ -927,7 +927,7 @@ void executecommand(char *s)
     case 27:
     case 31:
         if (argc != 1) {
-            error(SYSOUT_INVALID_PARAMETER);
+            error(SYSOUT_INVALID_PARAM);
             break;
         }
         bootsplash(id & 4); /* SPLASH=27 -> 0, SYSINFO=31 -> 4. */
@@ -948,7 +948,7 @@ void execute(char *s)
             quote = !quote;
         else if (*r == '>' && !quote) {
             if (op) {
-                error(SYSOUT_MULTIPLE_REDIRECTIONS_NOT_SUPPORTED);
+                error(SYSOUT_MULTIPLE_REDIR);
                 return;
             }
             op = r;
@@ -963,7 +963,7 @@ void execute(char *s)
         return;
     }
     if (quote) {
-        error(SYSOUT_SYNTAX_ERROR);
+        error(SYSOUT_SYNTAX_ERR);
         return;
     }
     target = op + 1 + append;
@@ -974,7 +974,7 @@ void execute(char *s)
     while (*s == ' ' || *s == '@')
         ++s;
     if (!tokenize(s) || !argc) {
-        error(SYSOUT_SYNTAX_ERROR);
+        error(SYSOUT_SYNTAX_ERR);
         return;
     }
     id = commandid(args[0]);
@@ -985,7 +985,7 @@ void execute(char *s)
         if (!argquoted[i] && !strcmp(args[i], "/?"))
             helping = 1;
     if (helping || (id != 1 && id != 5 && id != 7 && id != 13 && id != 20 && id != 28)) {
-        error(SYSOUT_REDIRECTION_NOT_SUPPORTED_FOR_COMMAND);
+        error(SYSOUT_REDIR_NOT_SUPPORTED);
         return;
     }
     /* Resolve file inputs before opening/truncating any destination. */
@@ -1017,21 +1017,21 @@ void execute(char *s)
         }
     }
     if (!tokenize(target) || argc != 1) {
-        error(SYSOUT_INVALID_DESTINATION);
+        error(SYSOUT_INVALID_DEST);
         return;
     }
     if (!stricmp(args[0], "LPT1") || !stricmp(args[0], "LPT2")) {
-        error(SYSOUT_PRINTER_REDIRECTION_NOT_SUPPORTED);
+        error(SYSOUT_PRINTER_REDIR);
         return;
     }
     if (!path(args[0], &outputpath))
         return;
     if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
-        error(SYSOUT_INVALID_DESTINATION);
+        error(SYSOUT_INVALID_DEST);
         return;
     }
     if ((id == 20 || id == 28) && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
-        error(id == 20 ? SYSOUT_CANNOT_REDIRECT_TYPE_ONTO_ITSELF : SYSOUT_CANNOT_REDIRECT_FIND_ONTO_ITSELF);
+        error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
         return;
     }
     cachevalid = 0;
@@ -1039,7 +1039,7 @@ void execute(char *s)
     if (i == -2)
         return;
     if (i >= 0 && directory_entries[i].type != CBM_T_SEQ) {
-        error(SYSOUT_DESTINATION_MUST_BE_A_SEQ_FILE);
+        error(SYSOUT_DEST_MUST_BE_SEQ);
         return;
     }
     if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
@@ -1051,7 +1051,7 @@ void execute(char *s)
     snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, append && i >= 0 ? 'a' : 'w');
     if (channel_open(5, outputpath.dev, 5, diskcmd) != 0) {
         channel_close(5);
-        error(SYSOUT_WRITE_FAULT_ERROR);
+        error(SYSOUT_WRITE_FAULT_ERR);
         return;
     }
     if (diskstatus(outputpath.dev, 1) >= 20) {

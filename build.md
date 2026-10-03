@@ -83,10 +83,11 @@ node tests/run.js unit
 node tests/run.js smoke
 ```
 
-`node tests/run.js --list` lists available suites. Select feature groups or
-individual suite names; `node tests/run.js all` runs every check sequentially,
-including the slower drive and tape cases. Tests use disposable images under
-`build/` and close their own VICE processes.
+`node tests/run.js --list` shows available test suites. Run individual tests or
+feature groups as required, or `node tests/run.js all` to run them all. Tests
+will leave disposable images in `build/` and launch their own VICE processes.
+The latter are normally closed automatically but may occasionally remain under
+unexpected circumstances.
 
-See [tests/README.md](tests/README.md) for prerequisites, coverage groups,
-diagnostics and guidance for adding tests. The suite targets the cartridge release.
+See the machine-generated [tests/README.md](tests/README.md) for prerequisites,
+coverage groups, diagnostics and guidance for adding tests.

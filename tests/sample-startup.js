@@ -1,5 +1,7 @@
 const assert = require('assert/strict');
 require('./shell')('sample-startup', async ({enter, keys, until}) => {
+    // The cartridge owns CONFIG.SYS; select the disk holding the sample batch.
+    await enter('echo bootdrv=8 >0:config.sys');
     const copied = await enter('copy autoexec.sample autoexec.bat');
     assert(copied.includes('1 file(s) copied.'), copied);
     await keys('reboot\\x0d');
@@ -11,5 +13,9 @@ require('./shell')('sample-startup', async ({enter, keys, until}) => {
     const settings = await until(s => s.endsWith('A:`>'));
     for (const line of ['DRIVEIDS=dos', 'CHARSET=cga', 'COLOR=15,0,0', 'PROMPT=$p$c$h$g'])
         assert(settings.includes(line), settings);
-    console.log('PASS public AUTOEXEC.SAMPLE copied to AUTOEXEC.BAT, executed on REBOOT, settings and prompt applied');
-}).catch(error => { console.error(error); process.exitCode = 1; });
+    console.log(
+        'PASS public AUTOEXEC.SAMPLE copied to AUTOEXEC.BAT, executed on REBOOT, settings and prompt applied');
+}).catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

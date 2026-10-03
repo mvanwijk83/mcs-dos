@@ -8,23 +8,35 @@ const assert = require('assert/strict');
 const {spawn} = require('child_process');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+/** Load the standalone fixture PRG path and check its memory pass/fail marker. */
 module.exports = async function runTest(prg) {
     const server = net.createServer();
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const port = server.address().port;
     await new Promise(resolve => server.close(resolve));
-    const child = spawn(tool('vice', 'x64sc'), [
-        '-default', '-sounddev', 'dummy', '-warp', '-remotemonitor',
-        '-remotemonitoraddress', '127.0.0.1:' + port
-    ], {windowsHide: true, stdio: ['ignore', 'ignore', 'pipe']});
-    let log = '';
+    const child = spawn(tool('vice', 'x64sc'),
+        [
+            '-console', '-default', '-sounddev', 'dummy', '-warp', '-remotemonitor',
+            '-remotemonitoraddress', '127.0.0.1:' + port
+        ],
+        {windowsHide: true, stdio: ['ignore', 'ignore', 'pipe']});
+    let log = '', launchError;
+    child.on('error', error => { launchError = error; });
     child.stderr.on('data', data => { log += data; });
     async function command(text) {
         return new Promise((resolve, reject) => {
             let output = '', timer;
             const socket = net.connect(port, '127.0.0.1', () => socket.write(text + '\n'));
-            const finish = () => { clearTimeout(timer); socket.destroy(); resolve(output); };
-            socket.on('error', error => { clearTimeout(timer); socket.destroy(); reject(error); });
+            const finish = () => {
+                clearTimeout(timer);
+                socket.destroy();
+                resolve(output);
+            };
+            socket.on('error', error => {
+                clearTimeout(timer);
+                socket.destroy();
+                reject(error);
+            });
             socket.on('data', data => {
                 output += data;
                 clearTimeout(timer);
@@ -36,8 +48,17 @@ module.exports = async function runTest(prg) {
     try {
         let connected = false;
         for (let i = 0; i < 100; ++i) {
-            try { await command('x'); connected = true; break; }
-            catch { await delay(100); }
+            if (launchError)
+                throw launchError;
+            if (child.exitCode !== null)
+                throw Error('VICE exited before monitor startup (' + child.exitCode + '): ' + log);
+            try {
+                await command('x');
+                connected = true;
+                break;
+            } catch {
+                await delay(100);
+            }
         }
         assert(connected, 'VICE monitor unavailable: ' + log);
         await delay(1500);
@@ -59,6 +80,9 @@ module.exports = async function runTest(prg) {
         throw Error('C64 support test timed out');
     } finally {
         fs.writeFileSync(prg + '.vice.log', log);
-        if (child.exitCode === null) child.kill();
+        if (child.exitCode === null) {
+            child.kill();
+            await Promise.race([new Promise(resolve => child.once('exit', resolve)), delay(3000)]);
+        }
     }
 };

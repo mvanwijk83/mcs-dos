@@ -14,7 +14,6 @@ scripts/*
 !scripts/make-help.js
 !scripts/make-examples.js
 !scripts/petscii.js
-!scripts/verify-image.js
 !scripts/build-easyflash.js
 !scripts/journal-image.js
 !scripts/format-c.js

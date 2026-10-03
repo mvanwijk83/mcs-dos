@@ -53,21 +53,11 @@ Run from the project root:
 node scripts/build.js
 ```
 
-The 2.0 branch builds an EasyFlash cartridge at
-`build/easyflash/MCS-DOS.crt`. The shell payload PRG is an intermediate file
-and cannot be used as a standalone distribution. Oscar64 uses `-n -Os -Oo -psci`.
-Command modules execute from five ROMH banks at $A000; shared services and
-state stay resident. See [EASYFLASH.md](EASYFLASH.md) for the module layout,
-bank-call rules and RAM accounting. The build compares the PRG/CRT links and
-rejects mismatched code or overflowing banks.
-The build packages CGA.CPI, AUTOEXEC.SAMPLE and the three PETSCII documents
-as writable files, and command help as indexed internal cartridge data.
-It also emits linker maps, a bank/storage
-summary in `layout.json`, and `SHA256SUMS.txt` in the same output directory.
-No external assembler is needed: the vendor EasyAPI binary is included.
-
-See [EASYFLASH.md](EASYFLASH.md) for the bank layout, filesystem format,
-CONFIG.SYS behavior, capacity and persistence limitations.
+The code is compiled with Oscar64 flags `-n -Os -Oo -psci`. The build script
+will emit an EasyFlash cartridge image at `build/easyflash/MCS-DOS.crt`. Aside
+from executable code and the command help library, the image includes
+documentation text files, sample config files, and an alternate character set
+(CGA.CPI).
 
 ## C source style
 
@@ -79,33 +69,24 @@ node scripts/format-c.js
 node scripts/format-c.js --check
 ```
 
-Set `CLANG_FORMAT` to the executable path if it is installed elsewhere. The
-wrapper preserves Oscar64 assembly blocks, whose syntax a C formatter cannot
-interpret. It formats the maintained C files and headers under `src`; build
-outputs are generated separately.
+Set `CLANG_FORMAT` to the executable path if it is installed elsewhere.
 
-Document each function's purpose, parameters and return convention beside its
-definition. In function bodies, explain buffer ownership, validation order,
-hardware assumptions and recovery decisions where they are not obvious from
-the statements. Keep short routines readable without narrating every line.
+If contributing, use comments liberally. Document each function's purpose,
+parameters and return.
 
 ## Automated tests
 
-Run the simulator tests and the cartridge integration test after building:
+Build the cartridge, then run the simulator tests and a short cartridge check:
 
 ```powershell
 node tests/run.js unit
-node tests/easyflash.js
-node tests/easyflash.js --ntsc
-node tests/easyflash.js --journal
+node tests/run.js smoke
 ```
 
-The cartridge suite starts its own VICE instance and uses disposable copies
-under `build/easyflash`. It checks file operations, disk transfers, startup
-configuration and persistence. It does not modify the distribution CRT.
-`node tests/run.js all` runs unit and EasyFlash suites sequentially.
+`node tests/run.js --list` lists available suites. Select feature groups or
+individual suite names; `node tests/run.js all` runs every check sequentially,
+including the slower drive and tape cases. Tests use disposable images under
+`build/` and close their own VICE processes.
 
-The legacy `emulator` and `drives` groups are retained as migration references;
-they still assume the 1.x disk/standalone PRG distribution and are not the 2.0
-cartridge acceptance suite. Emulator checks do not replace testing flash writes,
-reset and image saving on real hardware or Ultimate.
+See [tests/README.md](tests/README.md) for prerequisites, coverage groups,
+diagnostics and guidance for adding tests. The suite targets the cartridge release.

@@ -26,6 +26,7 @@
 
 #define CBM_A_RO 1
 #define CBM_A_RW 3
+
 struct DirectoryEntry {
     char name[17];
     unsigned int size;

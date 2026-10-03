@@ -11,6 +11,8 @@ ram_nmi:
     rti
 
 _charset_prepare:
+    ; The resident C wrapper hides the cartridge before this call: $31
+    ; selects character ROM only when the 16K cartridge mapping is inactive.
     lda #<ram_nmi
     sta $fffa
     lda #>ram_nmi

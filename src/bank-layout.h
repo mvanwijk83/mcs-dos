@@ -1,0 +1,17 @@
+/* ROMH-only window: 16K cartridge mode with $01=$36 leaves $8000 RAM.
+ * Include once, from the main translation unit. See EASYFLASH.md. */
+#pragma section(edit_code, 0)
+#pragma section(edit_data, 0)
+#pragma region(edit_bank, 0xa000, 0xc000, , 5, {edit_code, edit_data})
+#pragma section(fileutil_code, 0)
+#pragma section(fileutil_data, 0)
+#pragma region(fileutil_bank, 0xa000, 0xc000, , 6, {fileutil_code, fileutil_data})
+#pragma section(filemgmt_code, 0)
+#pragma section(filemgmt_data, 0)
+#pragma region(filemgmt_bank, 0xa000, 0xc000, , 7, {filemgmt_code, filemgmt_data})
+#pragma section(disk_code, 0)
+#pragma section(disk_data, 0)
+#pragma region(disk_bank, 0xa000, 0xc000, , 8, {disk_code, disk_data})
+#pragma section(boot_code, 0)
+#pragma section(boot_data, 0)
+#pragma region(boot_bank, 0xa000, 0xc000, , 9, {boot_code, boot_data})

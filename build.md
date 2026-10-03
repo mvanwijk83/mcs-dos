@@ -53,69 +53,41 @@ Run from the project root:
 node scripts/build.js
 ```
 
-Source is compiled with Oscar64 flags `-n Os -Oo -psci`. It also produces
-the D64 image, containing all additional included files such as
-`COMMANDS.HLP` (generated from `src/command-help.json`); the bundled
-documentation converted to PETSCII; and additional content included in
-`disk-content/`.
+The code is compiled with Oscar64 flags `-n -Os -Oo -psci`. The build script
+will emit an EasyFlash cartridge image at `build/easyflash/MCS-DOS.crt`. Aside
+from executable code and the command help library, the image includes
+documentation text files, sample config files, and an alternate character set
+(CGA.CPI).
 
-Build output is placed under `build/`.
+## C source style
+
+C sources use K&R braces, four spaces and a 100-column code limit, configured
+in `.clang-format`. With `clang-format` on PATH, apply or check the style with:
+
+```powershell
+node scripts/format-c.js
+node scripts/format-c.js --check
+```
+
+Set `CLANG_FORMAT` to the executable path if it is installed elsewhere.
+
+If contributing, use comments liberally. Document each function's purpose,
+parameters and return.
 
 ## Automated tests
 
-There are three groups to be run sequentially. The tests create disposable files
-and disk images in `build` that are used by automatically spawned VICE instances
-(beware that they may not always close properly, so manually kill any stray
-processes afterwards).
-
-`node tests/run.js all` runs all three groups. The runner prints a pass/fail
-summary, continues to report failures in subsequent suites, and returns a
-nonzero exit status if any suite fails.
-
-The automated suites test emulation and mocked I/O, not physical drive timing,
-real printer behavior, or every cartridge/ROM combination. They are not intended
-to replace emulator or real hardware testing.
-
-### Fast simulator tests
-
-Validates various functionalities with Oscar64's build-in emulator (`-e`):
+Build the cartridge, then run the simulator tests and a short cartridge check:
 
 ```powershell
 node tests/run.js unit
+node tests/run.js smoke
 ```
 
-### Regression tests
+`node tests/run.js --list` shows available test suites. Run individual tests or
+feature groups as required, or `node tests/run.js all` to run them all. Tests
+will leave disposable images in `build/` and launch their own VICE processes.
+The latter are normally closed automatically but may occasionally remain under
+unexpected circumstances.
 
-Run them all together:
-
-```powershell
-node scripts/build.js
-node tests/run.js emulator
-```
-
-Or run any of these individually (examples):
-
-```
-node tests/find.js
-node tests/oscar64-regression.js
-node tests/oscar64-regression.js build/MCS-DOS.prg --launch-only
-node tests/editor-session.js --ntsc
-node tests/charset.js --ntsc
-node tests/bootsplash.js --ntsc
-```
-
-### Extended drive tests
-
-Testing the supported disk drive models:
-
-```
-node tests/run.js drives
-```
-
-Or, individually: 
-
-```
-node tests/drive-compat.js 1581 --large
-node tests/drive-compat.js 1571 --rel
-node tests/drive-compat.js 1581 --mismatch
-```
+See the machine-generated [tests/README.md](tests/README.md) for prerequisites,
+coverage groups, diagnostics and guidance for adding tests.

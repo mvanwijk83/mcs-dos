@@ -1,10 +1,14 @@
 # MCS-DOS
 
-MCS-DOS is a simple MS-DOS-inspired command shell designed to work on a
-Commodore 64 with EasyFlash, Commodore 64 Ultimate, Commodore 128 in C64 mode, and
-on emulators. It provides familiar commands, syntax, and prompts to perform
-disk operations. It also supports rudimentary batch scripting. It is otherwise
-*not* a true execution environment for native programs.
+MCS-DOS is a MS-DOS-inspired command shell designed to work on a Commodore 64,
+Commodore 64 Ultimate, Commodore 128 in C64 mode, and emulators. It provides
+familiar commands, syntax, and prompts to perform disk operations. It also
+supports rudimentary batch scripting.
+
+While MCS-DOS can be used as an alternate operating environment for your
+C64, it is not a full operating system *per se*; it does not control the
+machine at a low level, but utilizes the Commodore 64 KERNAL to control system
+functions.
 
 The author makes no claims as to its real-life usefulness and emphasizes that
 this was made for fun and novelty.
@@ -13,12 +17,12 @@ this was made for fun and novelty.
 
 * Classic DOS look and feel.
 * Many familiar disk commands and utilities are implemented.
-* Some batch file support, including `AUTOEXEC.BAT`.
+* Configuration via `AUTOEXEC.BAT` and `CONFIG.SYS`.
+* Some batch file support.
 * Supports multiple attached drives and multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and addressed with DOS-style drive letters.
 * Simple built-in text editor.
-* Command history of up to 10 entries.
-* File name auto-completion.
+* Quality of life features such as command history and file name auto-completion.
 * Environment variables.
 * Output redirection to files.
 * File printing.
@@ -27,62 +31,56 @@ this was made for fun and novelty.
 
 ## Notable limitations and omissions
 
-* No directory support.
-* Automatic return from native programs depends on them preserving the return code and BASIC warm-start hook.
-* No fastloader implemented in software; disk acceleration depends on the drive/hardware or ROM replacement.
+* No subdirectory support. This ia a limitation of the CBM-DOS file system.
+* No support for hard disks, SD2IEC, Ultimate storage, etc.
+* Automatic return from native programs depends on their exit implementation (if any) and whether they don't overwrite the MCS-DOS return hook.
+* No fastload or other disk access optimization implemented.
 * Batch files do not support variables, conditionals, labels, or parameters.
-* No piping (`|` syntax); output redirection does not support printers.
+* No piping (`|` syntax) or output redirection.
 * Duplicating disks between different drive types is not currently implemented.
 * Due to the shell's mixed-case mode, half of PETSCII's graphics characters do not display correctly.
 
 Future versions may address (some of) these and other shortcomings where possible.
 
-## Development notes
+## Toolchain
 
-MCS-DOS was written in C and compiled with Oscar64. Unit and regression tests,
-as well as build scripts are Node.js. Extensive machine help was enlisted from
-OpenAI's Codex and GPT-6 (Astra) LLM. Human testing was done on a C64 Ultimate
-and in VICE.
+MCS-DOS was written in C and compiled with Oscar64 on Windows 11. The automated
+test suites and build scripts are Node.js. Extensive machine help was enlisted
+from OpenAI's Codex and GPT-6 (Astra) and GPT-6.1 (Sol) LLMs for implementation
+help, review, automated testing and building. Human testing was done on a C64
+Ultimate and in VICE.
 
 ## Running the shell
 
-The experimental 2.0 branch is EasyFlash-exclusive. Build and attach
-`build/easyflash/MCS-DOS.crt` as an EasyFlash cartridge, then reset. Device 0
-is writable cartridge storage; devices 8–30 are external disks. See
-[EASYFLASH.md](EASYFLASH.md) for startup configuration and persistence details.
-Bundled files are writable just like user files. HELP uses internal cartridge
-data and needs no file or disk. Cartridge writes append to a journal, with
-occasional compaction to reclaim obsolete records.
-The older disk releases remain available under `releases/`.
+MCS-DOS 2.0 is distributed as an EasyFlash 3 cartridge image. If you have a
+physical EasyFlash cartridge, start MCS-DOS from the menu. The `MCS-DOS.CRT`
+image must have been flashed onto the cartridge first. In VICE, use File ->
+Attach cartridge image. On an Ultimate, enter the file browser and run the
+`.CRT`.
 
-Use `BASIC` to save the shell session to flash and enter Commodore BASIC.
-Type `SHELL` at its prompt to restore the session without rerunning startup
-files. A normal cartridge reset starts fresh. Programs that overwrite the
-return wedge may require a cartridge reset.
-
-`RUN` also saves the session before launching a native program. Programs that
-return through BASIC's normal prompt path can restore the shell automatically,
-without typing `SHELL`.
+`CONFIG.SYS` and `AUTOEXEC.BAT` will be processed if they are present. Type
+`HELP` for a list of available commands, and `HELP <command>` or `<command> /?`
+for more detailed information. Programs can be run with `RUN <filename>`,
+while `BASIC` enters C64 BASIC (type `SHELL` to return to the MCS-DOS prompt).
 
 Refer to `MANUAL.TXT` for more extensive information.
 
 ## Repository layout
-Source code is available on https://github.com/mvanwijk83/mcs-dos.
+`disk-content/` &ndash; Content included on the release images.  
+`extras/` &ndash; Extra content made available to customize your MCS-DOS shell.  
+`releases/` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.  
+`screenshots/` &ndash; Assorted screenshots.  
+`scripts/` &ndash; Build scripts.  
+`src/` &ndash; Source code.  
+`tests/` &ndash; Automated tests.  
 
-`disk-content` &ndash; Content to include on the release images.  
-`extras` &ndash; Extra content to customize your MCS-DOS shell.  
-`releases` &ndash; Archive of public MCS-DOS releases, ready to use on your C64 or emulator.  
-`screenshots` &ndash; Assorted screenshots.  
-`scripts` &ndash; Build scripts.  
-`src` &ndash; Source code.  
-`tests` &ndash; Automated tests.  
-
-The root contains various documentation. Except for this `README.md`, they are
-also included on the release image (hence the 40 character width).
+The root contains various documentation, including the bundled manual and
+changelog, and instructions to build from source (`build.md`).
 
 ## Version history
 See `CHANGELOG.TXT` for a full overview of changes.
 
-* **1.0 Preview** (13-Sep-2026) &ndash; preliminary limited public release
-* **1.0 RTM** (15-Sep-2026) &ndash; definitive first public release
+* **2.0** (03-Oct-2026) &ndash; EF3 cartridge release; many improvements and refinements, and some new commands and options.
 * **1.01** (19-Sep-2026) &ndash; minor additions and improvements
+* **1.0 RTM** (15-Sep-2026) &ndash; definitive first public release
+* **1.0 Preview** (13-Sep-2026) &ndash; preliminary limited public release

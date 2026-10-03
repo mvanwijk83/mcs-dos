@@ -106,7 +106,8 @@ and omissions include:
   custom formats either.
 * Automatic return from native programs
   depends on their exit implementation
-  (if any) and their memory allocation.
+  (if any) and whether they don't over-
+  write the MCS-DOS return hook.
 * Batch files do not support variables,
   conditionals, labels, or parameters.
 * No fastload or other disk access
@@ -778,7 +779,7 @@ release.
 Several minor additions and improve-
 ments.
 
-  2.0 (dd-Mmm-2026)
+  2.0 (03-Oct-2026)
 Reengineered for EasyFlash distribution.
 Many refinements, several new commands
 and command options, improved BASIC

@@ -16,7 +16,8 @@ module.exports = async function withShell(name, test, prepare) {
     execFileSync(tool('vice', 'c1541'),
         [
             '-format', 'test,mc', 'd64', disk, '-attach', disk, '-write', 'build/AUTOEXEC.SAMPLE',
-            'autoexec.sample,s', '-write', 'build/CGA.CPI', 'cga.cpi,s'
+            'autoexec.sample,s', '-write', 'build/CONFIG.SAMPLE', 'config.sample,s', '-write',
+            'build/CGA.CPI', 'cga.cpi,s'
         ],
         {windowsHide: true, stdio: 'pipe'});
     const server = net.createServer();
@@ -75,7 +76,8 @@ module.exports = async function withShell(name, test, prepare) {
         for (let i = 0; i < text.length; i += 40)
             await keys(text.slice(i, i + 40));
         await keys('\\x0d');
-        return until(s => s.endsWith('8:>'));
+        // Device-selection commands may finish at a different default prompt.
+        return until(s => /(?:^|\n)[0-9A-W]+:>$/.test(s));
     }
     try {
         for (let i = 0; i < 300; i++) {

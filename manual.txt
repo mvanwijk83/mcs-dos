@@ -178,10 +178,10 @@ files are bundled with the software:
   CGA.CPI
     A custom character set reproducing
     the 8x8 IBM CGA font.
-  $AUTOEXEC.BAT
+  AUTOEXEC.SAMPLE
     Example AUTOEXEC.BAT. Rename to
     enable.
-  $CONFIG.SYS
+  CONFIG.SAMPLE
     Example CONFIG.SYS. Rename to
     enable.
 

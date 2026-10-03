@@ -93,8 +93,13 @@ function crc(bytes) {
 /** Verify bundled resources in the distribution CRT path; return its live-file map. */
 function verifyDistribution(file) {
     const {files} = readImage(file);
-    const names = ['CGA.CPI', 'AUTOEXEC.SAMPLE', 'MANUAL.TXT', 'CHANGELOG.TXT', 'LICENSE.TXT'];
+    const names = [
+        'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT', 'CONFIG.SAMPLE', 'LICENSE.TXT', 'MANUAL.TXT'
+    ];
     assert.equal(files.size, names.length);
+    assert.deepEqual([...files.keys()], names, 'bundled files in alphabetical order');
+    assert.deepEqual(files.get('CONFIG.SAMPLE').data, Buffer.from('LDAUTOEX=1\rBOOTDRV=0\r'),
+        'sample startup settings');
     for (const name of names) {
         assert.deepEqual(files.get(name).data, fs.readFileSync('build/' + name), name);
         assert.equal(files.get(name).readonly, 0);

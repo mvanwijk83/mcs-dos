@@ -10,6 +10,12 @@ loader:
     jsr 0xffcc
     jsr 0xffe7
     jsr 0xc003 // initialize BASIC and install automatic shell return
+    // BASIC initialization enables KERNAL progress messages. Silence only
+    // this LOAD, then restore the setting for the program or BASIC error path.
+    lda 0x9d
+    sta messages + 1
+    lda #0
+    jsr 0xff90 // SETMSG: suppress SEARCHING FOR and LOADING
 len: lda #0
     ldx #0xe0
     ldy #0x03
@@ -22,6 +28,12 @@ addresslo: ldx #1
 addresshi: ldy #8
     lda #0
     jsr 0xffd5
+    // SETMSG leaves the returned end address in X/Y intact. Preserve LOAD's
+    // carry flag so a failed load still reaches the normal error handler.
+    php
+messages: lda #0
+    jsr 0xff90
+    plp
     bcs error
     stx 0x2d
     sty 0x2e

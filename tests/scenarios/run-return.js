@@ -61,6 +61,10 @@ module.exports =
     for (const field of fields)
         expected.push(await variable(...field));
     const colors = await memory(0xd020, 0xd021);
+    // Check restoration before BASIC's RUN machinery changes the flag again.
+    const loader = fs.readFileSync('build/oscar64/launch.asm', 'utf8');
+    const savedMessage = parseInt(loader.match(/LDA \$9d[^\n]*\n[^\n]*STA \$([0-9a-f]+)/i)[1], 16);
+    const basicEntry = loader.match(/^([0-9a-f]+) :[^\n]*JSR \$a659/m)[1];
     async function restored(s) {
         await settled(s, s => s.endsWith('0:>'));
         for (let i = 0; i < fields.length; i++)
@@ -72,7 +76,26 @@ module.exports =
     for (const device of [8, 0])
         for (const name of ['return', 'warm', 'error']) {
             await command('> c2f0 00');
-            await restored(await keys(`run ${device}:${name}\\x0d`, 3500));
+            let point;
+            if (device === 8 && name === 'return') {
+                point =
+                    (await command('break exec ' + basicEntry)).match(/(?:BREAK|WATCH):\s*(\d+)/i);
+                assert(point, 'monitor breakpoint for KERNAL message restoration');
+            }
+            let output = await keys(`run ${device}:${name}\\x0d`, 3500);
+            if (point) {
+                assert((await command('r')).toLowerCase().includes(basicEntry),
+                    'paused after disk LOAD and message restoration');
+                assert.equal((await memory(0x9d))[0], (await memory(savedMessage))[0],
+                    'RUN must restore the KERNAL message flag before entering BASIC');
+                await command('delete ' + point[1]);
+                await command('x');
+                await delay(3500);
+                output += '\n' + await screen();
+            }
+            await restored(output);
+            assert(!/searching for|(?:^|\n)loading\s*(?:\n|$)/i.test(output),
+                'RUN must suppress KERNAL load progress: ' + output);
             if (name !== 'error')
                 assert.equal((await memory(0xc2f0))[0], name === 'return' ? 0x41 : 0x42,
                     'native code executed');

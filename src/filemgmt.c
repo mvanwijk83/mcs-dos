@@ -49,7 +49,7 @@ __noinline void bank_dircmd(void)
     unsigned int *order = (unsigned int *)workspace;
     unsigned int usedblocks = 0;
     char shown[17];
-    unsigned char flags = 0, explicit = 0;
+    unsigned char flags = 0, explicit = 0, filter = 255, type;
     char *defaults = envready ? envget("DIRCMD") : (char *)0;
     for (i = 1; i < argc; ++i)
         if (args[i][0] == '/')
@@ -60,7 +60,23 @@ __noinline void bank_dircmd(void)
     strcpy(p1.name, "*");
     for (i = 1; i < argc; ++i) {
         if (args[i][0] == '/') {
-            if (!bank_diroption(args[i], &flags)) {
+            if (toupper(args[i][1]) == 'T' && args[i][2] && !args[i][3]) {
+                type = toupper(args[i][2]);
+                if (type == 'P')
+                    filter = CBM_T_PRG;
+                else if (type == 'S')
+                    filter = CBM_T_SEQ;
+                else if (type == 'U')
+                    filter = CBM_T_USR;
+                else if (type == 'R')
+                    filter = CBM_T_REL;
+                else if (type == 'D')
+                    filter = CBM_T_DEL;
+                else {
+                    error(SYSOUT_INVALID_SWITCH);
+                    return;
+                }
+            } else if (!bank_diroption(args[i], &flags)) {
                 error(SYSOUT_INVALID_SWITCH);
                 return;
             }
@@ -95,7 +111,8 @@ __noinline void bank_dircmd(void)
     pagelines = 5;
     for (i = 0; i < count; ++i) {
         j = order[i];
-        if (!match(p1.name, directory_entries[j].name))
+        if ((filter != 255 && directory_entries[j].type != filter) ||
+            !match(p1.name, directory_entries[j].name))
             continue;
         ++total;
         usedblocks += directory_entries[j].blocks;

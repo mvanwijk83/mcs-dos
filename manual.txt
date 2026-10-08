@@ -454,12 +454,12 @@ ERASE [drive:]filename [/P]
   Deletes one or more files.
 
 DIR [drive:][pattern]
-    [/B /L /Osortorder /W]
+    [/B /L /Osortorder /Ttype /W]
   Displays a list of files on a disk.
 
 DISKCOPY source: destination:
   Copies the contents of a disk to
-  another of the same drive type.
+  another.
   Source and destination drives must
   be of the same type.
 
@@ -502,7 +502,7 @@ MOVE source destination [/P]
   specified destination, then deletes
   the source.
 
-PAUSE
+PAUSE [message]
   Suspends processing of a batch program
   and waits for a key to resume.
 
@@ -516,11 +516,12 @@ REBOOT
 REM [comment]
   Records comments in a batch file.
 
-REN filename1 filename2
-RENAME filename1 filename2
-  Renames a file on the same disk.
+REN [drive:]filename1 [drive:]filename2
+RENAME [drive:]filename1
+       [drive:]filename2
+  Changes the name of a file.
 
-RUN filename [/A address]
+RUN [drive:]filename [/A address]
   Executes a program.
 
 SET [variable=[string]]
@@ -539,7 +540,7 @@ TAPECOPY [filename] [drive:]
   Loads and transfers one or more files
   from tape to disk.
 
-TYPE filename [/H:n | /T:n | /HEX]
+TYPE filename [/H:n | /T:n | /HEX | /C]
   Displays the contents of a file.
 
 VER

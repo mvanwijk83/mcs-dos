@@ -532,7 +532,7 @@ void dispatch(void)
                     c->kind = 3;
                 } else if (c->pos == 0) {
                     memset(CART_TEXT, 0, 24);
-                    strcpy(CART_TEXT, "mcs-dos 2.0");
+                    strcpy(CART_TEXT, "mcs-dos 2.1");
                     CART_MAILBOX[3] = 0;
                     ++c->pos;
                 } else if (c->pos <= count) {

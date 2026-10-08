@@ -38,7 +38,7 @@
 #define SYSOUT_INVALID_CMD "Invalid command"
 #define SYSOUT_MULTIPLE_REDIR "Multiple redirections not supported"
 #define SYSOUT_REDIR_NOT_SUPPORTED "Redirection not supported for command"
-#define SYSOUT_SYNTAX_TYPE "Syntax: TYPE filename [/H:n | /T:n | /HEX]"
+#define SYSOUT_SYNTAX_TYPE "Syntax: TYPE filename [/H[:n] | /T[:n]] [/HEX] [/C]"
 #define SYSOUT_FILE_NOT_FOUND "File not found"
 #define SYSOUT_UNSUPPORTED_FILE_TYPE "Unsupported file type"
 #define SYSOUT_INVALID_DEST "Invalid destination"
@@ -165,7 +165,7 @@
 #define SYSOUT_SPLASH_PRODUCT "MCS-DOS version " VERSION
 #define SYSOUT_COPYRIGHT "Copyright (C) 2026 MCS Labs"
 /* Cartridge filesystem statistics */
-#define SYSOUT_CRT_VOL "Volume MCS-DOS 2.0\nDisk ID is MC\n\n"
+#define SYSOUT_CRT_VOL "Volume MCS-DOS 2.1\nDisk ID is MC\n\n"
 /* VER banner */
 #define SYSOUT_BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS Labs"
 /* Tape copy */

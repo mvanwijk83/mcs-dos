@@ -626,3 +626,14 @@ __noinline unsigned char dirdefaults(const char *s, unsigned char *flags)
     bank_leave(previous);
     return result;
 }
+
+__noinline unsigned char bank_tokenize(char *s);
+
+/* Parse arguments in the boot bank and restore the caller's mapping. */
+__noinline unsigned char tokenize(char *s)
+{
+    unsigned char previous = bank_enter(BANK_BOOT);
+    unsigned char result = bank_tokenize(s);
+    bank_leave(previous);
+    return result;
+}

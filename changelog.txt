@@ -4,6 +4,24 @@
        Copyright (C) 2026 MCS Labs
 
 
+  2.1 (dd-Mmm-2026)
+----------------------------------------
+* Added /T switch to DIR to filter on
+  file type.
+* Added /C switch to TYPE to specify
+  characters/bytes instead of lines
+  with head (/H) and (/T) options. Also,
+  /HEX now work with /H and /T.
+* A custom PAUSE message can now be
+  specified.
+* When using RUN/STOP on the command
+  prompt, it will now clear the current
+  line instead of jumping to a new one.
+* Boot splash now counts down seconds to
+  initialization.
+* ...
+
+
   2.0 (03-Oct-2026)
 ----------------------------------------
 * MCS-DOS is now distributed as an Easy-

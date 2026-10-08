@@ -10,17 +10,36 @@ __noinline void bank_runcmd(void);
 __noinline unsigned char bank_diskhelp(unsigned char topic);
 __noinline void bank_help(int id);
 
-__noinline int bank_typehex(void);
+__noinline int bank_typehex(unsigned long skip, unsigned long limit);
 
 /* Display logical file 2 as eight-byte hex rows; return the final read result. */
-__noinline int bank_typehex(void)
+__noinline int bank_typehex(unsigned long skip, unsigned long limit)
 {
-    int n, i;
+    int n = 0, i, got;
     unsigned char c;
     unsigned long offset = 0, address;
     char hexline[40];
     const char *digits = "0123456789ABCDEF";
-    while ((n = readio(2, io, 8)) > 0 && !aborted) {
+    while (skip && !aborted) {
+        n = readio(2, io, skip > sizeof(io) ? sizeof(io) : (unsigned int)skip);
+        if (n <= 0)
+            return n;
+        skip -= n;
+        offset += n;
+        stop();
+    }
+    while (limit && !aborted) {
+        n = 0;
+        while (n < 8 && (unsigned long)n < limit) {
+            got = readio(2, io + n, limit - n < 8 - n ? (unsigned int)(limit - n) : 8 - n);
+            if (got < 0)
+                return got;
+            if (!got)
+                break;
+            n += got;
+        }
+        if (!n)
+            break;
         memset(hexline, ' ', 39);
         hexline[39] = 0;
         address = offset;
@@ -38,6 +57,7 @@ __noinline int bank_typehex(void)
             outc(hexline[i]);
         newline();
         offset += n;
+        limit -= n;
         if (!page())
             break;
         stop();
@@ -49,37 +69,46 @@ __noinline int bank_typehex(void)
  *
  * Validate TYPE arguments before any redirected destination is opened.
  *
- * mode: Output: 0=text, 1=head, 2=tail, 3=hex.
- * limit: Output line count for head/tail; return nonzero on success. */
+ * mode: Output bits: 1=head, 2=tail, 4=hex, 8=byte count.
+ * limit: Output count for head/tail; return nonzero on success. */
 __noinline unsigned char bank_typeoptions(unsigned char *mode, unsigned long *limit)
 {
-    unsigned char i;
+    unsigned char i, kind;
     const char *q;
     *mode = 0;
-    *limit = 0;
-    if (argc < 2 || argc > 3 || args[1][0] == '/')
+    *limit = 10;
+    if (argc < 2 || argc > 5 || args[1][0] == '/')
         return 0;
-    if (argc == 2)
-        return 1;
-    if (!stricmp(args[2], "/HEX")) {
-        *mode = 3;
-        return 1;
+    for (i = 2; i < argc; ++i) {
+        if (!stricmp(args[i], "/HEX")) {
+            if (*mode & 4)
+                return 0;
+            *mode |= 4;
+        } else if (!stricmp(args[i], "/C")) {
+            if (*mode & 8)
+                return 0;
+            *mode |= 8;
+        } else {
+            if (args[i][0] != '/' || !args[i][1])
+                return 0;
+            kind = toupper(args[i][1]);
+            if ((kind != 'H' && kind != 'T') || (*mode & 3))
+                return 0;
+            q = args[i] + 2;
+            if (*q) {
+                if (*q++ != ':' || !*q)
+                    return 0;
+                *limit = 0;
+                while (*q) {
+                    if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10)
+                        return 0;
+                    *limit = *limit * 10 + *q++ - '0';
+                }
+            }
+            *mode |= kind == 'H' ? 1 : 2;
+        }
     }
-    if (args[2][0] != '/' || !args[2][1] || args[2][2] != ':')
-        return 0;
-    i = toupper(args[2][1]);
-    if (i != 'H' && i != 'T')
-        return 0;
-    q = args[2] + 3;
-    if (!*q)
-        return 0;
-    while (*q) {
-        if (*q < '0' || *q > '9' || *limit > (16777215UL - (*q - '0')) / 10)
-            return 0;
-        *limit = *limit * 10 + *q++ - '0';
-    }
-    *mode = i == 'H' ? 1 : 2;
-    return 1;
+    return !(*mode & 8) || (*mode & 3);
 }
 
 /* Stream TYPE output or PRINT data, handling line limits, wrapping and cleanup.
@@ -120,32 +149,41 @@ __noinline void bank_typecmd(unsigned char printer)
     }
     pagelines = 0;
     n = 0;
-    if ((mode == 1 || mode == 2) && !limit)
+    if ((mode & 3) && !limit)
         goto done;
-    if (mode == 2) {
-        /* Count logical lines, then reopen: no file-size RAM limit. */
+    if ((mode & 4) && (mode & 3) && !(mode & 8))
+        limit *= 8;
+    if (mode & 2) {
+        /* Count logical lines or bytes, then reopen without buffering the file. */
         while ((n = readio(2, io, sizeof(io))) > 0 && !aborted) {
-            for (i = 0; i < n; ++i) {
-                c = io[i];
-                if (c == 13 || (c == 10 && !lastcr))
-                    ++lines;
-                pending = c != 13 && c != 10;
-                lastcr = c == 13;
-            }
+            if (mode & 12)
+                lines += n;
+            else
+                for (i = 0; i < n; ++i) {
+                    c = io[i];
+                    if (c == 13 || (c == 10 && !lastcr))
+                        ++lines;
+                    pending = c != 13 && c != 10;
+                    lastcr = c == 13;
+                }
             stop();
         }
         if (n < 0 || aborted)
             goto done;
-        if (pending)
+        if (pending && !(mode & 12))
             ++lines;
-        skip = lines > limit ? lines - limit : 0;
+        if ((mode & 4) && !(mode & 8)) {
+            lines = (lines + 7) / 8;
+            skip = lines > limit / 8 ? (lines - limit / 8) * 8 : 0;
+        } else
+            skip = lines > limit ? lines - limit : 0;
         channel_close(2);
         if (!openread(&p1, 2))
             return;
         lastcr = 0;
     }
-    if (mode == 3) {
-        n = bank_typehex();
+    if (mode & 4) {
+        n = bank_typehex(skip, (mode & 3) ? limit : 0xffffffffUL);
         goto done;
     }
     while ((n = readio(2, io, sizeof(io))) > 0 && !aborted) {
@@ -158,6 +196,17 @@ __noinline void bank_typecmd(unsigned char printer)
         } else {
             for (i = 0; i < n; ++i) {
                 c = io[i];
+                if (mode & 8) {
+                    if ((mode & 1) && line >= limit)
+                        goto done;
+                    selected = line++ >= skip;
+                    if (!selected)
+                        continue;
+                    if (redirected) {
+                        outputbyte(c);
+                        continue;
+                    }
+                }
                 /* A CRLF belongs to one logical line, even across reads. */
                 if (c == 10 && lastcr) {
                     lastcr = 0;
@@ -165,11 +214,12 @@ __noinline void bank_typecmd(unsigned char printer)
                         outputbyte(c);
                     continue;
                 }
-                if (mode == 1 && line >= limit)
+                if (!(mode & 8) && (mode & 1) && line >= limit)
                     goto done;
-                selected = line >= skip;
+                if (!(mode & 8))
+                    selected = line >= skip;
                 lastcr = c == 13;
-                if (c == 13 || c == 10)
+                if (!(mode & 8) && (c == 13 || c == 10))
                     ++line;
                 if (!selected)
                     continue;

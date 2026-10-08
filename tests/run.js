@@ -39,7 +39,7 @@ const standalone = [
 if ([...selected.values()].some(
         test => test.file === 'easyflash' || standalone.includes(test.file)) &&
     !fs.existsSync(path.join(root, 'build/easyflash/MCS-DOS.crt'))) {
-    console.error('Missing 2.0 cartridge build. Run node scripts/build.js before these suites.');
+    console.error('Missing 2.1 cartridge build. Run node scripts/build.js before these suites.');
     process.exit(2);
 }
 let failures = 0;

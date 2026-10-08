@@ -21,7 +21,7 @@ extern unsigned char resume_requested;
 #define MAXARGS 33
 #define ENVVALUE 32
 #define ENVSIZE 512
-#define VERSION "2.0"
+#define VERSION "2.1"
 #include "sysout.h"
 
 #define MAXFILES 296

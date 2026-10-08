@@ -437,6 +437,15 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
             continue;
         c = getch();
         comp = 0;
+        if (c == CH_STOP && recall && !editprompt) {
+            buf[0] = draft[0] = 0;
+            memset(rawline, 0, sizeof(rawline));
+            memset(rawdraft, 0, sizeof(rawdraft));
+            pos = view = 0;
+            h = histcount;
+            dirty = 1;
+            continue;
+        }
         if (c == CH_ENTER || c == CH_STOP) {
             caret_hide();
             ox = 0;

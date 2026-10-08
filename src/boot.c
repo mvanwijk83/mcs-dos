@@ -304,7 +304,7 @@ __noinline void bank_bootsplash(unsigned char wait)
 {
     static const char product[] = SYSOUT_SPLASH_PRODUCT;
     static const char copyright[] = SYSOUT_COPYRIGHT;
-    unsigned char x, y, oldlo, oldhi;
+    unsigned char x, y, oldlo, oldhi, remaining = 0, seconds;
     clock_t started;
     /* Reuse the boot bank gate for the shell's SYSINFO command. */
     if (wait == 4) {
@@ -343,7 +343,16 @@ __noinline void bank_bootsplash(unsigned char wait)
         POKE(0x0318, started & 255);
         POKE(0x0319, started >> 8);
         started = clock();
-        while (!skipautoexec && (clock_t)(clock() - started) < 4 * CLOCKS_PER_SEC) {
+        while (!skipautoexec && (clock_t)(clock() - started) < 5 * CLOCKS_PER_SEC) {
+            seconds = 5 - (clock_t)(clock() - started) / CLOCKS_PER_SEC;
+            if (seconds != remaining) {
+                remaining = seconds;
+                textcolor(15);
+                gotoxy(4, 23);
+                screen_puts("Press RESTORE for safe boot (");
+                screen_putc('0' + remaining);
+                screen_putc(')');
+            }
         }
         fg = 15;
         textcolor(fg);
@@ -505,6 +514,48 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
     }
     skipautoexec = 0;
     return startdrive;
+}
+
+/* Split command arguments into parsebuf, preserving quoted text and exact filename flags.
+ *
+ * s: Command text within line; return zero for malformed quotes or too many arguments. */
+__noinline unsigned char bank_tokenize(char *s)
+{
+    char *r = s, *w = parsebuf;
+    unsigned char quote;
+    argc = 0;
+    memset(rawparse, 0, sizeof(rawparse));
+    while (*r) {
+        while (*r == ' ')
+            ++r;
+        if (!*r)
+            break;
+        if (argc == MAXARGS)
+            return 0;
+        argquoted[argc] = *r == '"';
+        args[argc++] = w;
+        /* Quotes protect spaces and slashes, while switches may otherwise be joined without spaces. */
+        quote = 0;
+        /* Keep the switch's leading slash, then split at the next one.
+         * Separate output storage permits DIR/W/O without overwriting /W. */
+        if (*r == '/')
+            *w++ = *r++;
+        while (*r && ((*r != ' ' && *r != '/') || quote)) {
+            if (*r == '"') {
+                quote = !quote;
+                ++r;
+            } else {
+                rawset(rawparse, w - parsebuf, rawget(rawline, r - line));
+                *w++ = *r++;
+            }
+        }
+        if (quote)
+            return 0;
+        while (*r == ' ')
+            ++r;
+        *w++ = 0;
+    }
+    return 1;
 }
 
 #pragma code(code)

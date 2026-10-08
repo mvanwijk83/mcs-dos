@@ -19,3 +19,6 @@ scripts/*
 !scripts/format-c.js
 tools/
 SYSINFO.md
+MEMORY*.md
+ULTIMATE*.md
+www/

@@ -9,7 +9,7 @@ const harness = `
 #include <ctype.h>
 static unsigned char io[256], ox, aborted, pagelines, redirected = 1;
 static int argc = 3, p1, pos, length, written, errors, opens, closed, chunk = 256, failread;
-static const char *args[4];
+static const char *args[6];
 static char input[1024], output[6000];
 
 /* Resolve a controlled fixture path without performing device I/O.
@@ -127,14 +127,21 @@ ${functions('typeoptions', 'typehex', 'typecmd')}
 /* Prepare fixture arguments and observable state, then call the production handler.
  *
  * option: Optional TYPE switch; null selects default behavior. */
-static void run(const char *option)
+static void runopts(const char *option, const char *second, const char *third)
 {
     args[1] = "input";
     args[2] = option;
-    argc = option ? 3 : 2;
+    args[3] = second;
+    args[4] = third;
+    argc = third ? 5 : second ? 4 : option ? 3 : 2;
     written = errors = opens = closed = ox = aborted = 0;
     output[0] = 0;
     typecmd(0);
+}
+
+static void run(const char *option)
+{
+    runopts(option, 0, 0);
 }
 
 /* Run the requested option and compare captured bytes and channel cleanup with expectations.
@@ -221,6 +228,37 @@ int main(void)
     run("/HEXx");
     if (!errors || opens)
         return 10;
+    strcpy(input, "one\\r\\ntwo\\r\\nthree");
+    length = strlen(input);
+    chunk = 1;
+    if (expect("/H", input) || expect("/T", input)) return 12;
+    runopts("/H:5", "/C", 0);
+    if (errors || written != 5 || memcmp(output, input, 5)) return 13;
+    runopts("/C", "/T:4", 0);
+    if (errors || written != 4 || memcmp(output, input + length - 4, 4)) return 14;
+    runopts("/H:0", "/HEX", "/C");
+    if (errors || written) return 15;
+    runopts("/H:1", "/T:1", 0);
+    if (!errors || opens) return 16;
+    runopts("/HEX", "/C", 0);
+    if (!errors || opens) return 17;
+    memset(input, 'A', 85);
+    length = 85;
+    runopts("/HEX", "/H", 0);
+    if (errors || written != 400 || memcmp(output + 360, "000048", 6)) return 18;
+    runopts("/T:1", "/HEX", 0);
+    if (errors || written != 40 || memcmp(output, "000050", 6) || output[36] != ' ') return 19;
+    runopts("/HEX", "/C", "/T:8");
+    if (errors || written != 40 || memcmp(output, "00004D", 6) || output[38] != 'A') return 20;
+    runopts("/H:9", "/HEX", "/C");
+    if (errors || written != 80 || memcmp(output + 40, "000008 41", 9) || output[72] != ' ') return 21;
+    runopts("/C", "/H", 0);
+    if (errors || written != 10) return 22;
+    runopts("/HEX", "/T", 0);
+    if (errors || written != 400 || memcmp(output, "000008", 6)) return 23;
+    length = 0;
+    runopts("/HEX", "/T:2", 0);
+    if (errors || written || opens != closed) return 24;
     failread = 1;
     run("/T:1");
     if (errors != 1 || opens != closed)

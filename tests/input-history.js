@@ -22,6 +22,13 @@ require('./shell')('input-history', async ({disk, command, keys, enter}) => {
     for (let i = 0; i < 10; i++)
         text = await keys('\\x11');
     assert(text.endsWith('8:>draft'), text);
+    const beforeStop = await keys('draft text');
+    const afterStop = await keys('\\x03');
+    assert.equal(afterStop.split('\n').length, beforeStop.split('\n').length,
+        'RUN/STOP must retain the current prompt row');
+    assert(afterStop.endsWith('8:>'), afterStop);
+    await keys('\\x91');
+    assert((await keys('\\x11')).endsWith('8:>'), 'cleared draft must stay empty');
     await keys('\\x03');
     await command('detach 8');
     const files = require('./disk-image').files(disk);

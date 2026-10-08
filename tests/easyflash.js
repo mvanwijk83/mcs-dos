@@ -204,10 +204,17 @@ function diskFile(file, name) {
         }
         assert(s.includes(messages.SYSOUT_COPYRIGHT), s);
         assert(!s.includes('KB RAM'), s);
+        const countdown = s.split('\n')[23];
+        assert(/^ {4}Press RESTORE for safe boot \([1-5]\)/i.test(countdown), s);
+        const seconds = Number(countdown.match(/\(([1-5])\)/)[1]);
+        assert.deepEqual((await memory(0xd800 + 23 * 40 + 4, 0xd800 + 23 * 40 + 34)).map(c => c & 15),
+            Array(31).fill(15), 'safe boot countdown uses color 15');
         await command('x');
-        await delay(2000);
+        await delay(3000);
         s = await screen();
         assert(s.includes(messages.SYSOUT_COPYRIGHT) && !s.includes('KB RAM'), s);
+        assert(Number(s.split('\n')[23].match(/\(([1-5])\)/)[1]) < seconds,
+            'safe boot countdown updates');
         const map = fs.readFileSync(prg.replace(/\.prg$/, '.map'), 'utf8');
         const address = map.match(/^([0-9a-f]+) - [0-9a-f]+ : bank_sysinfo,/m);
         assert(address, 'SYSINFO entry in link map');
@@ -268,7 +275,7 @@ function diskFile(file, name) {
         assert(s.includes('0:>') && !s.includes('KB RAM') && !s.includes('Starting MCS-DOS...'), s);
         await defaultFont();
         console.log(
-            'PASS four-second splash, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');
+            'PASS five-second splash and centered gray countdown, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');
         return;
     }
     if (process.argv.includes('--sysinfo')) {

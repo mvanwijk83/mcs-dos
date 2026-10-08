@@ -2,8 +2,18 @@ const messages = require('../output');
 // Command options, file attributes and cartridge/disk accounting.
 const fs = require('fs');
 const assert = require('assert/strict');
-module.exports = async ({command, enter, check, disk}) => {
+module.exports = async ({command, keys, enter, check, disk}) => {
     let s;
+    await enter('cls');
+    s = await keys('pause Press a key\\x0d');
+    assert(s.endsWith('Press a key'), s);
+    assert(!s.includes(messages.SYSOUT_PRESS_ANY_KEY), s);
+    await keys('x');
+    await enter('cls');
+    s = await keys('pause\\x0d');
+    assert(s.includes(messages.SYSOUT_PRESS_ANY_KEY.trim()), s);
+    await keys('x');
+    await enter('cls');
     const layout = JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
     const capacity = layout.fileBytes + layout.available;
     s = await check('chkdsk', capacity.toLocaleString('en-US') + ' bytes total disk space');

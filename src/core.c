@@ -817,48 +817,6 @@ int commandid(const char *s)
     return -1;
 }
 
-/* Split command arguments into parsebuf, preserving quoted text and exact filename flags.
- *
- * s: Command text within line; return zero for malformed quotes or too many arguments. */
-unsigned char tokenize(char *s)
-{
-    char *r = s, *w = parsebuf;
-    unsigned char quote;
-    argc = 0;
-    memset(rawparse, 0, sizeof(rawparse));
-    while (*r) {
-        while (*r == ' ')
-            ++r;
-        if (!*r)
-            break;
-        if (argc == MAXARGS)
-            return 0;
-        argquoted[argc] = *r == '"';
-        args[argc++] = w;
-        /* Quotes protect spaces and slashes, while switches may otherwise be joined without spaces. */
-        quote = 0;
-        /* Keep the switch's leading slash, then split at the next one.
-         * Separate output storage permits DIR/W/O without overwriting /W. */
-        if (*r == '/')
-            *w++ = *r++;
-        while (*r && ((*r != ' ' && *r != '/') || quote)) {
-            if (*r == '"') {
-                quote = !quote;
-                ++r;
-            } else {
-                rawset(rawparse, w - parsebuf, rawget(rawline, r - line));
-                *w++ = *r++;
-            }
-        }
-        if (quote)
-            return 0;
-        while (*r == ' ')
-            ++r;
-        *w++ = 0;
-    }
-    return 1;
-}
-
 /* Validate and dispatch one command using the shared argument and path workspaces.
  *
  * s: Writable command text, including any switches. */
@@ -889,10 +847,18 @@ void executecommand(char *s)
         *tail = 0;
         id = commandid(s);
         *tail = c;
-        if (id == 7 || id == 17 || id == 24) {
+        if (id == 7 || id == 17 || id == 24 || id == 15) {
             ++tail;
             if (!strcmp(tail, "/?")) {
                 help(id);
+                return;
+            }
+            if (id == 15) {
+                while (*tail == ' ')
+                    ++tail;
+                outs(*tail ? tail : SYSOUT_PRESS_ANY_KEY);
+                getch();
+                newline();
                 return;
             }
             if (id == 24) {

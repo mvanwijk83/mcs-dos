@@ -154,7 +154,7 @@ void typecmd(unsigned char printer);
 void findcmd(void);
 void editcmd(void);
 void runbatch(void);
-void runcmd(void);
+void runcmd(unsigned char implicit);
 unsigned char blockio(unsigned char dev, unsigned char track, unsigned char sector,
                       unsigned char writing);
 unsigned char rawopen(unsigned char dev);

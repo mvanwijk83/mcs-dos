@@ -73,7 +73,7 @@ module.exports =
         assert.deepEqual(await memory(0xd020, 0xd021), colors, 'shell colors restored');
         await defaultFont(fs.readFileSync('build/CGA.CPI'));
     }
-    for (const device of [8, 0])
+    for (const [device, prefix] of [[8, 'run '], [0, 'run '], [8, ''], [0, '']])
         for (const name of ['return', 'warm', 'error']) {
             await command('> c2f0 00');
             let point;
@@ -82,7 +82,7 @@ module.exports =
                     (await command('break exec ' + basicEntry)).match(/(?:BREAK|WATCH):\s*(\d+)/i);
                 assert(point, 'monitor breakpoint for KERNAL message restoration');
             }
-            let output = await keys(`run ${device}:${name}\\x0d`, 3500);
+            let output = await keys(`${prefix}${device}:${name}\\x0d`, 3500);
             if (point) {
                 assert((await command('r')).toLowerCase().includes(basicEntry),
                     'paused after disk LOAD and message restoration');
@@ -100,8 +100,8 @@ module.exports =
                 assert.equal((await memory(0xc2f0))[0], name === 'return' ? 0x41 : 0x42,
                     'native code executed');
             const history = await variable('history', 650);
-            assert(history.includes(Buffer.from(`RUN ${device}:${name.toUpperCase()}\0`)),
-                'RUN retained in history');
+            assert(history.includes(Buffer.from(`${prefix.toUpperCase()}${device}:${name.toUpperCase()}\0`)),
+                'launch command retained in history');
         }
     // Absolute entry still jumps directly; a program that JMPs to READY returns.
     for (const device of [8, 0]) {
@@ -113,11 +113,11 @@ module.exports =
         assert.equal((await memory(0xc2f0))[0], 0x42, 'absolute native entry executed');
     }
     await enter('8:');
-    await settled(await keys('run return\\x0d', 3500), s => s.endsWith('8:>'));
+    await settled(await keys('return\\x0d', 3500), s => s.endsWith('8:>'));
     assert.equal((await variable('drive', 1))[0], 8, 'current disk restored');
     await enter('0:');
     console.log(
-        'PASS disk/cartridge SYS-RTS, direct warm-start and BASIC-error returns with saved state');
+        'PASS explicit and implicit disk/cartridge SYS-RTS, direct warm-start and BASIC-error returns with saved state');
 
     // Failed session save: N leaves the shell; Y runs but cannot revive old state.
     const asm = fs.readFileSync('build/easyflash/bridge.asm', 'utf8');

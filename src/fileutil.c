@@ -6,7 +6,7 @@
 __noinline void bank_typecmd(unsigned char printer);
 __noinline int bank_findbyte(unsigned char reader, unsigned int *pos, unsigned int *len);
 __noinline void bank_findcmd(void);
-__noinline void bank_runcmd(void);
+__noinline void bank_runcmd(unsigned char implicit);
 __noinline unsigned char bank_diskhelp(unsigned char topic);
 __noinline void bank_help(int id);
 
@@ -439,20 +439,28 @@ __noinline void bank_findcmd(void)
         print(SYSOUT_FIND_COUNT, decimal(total));
 }
 
-/* Validate RUN, then schedule a batch or save the shell and launch a native program. */
-__noinline void bank_runcmd(void)
+/* Validate explicit RUN or an implicit PRG/batch name, then reuse the existing launch path.
+ *
+ * implicit: Nonzero selects a filename-only command after built-in lookup fails. */
+__noinline void bank_runcmd(unsigned char implicit)
 {
     char *end;
     unsigned long address;
-    unsigned char n;
-    if (argc != 2 && argc != 4) {
+    unsigned char n, batchfile;
+    int found;
+    if (implicit && argc != 1) {
+        say(SYSOUT_BAD_CMD_OR_FILE_NAME);
+        return;
+    }
+    if (!implicit && argc != 2 && argc != 4) {
         error(SYSOUT_SYNTAX_RUN);
         return;
     }
-    if (!path(args[1], &p1))
+    if (!path(args[implicit ? 0 : 1], &p1))
         return;
     n = strlen(p1.name);
-    if (n >= 4 && !stricmp(p1.name + n - 4, ".BAT")) {
+    batchfile = n >= 4 && !stricmp(p1.name + n - 4, ".BAT");
+    if (!implicit && batchfile) {
         if (argc != 2) {
             error(SYSOUT_INVALID_SWITCH_BATCH);
             return;
@@ -474,9 +482,22 @@ __noinline void bank_runcmd(void)
         launchabsolute = 1;
         launchaddress = address;
     }
-    cachevalid = 0;
-    if (findfile(&p1) < 0) {
-        error(SYSOUT_FILE_NOT_FOUND);
+    if (!implicit)
+        cachevalid = 0;
+    found = findfile(&p1);
+    if (found < 0) {
+        if (!implicit)
+            error(SYSOUT_FILE_NOT_FOUND);
+        else if (found == -1)
+            say(SYSOUT_BAD_CMD_OR_FILE_NAME);
+        return;
+    }
+    if (implicit && batchfile) {
+        runbatch();
+        return;
+    }
+    if (implicit && directory_entries[found].type != CBM_T_PRG) {
+        say(SYSOUT_BAD_CMD_OR_FILE_NAME);
         return;
     }
     strcpy(launchname, p1.name);

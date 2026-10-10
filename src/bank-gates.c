@@ -150,14 +150,14 @@ __noinline void findcmd(void)
     bank_leave(previous);
 }
 
-__noinline void bank_runcmd(void);
+__noinline void bank_runcmd(unsigned char implicit);
 
-/* Validate RUN, then schedule a batch or save the shell and launch a native program.
+/* Validate explicit RUN or an implicit PRG/batch name, then reuse the existing launch path.
  * Resident gate: restore the previous bank after the service returns. */
-__noinline void runcmd(void)
+__noinline void runcmd(unsigned char implicit)
 {
     unsigned char previous = bank_enter(BANK_FILEUTIL);
-    bank_runcmd();
+    bank_runcmd(implicit);
     bank_leave(previous);
 }
 

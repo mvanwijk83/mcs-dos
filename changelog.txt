@@ -6,21 +6,25 @@
 
   2.1 (dd-Mmm-2026)
 ----------------------------------------
-* Added /T switch to DIR to filter on
-  file type.
-* Added /C switch to TYPE to specify
-  characters/bytes instead of lines
-  with head (/H) and (/T) options. Also,
-  /HEX now work with /H and /T.
-* A custom PAUSE message can now be
-  specified.
-* When using RUN/STOP on the command
-  prompt, it will now clear the current
-  line instead of jumping to a new one.
-* Boot splash now counts down seconds to
-  initialization.
-* ...
-
+* Programs can now be run by only
+  specifying their file name, as in
+  classic DOS. The RUN command is
+  retained for backwards compatibility.
+* Added a /T switch to DIR to filter on
+  file types (PRG, SEQ, REL, USR, DEL).
+* Added a /C switch to TYPE to specify a
+  number of bytes or characters instead
+  of lines when used with /H and /T.
+  Additionally, /H and /T now work with
+  /HEX.
+* PAUSE can now be made to show a custom
+  message.
+* Added a safe boot hint on the
+  bootsplash.
+* Pressing RUN/STOP on the command
+  prompt will now erase the current
+  input, instead of creating a new
+  prompt.
 
   2.0 (03-Oct-2026)
 ----------------------------------------

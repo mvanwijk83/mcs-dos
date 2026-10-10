@@ -5,13 +5,13 @@ const groups = {
     unit: [
         'helpers', 'amount-switches', 'cache-capacity', 'concat-limits', 'delete-wildcards',
         'dir-sort', 'dir-filter', 'diskinit', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
-        'prompt', 'pause', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
+        'prompt', 'pause', 'run-command', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
     ].map(id => entry(id)),
     image: [entry('banked-image')],
     shell: [
         cartridge('commands', '--commands'), cartridge('find-files', '--find-redirection'),
         cartridge('delete-files', '--delete'), cartridge('initialize-disk', '--diskinit'),
-        entry('input-history'), entry('petscii-completion'), entry('sample-startup'),
+        entry('input-history'), entry('implicit-batch'), entry('petscii-completion'), entry('sample-startup'),
         entry('editor-session'), entry('copy-wildcards'), entry('find-vice'), entry('help-session'),
         cartridge('cartridge-workflow', '--banked')
     ],

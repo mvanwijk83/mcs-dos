@@ -897,13 +897,12 @@ void executecommand(char *s)
         if (!p1.name[0]) {
             drive = p1.dev;
             cachevalid = 0;
-        } else
-            error(SYSOUT_INVALID_DRIVE_SPEC);
-        return;
+            return;
+        }
     }
     id = commandid(args[0]);
     if (id < 0) {
-        say(SYSOUT_BAD_CMD_OR_FILE_NAME);
+        runcmd(1);
         return;
     }
     for (i = 1; i < argc; ++i)
@@ -999,7 +998,7 @@ void executecommand(char *s)
         renamecmd();
         break;
     case 19:
-        runcmd();
+        runcmd(0);
         break;
     case 20:
         typecmd(0);

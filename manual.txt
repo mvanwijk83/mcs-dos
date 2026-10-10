@@ -331,9 +331,16 @@ possible (think of it as the Ctrl-C
 equivalent).
 
   Running programs
+
 Native C64 programs or batch files can
-be started from the shell using the RUN
-command. Batch files run fully within
+be started from the shell simply by
+typing their name. Alternatively, an
+explicit RUN command can be used.
+Prior to version 2.1, this was the
+canonical MCS-DOS way to execute a
+program.
+
+Batch files run fully within
 the shell and return control after
 completion. Native program return is
 not guaranteed; it depends on their

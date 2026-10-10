@@ -38,7 +38,7 @@ static int tokenize(char *s) {argc=1;args[0]=s;return 1;}
 #define memcmd() ((void)0)
 #define typecmd(n) ((void)0)
 #define renamecmd() ((void)0)
-#define runcmd() ((void)0)
+#define runcmd(n) ((void)0)
 #define diskidcmd() ((void)0)
 #define setcmd(s) ((void)0)
 #define findcmd() ((void)0)

@@ -362,7 +362,8 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
         if (recall && mod && !oldmod) {
             oldmod = mod;
             if (!comp) {
-                /* Completion is only offered after a command token. */
+                /* Complete a filename in the first token too. A complete built-in
+                 * command still starts completion of its first argument. */
                 start = 0;
                 quoted = 0;
                 for (i = 0; i < pos; ++i) {
@@ -371,7 +372,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                     if (buf[i] == ' ' && !quoted)
                         start = i + 1;
                 }
-                if (!start) {
+                if (!start && commandid(buf) >= 0) {
                     if (!pos || pos != len || len + 1 >= max)
                         continue;
                     buf[pos++] = ' ';

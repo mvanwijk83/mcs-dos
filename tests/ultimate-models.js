@@ -128,18 +128,21 @@ static void print(const char *fmt, ...)
 /* Return a synthetic status-channel handle without opening a drive.
  *
  * dev: Synthetic device identifier. */
-static unsigned char statuschannel(unsigned char dev)
+static unsigned char drivefixture, probes14;
+static unsigned char drivepresent(unsigned char dev)
 {
-    return 0;
+    return drivefixture && (dev == 12 || dev == 14 || dev == 30);
 }
 
 /* Provide the synthetic drive family needed by this isolated test.
  *
  * dev: Device identifier.
  * report: Whether the caller requests an error report. */
-static unsigned char drivetype(unsigned char dev, unsigned char report)
+static unsigned char drivemodel(unsigned char dev, unsigned char report)
 {
-    return 0;
+    if (dev == 14)
+        ++probes14;
+    return dev == 12 ? DRIVE_CMD_HD : DRIVE_1541;
 }
 
 ${functions('sysinfo')}
@@ -232,7 +235,7 @@ int main(void)
     revision = 67;
     c128 = 1;
     vdc = 2;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "Commodore 64 personal computer\\n64 KB RAM") ||
         !strstr(output, "CPU:      MOS 6510 (FPGA)\\nBoard:    Commodore 64 Ultimate\\nKERNAL:") ||
         strstr(output, "portable"))
@@ -241,20 +244,20 @@ int main(void)
     revision = 3;
     c128 = 1;
     vdc = 2;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "Commodore 128DCR personal computer\\n128 KB RAM") ||
         !strstr(output, "CPU:      MOS 8502") || strstr(output, "Board:"))
         return 19;
     reset(0, "", "00,OK");
     c128 = 0;
     revision = 67;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "Commodore SX-64 portable computer"))
         return 20;
     reset(8, "ULTIMATE 64", "00,OK");
     revision = 3;
     c128 = 0;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "CPU:      MOS 6510 (FPGA)") || !strstr(output, "Board:    Ultimate 64"))
         return 21;
     reset(9, "ULTIMATE 64", "00,OK");
@@ -267,7 +270,7 @@ int main(void)
     window = 0xde1c;
     revision = 3;
     c128 = 0;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "CPU:      MOS 6510 (FPGA)") || !strstr(output, "Board:    Ultimate 64"))
         return 24;
     if (control != 2 || commandcount != 3)
@@ -280,6 +283,16 @@ int main(void)
     window = 0xde1c;
     if (ultimate() || writes)
         return 27;
+    reset(0, "", "");
+    drivefixture = 1;
+    sysinfo(0);
+    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: 1541") ||
+        !strstr(output, "Drive 14: Unknown device") || probes14)
+        return 28;
+    output[0] = 0;
+    sysinfo(1);
+    if (!strstr(output, "Drive 14: 1541") || probes14 != 1)
+        return 29;
     return 0;
 }
 `;

@@ -10,7 +10,7 @@ __noinline void bank_startupprompt(void);
 __noinline void bank_startupcolor(void);
 __noinline void bank_startupcharset(unsigned char device);
 __noinline void bank_bootsplash(unsigned char wait);
-__noinline void bank_sysinfo(void);
+__noinline void bank_sysinfo(unsigned char probe14);
 __noinline const char *bank_kernalname(void);
 __noinline unsigned char bank_romtext(unsigned int address, const char *text);
 __noinline const char *bank_ultimate(void);
@@ -109,14 +109,16 @@ __noinline const char *bank_ultimate(void)
  * the VDC status revision identifies DCR without changing VDC registers.
  *
  * Report computer, video timing, KERNAL and attached drive models using bounded hardware probes. */
-__noinline void bank_sysinfo(void)
+__noinline void bank_sysinfo(unsigned char probe14)
 {
     static const char *const models[] = {"",
                                          "1541 Floppy Drive",
                                          "1571 Floppy Drive",
                                          "1581 Floppy Drive",
                                          "1541-II Floppy Drive",
-                                         "1570 Floppy Drive"};
+                                         "1570 Floppy Drive",
+                                         "CMD HD Mass Storage Device",
+                                         "CMD FD Floppy Drive"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
     unsigned char dev, model, pal = 0, raster, previous;
     const char *kernal, *board = bank_ultimate();
@@ -163,13 +165,19 @@ __noinline void bank_sysinfo(void)
         say("KERNAL:   Revision 1");
     else
         print("KERNAL:   ROM ID %u\n", revision);
-    for (dev = 8; dev <= 11; ++dev) {
-        if (!statuschannel(dev))
+    for (dev = 8; dev <= 30; ++dev) {
+        if (!drivepresent(dev))
             continue;
-        model = drivetype(dev, 128);
-        if (!model)
+        /* Xetec printer interfaces on 14 may hang on M-R. Keep this safeguard
+         * in automatic enumeration; explicitly targeted disk commands work on 14. */
+        model = dev == 14 && !probe14 ? 0 : drivemodel(dev, 0);
+        if (!model) {
+            print("Drive %u: %sUnknown device\n", dev, dev < 10 ? " " : "");
             continue;
+        }
         print("Drive %u: %s%s\n", dev, dev < 10 ? " " : "", models[model]);
+        if (model >= DRIVE_CMD_HD)
+            continue;
         say(model == 3   ? "          3.5\" 800K DS/DD"
             : model == 2 ? "          5.25\" 340K DS/DD"
                          : "          5.25\" 170K SS/DD");
@@ -307,8 +315,8 @@ __noinline void bank_bootsplash(unsigned char wait)
     unsigned char x, y, oldlo, oldhi, remaining = 0, seconds;
     clock_t started;
     /* Reuse the boot bank gate for the shell's SYSINFO command. */
-    if (wait == 4) {
-        bank_sysinfo();
+    if (wait >= 4) {
+        bank_sysinfo(wait == 5);
         return;
     }
     /* Interactive SPLASH temporarily uses the default screen, which now
@@ -357,7 +365,7 @@ __noinline void bank_bootsplash(unsigned char wait)
         fg = 15;
         textcolor(fg);
         clear();
-        bank_sysinfo();
+        bank_sysinfo(0);
         newline();
         say("Starting MCS-DOS...\n");
         POKE(0x0318, oldlo);
@@ -474,6 +482,7 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
     envready = 0;
     envused = histcount = histnext = cachevalid = count = cmdslot = 0;
     environment[0] = line[0] = draft[0] = 0;
+    memset(keybindings, 0, sizeof(keybindings));
     strcpy(prompttext, "$p$c$g");
     batchpos = batchlen = 0;
     memset(eof, 0, sizeof(eof));

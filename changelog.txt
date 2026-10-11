@@ -10,6 +10,15 @@
   specifying their file name, as in
   classic DOS. The RUN command is
   retained for backwards compatibility.
+* Implemented limited CMD-FD/HD drive
+  support. Emulated 1541/1571/1581
+  partitions are fully supported. Basic
+  file operations work with native CMD
+  partitions, but subdirectories are not
+  supported. The DISKPART command was
+  added to list or select partitions.
+* Added KEY command to bind command text
+  to function keys.
 * Added a /T switch to DIR to filter on
   file types (PRG, SEQ, REL, USR, DEL).
 * Added a /C switch to TYPE to specify a
@@ -19,12 +28,15 @@
   /HEX.
 * PAUSE can now be made to show a custom
   message.
-* Added a safe boot hint on the
-  bootsplash.
 * Pressing RUN/STOP on the command
   prompt will now erase the current
   input, instead of creating a new
   prompt.
+* Added a safe boot hint on the
+  bootsplash.
+* The documentation .TXT files have been
+  replaced with a more extensive PDF
+  manual in the ZIP archive.
 
   2.0 (03-Oct-2026)
 ----------------------------------------

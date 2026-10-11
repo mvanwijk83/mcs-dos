@@ -273,7 +273,7 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
  * report: 0=quiet, 1=report errors, 128=return precise model instead of geometry. */
 __noinline unsigned char drivetype(unsigned char dev, unsigned char report)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    unsigned char previous = bank_enter(BANK_STORAGE);
     unsigned char result = bank_drivetype(dev, report);
     bank_leave(previous);
     return result;
@@ -636,4 +636,74 @@ __noinline unsigned char tokenize(char *s)
     unsigned char result = bank_tokenize(s);
     bank_leave(previous);
     return result;
+}
+
+__noinline void bank_keycmd(const char *s);
+
+/* Store or display function-key bindings; restore the caller's bank. */
+__noinline void keycmd(const char *s)
+{
+    unsigned char previous = bank_enter(BANK_EDIT);
+    bank_keycmd(s);
+    bank_leave(previous);
+}
+
+__noinline int bank_commandid(const char *s);
+
+/* Resolve built-ins and aliases in the editor bank. */
+__noinline int commandid(const char *s)
+{
+    unsigned char previous = bank_enter(BANK_EDIT);
+    int result = bank_commandid(s);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline void bank_execute(char *s);
+
+/* Parse output routing in the editor bank and restore the caller's mapping. */
+__noinline void execute(char *s)
+{
+    unsigned char previous = bank_enter(BANK_EDIT);
+    bank_execute(s);
+    bank_leave(previous);
+}
+
+__noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report);
+__noinline unsigned char bank_drivepresent(unsigned char dev);
+/* Test for an IEC listener without relying on an empty-name OPEN. */
+__noinline unsigned char drivepresent(unsigned char dev)
+{
+    unsigned char previous = bank_enter(BANK_STORAGE);
+    unsigned char result = bank_drivepresent(dev);
+    bank_leave(previous);
+    return result;
+}
+
+/* Identify the physical device without assuming its current partition geometry. */
+__noinline unsigned char drivemodel(unsigned char dev, unsigned char report)
+{
+    unsigned char previous = bank_enter(BANK_STORAGE);
+    unsigned char result = bank_drivemodel(dev, report);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_drivemode(unsigned char dev, unsigned char doublesided);
+/* Dispatch mode preparation to the physical device backend. */
+__noinline unsigned char drivemode(unsigned char dev, unsigned char doublesided)
+{
+    unsigned char previous = bank_enter(BANK_STORAGE);
+    unsigned char result = bank_drivemode(dev, doublesided);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline void bank_diskpartcmd(void);
+/* List or select CMD partitions while restoring the caller's bank. */
+__noinline void diskpartcmd(void)
+{
+    unsigned char previous = bank_enter(BANK_STORAGE);
+    bank_diskpartcmd();
+    bank_leave(previous);
 }

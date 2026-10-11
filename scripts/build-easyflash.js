@@ -47,12 +47,12 @@ const code=map.match(/^([\da-f]+) - ([\da-f]+) : DATA, code/m);
 // Filesystem calls temporarily expose ROML too; resident services must be
 // below $8000 even though persistent data may extend through $9FFF.
 if(!code||parseInt(code[2],16)>0x8000)throw Error('Resident code overlaps filesystem ROML');
-const commandBanks=['edit','fileutil','filemgmt','disk','boot'].map((name,i)=>{
+const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage'].map((name,i)=>{
  const sections=[...map.matchAll(new RegExp(`^([\\da-f]+) - ([\\da-f]+) : DATA, ${name}_(?:code|data)$`,'gm'))]
   .map(m=>[parseInt(m[1],16),parseInt(m[2],16)]).filter(([a,b])=>b>a);
  if(!sections.length||sections.some(([a,b])=>a<0xa000||b>0xc000))throw Error('Command bank overflow: '+name);
  const used=Math.max(...sections.map(s=>s[1]))-0xa000;
- return {name,bank:i+5,used,free:8192-used};
+ return {name,bank:i===5?12:i+5,used,free:8192-used};
 });
 const prg=fs.readFileSync(`${out}/shell.prg`),payload=prg.subarray(2);
 const entry=Number(prg.subarray(6,32).toString('latin1').match(/\x9e(\d+)\x00/)[1]);
@@ -96,7 +96,7 @@ payload.copy(rom,16384);
 const banks=fs.readFileSync(`${out}/shell-crt.crt`);
 for(let at=64;at<banks.length;at+=banks.readUInt32BE(at+4)){
  const bank=banks.readUInt16BE(at+10),address=banks.readUInt16BE(at+12),length=banks.readUInt16BE(at+14);
- if(bank>=5&&bank<=9)banks.copy(rom,bank*16384+address-0x8000,at+16,at+16+length);
+ if((bank>=5&&bank<=9)||bank===12)banks.copy(rom,bank*16384+address-0x8000,at+16,at+16+length);
 }
 const driver=fs.readFileSync(`${out}/fs.bin`); if(driver.length>0x3f00)throw Error('Driver bank overflow'); driver.copy(rom,4*16384);
 const executableBytes=prg.length+commandBanks.reduce((n,b)=>n+b.used,0);
@@ -114,7 +114,7 @@ for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
 const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.1',32);
 const packets=[header];
 // Include complete filesystem and session sectors, including erased sides.
-for(let bank=0;bank<64;bank++)if(bank<=11||bank>=48)for(let chip=0;chip<2;chip++){
+for(let bank=0;bank<64;bank++)if(bank<=12||bank>=48)for(let chip=0;chip<2;chip++){
  const h=Buffer.alloc(16);h.write('CHIP');h.writeUInt32BE(8208,4);h.writeUInt16BE(2,8);h.writeUInt16BE(bank,10);h.writeUInt16BE(chip?0xa000:0x8000,12);h.writeUInt16BE(8192,14);
  packets.push(h,rom.subarray(bank*16384+chip*8192,bank*16384+(chip+1)*8192));
 }
@@ -123,7 +123,7 @@ fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
 fs.writeFileSync(`${out}/layout.json`,JSON.stringify({entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
- wedge:wedge.length,sessionBytes:3349,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
+ wedge:wedge.length,sessionBytes:3605,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
  freeRam:0xa000-bssEnd+0x400,freeRanges:[[bssEnd,0xa000],[0xc300,0xc700]],
  helpBank:10,helpBytes:help.length,filesystemVersion:3,used,fileBytes,available},null,2));
 console.log('Built '+out+'/MCS-DOS.crt');

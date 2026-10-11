@@ -160,6 +160,12 @@ static int bam(int d)
     return 1;
 }
 
+/* Supported geometry lets validation reach the command-channel fixture. */
+static unsigned char drivetype(unsigned char d, unsigned char report)
+{
+    return 1;
+}
+
 static unsigned char model = 1;
 
 /* Supply the configured drive model so report formatting can be tested independently.

@@ -75,6 +75,10 @@ MCS-DOS main features:
   CONFIG.SYS.
 * Some batch file support.
 * Supports multiple attached drives and
+  multiple models: 1541, 1541-II, 1570,
+  1571, 1581, and CMD-FD/HD emulation
+  partitions.
+* Supports multiple attached drives and
   multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and
   addressed with DOS-style drive
@@ -97,13 +101,10 @@ and architectural differences with IBM
 PC-compatibles. Some notable limitations
 and omissions include:
 
-* No subdirectory support. This is a
-  limitation of the CBM-DOS file system.
-* No support for hard disks, SD2IEC,
-  Ultimate storage, etc. Only standard
-  CBM-formatted floppy disks are
-  supported, so no GEOS disks or other
-  custom formats either.
+* No subdirectory support.
+* No support for SD2IEC, IDE64, Ultimate
+  storage, etc. Only standard CBM disk
+  formats are fully supported.
 * Automatic return from native programs
   depends on their exit implementation
   (if any) and whether they don't over-
@@ -388,7 +389,10 @@ drive numbers 4 and 5 can be specified,
 or DOS aliases LPT1 and LPT2.
 
 Supported floppy drive models are 1541,
-1541-II, 1570, 1571 and 1581.
+1541-II, 1570, 1571 and 1581. There is
+also provisional support for emulation
+partitions on Creative Micro Designs'
+CMD-FD and HD drives.
 
 Datasette (tape) support is present in
 the form of the TAPECOPY command which
@@ -467,8 +471,6 @@ DIR [drive:][pattern]
 DISKCOPY source: destination:
   Copies the contents of a disk to
   another.
-  Source and destination drives must
-  be of the same type.
 
 DISKID [drive:] [id]
   Changes the drive's two-character ID.
@@ -476,6 +478,9 @@ DISKID [drive:] [id]
 DISKINIT [drive:]
   Resets disk drive state and forces a
   reread of the directory.
+
+DISKPART [drive:] [n]
+  Lists or selects CMD partitions.
 
 ECHO [ON | OFF]
 ECHO [message]
@@ -495,6 +500,9 @@ FORMAT drive:
 
 HELP [command]
   Displays help on MCS-DOS commands.
+
+KEY [/Fn:[command] ...] [/CLEAR:[n]]
+  Binds command text to function keys.
 
 LABEL [drive:] [label]
   Creates, changes, or deletes the
@@ -539,9 +547,15 @@ SET /ENV
 SPLASH
   Shows the MCS-DOS splash screen.
 
-SYSINFO
+SYSINFO [/PROBE14]
   Provides technical information about
   your computer.
+  Enumerates responding devices 8-30.
+  Device 14 is listed without a ROM
+  probe by default: some printer
+  interfaces hang on this command.
+  /PROBE14 enables identification when
+  device 14 is known to be a disk drive.
 
 TAPECOPY [filename] [drive:]
   Loads and transfers one or more files

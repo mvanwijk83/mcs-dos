@@ -55,7 +55,7 @@ static unsigned int ss_word(unsigned char slot, unsigned char offset)
 static unsigned char ss_header(unsigned char slot)
 {
     return ss_get(slot, 0) == 77 && ss_get(slot, 1) == 83 && ss_get(slot, 2) == 83 &&
-           ss_get(slot, 3) == 1 && ss_word(slot, 6) == SESSION_SIZE && ss_get(slot, 15) == 0xa5;
+           ss_get(slot, 3) == SESSION_VERSION && ss_word(slot, 6) == SESSION_SIZE && ss_get(slot, 15) == 0xa5;
 }
 
 /* Calculate the entire selected session payload CRC before any restore is allowed. */
@@ -110,7 +110,7 @@ static void session_store(unsigned char op)
         ss_put(0, 77);
         ss_put(1, 83);
         ss_put(2, 83);
-        ss_put(3, 1);
+        ss_put(3, SESSION_VERSION);
         ss_put(4, ss_gen);
         ss_put(5, ss_gen >> 8);
         ss_put(6, SESSION_SIZE & 255);

@@ -7,6 +7,7 @@
 #include "cart.h"
 #include "banking.h"
 #include "session.h"
+#include "storage.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
@@ -21,6 +22,8 @@ extern unsigned char resume_requested;
 #define MAXARGS 33
 #define ENVVALUE 32
 #define ENVSIZE 512
+#define KEYBUFSIZE 256
+#define FUNCTIONKEYS 7
 #define VERSION "2.1"
 #include "sysout.h"
 
@@ -51,6 +54,7 @@ extern unsigned char pagelines, aborted, editprompt;
 extern unsigned int screenbase;
 extern char environment[ENVSIZE];
 extern unsigned int envused;
+extern char keybindings[KEYBUFSIZE];
 extern unsigned char envready;
 extern char line[LINE], history[10][LINE], draft[LINE];
 extern char prompttext[ENVVALUE + 1];
@@ -80,7 +84,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators, validate;
-#define COMMANDCOUNT 32
+#define COMMANDCOUNT 34
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */
@@ -155,6 +159,7 @@ void findcmd(void);
 void editcmd(void);
 void runbatch(void);
 void runcmd(unsigned char implicit);
+void keycmd(const char *s);
 unsigned char blockio(unsigned char dev, unsigned char track, unsigned char sector,
                       unsigned char writing);
 unsigned char rawopen(unsigned char dev);

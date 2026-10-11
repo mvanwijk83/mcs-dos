@@ -14,7 +14,7 @@ function packets(file) {
 const image = packets(base + 'MCS-DOS.crt'), linked = packets(base + 'shell-crt.crt');
 assert(fs.readFileSync(base + 'shell-prg.asm').equals(fs.readFileSync(base + 'shell-crt.asm')));
 assert.deepEqual(
-    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot']);
+    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage']);
 for (const b of layout.commandBanks) {
     assert(b.used > 0 && b.used <= 8192);
     assert.equal(b.used + b.free, 8192);
@@ -42,7 +42,7 @@ assert(layout.bssEnd <= 0xa000);
 assert.deepEqual(layout.romWindow, {start: 0xa000, end: 0xc000});
 assert(layout.wedge > 0 && layout.wedge <= 0x1e0, 'wedge must not overlap resume token');
 assert.deepEqual(layout.sessionBanks, [48, 55]);
-assert.equal(layout.sessionBytes, 3349);
+assert.equal(layout.sessionBytes, 3605);
 assert.deepEqual(layout.freeRanges[1], [0xc300, 0xc700]);
 for (let bank = 48; bank <= 55; bank++)
     for (const address of [0x8000, 0xa000]) {

@@ -11,6 +11,118 @@ __noinline void bank_editnumber(unsigned int address, unsigned char n);
 __noinline void bank_renderedit(void);
 __noinline void bank_editcmd(void);
 
+/* Locate one string in the packed F1..F7 table. */
+__noinline char *bank_keytext(char *table, unsigned char key)
+{
+    while (--key)
+        table += strlen(table) + 1;
+    return table;
+}
+
+/* Recognize KEY's option boundaries without splitting commands such as DIR/W. */
+__noinline unsigned char bank_keyswitch(const char *s)
+{
+    return *s == '/' && ((toupper(s[1]) == 'F' && s[2] >= '0' && s[2] <= '9') ||
+                         !strnicmp(s, "/CLEAR", 6));
+}
+
+/* Display only bound keys, using the same layout for lists and individual queries. */
+__noinline void bank_keyshow(char *table, unsigned char key)
+{
+    char *text = bank_keytext(table, key);
+    if (*text)
+        print("  F%u  %s\n", (unsigned int)key, text);
+}
+
+/* Apply a complete KEY request to a scratch copy before publishing any changes.
+ * Commands remain unparsed so spaces, quotes and filename switches survive. */
+__noinline void bank_keycmd(const char *s)
+{
+    char *table = workspace, *old, *last;
+    const char *text, *end, *next;
+    unsigned int used, before, size, length;
+    unsigned char key, quoted, clearing;
+    while (*s == ' ')
+        ++s;
+    if (!*s) {
+        for (key = 1; key <= FUNCTIONKEYS; ++key)
+            bank_keyshow(keybindings, key);
+        return;
+    }
+    memcpy(table, keybindings, KEYBUFSIZE);
+    while (*s) {
+        clearing = 0;
+        if (!strnicmp(s, "/CLEAR", 6)) {
+            s += 6;
+            if (!*s || *s == ' ') {
+                memset(table, 0, KEYBUFSIZE);
+                while (*s == ' ')
+                    ++s;
+                continue;
+            }
+            if (*s++ != ':' || *s < '1' || *s > '7' || (s[1] && s[1] != ' '))
+                goto invalid;
+            key = *s++ - '0';
+            clearing = 1;
+            text = end = s;
+        } else {
+            if (*s != '/' || toupper(s[1]) != 'F' || s[2] < '1' || s[2] > '7' ||
+                (s[3] && s[3] != ':' && s[3] != ' '))
+                goto invalid;
+            key = s[2] - '0';
+            s += 3;
+            if (*s == ':')
+                ++s;
+            while (*s == ' ')
+                ++s;
+            if (!*s || bank_keyswitch(s)) {
+                bank_keyshow(table, key);
+                continue;
+            }
+            text = end = s;
+            quoted = 0;
+            while (*end) {
+                if (*end == '"')
+                    quoted = !quoted;
+                if (*end == ' ' && !quoted) {
+                    next = end;
+                    while (*next == ' ')
+                        ++next;
+                    if (bank_keyswitch(next))
+                        break;
+                }
+                ++end;
+            }
+            s = end;
+            while (end > text && end[-1] == ' ')
+                --end;
+        }
+        length = clearing ? 0 : end - text;
+        if (length >= LINE) {
+            error(SYSOUT_KEY_TOO_LONG);
+            return;
+        }
+        old = bank_keytext(table, key);
+        last = bank_keytext(table, FUNCTIONKEYS);
+        used = last - table + strlen(last) + 1;
+        before = old - table;
+        size = strlen(old) + 1;
+        if (used - size + length + 1 > KEYBUFSIZE) {
+            error(SYSOUT_KEY_FULL);
+            return;
+        }
+        memmove(old + length + 1, old + size, used - before - size);
+        memcpy(old, text, length);
+        old[length] = 0;
+        while (*s == ' ')
+            ++s;
+    }
+    memcpy(keybindings, table, KEYBUFSIZE);
+    return;
+invalid:
+    error(SYSOUT_INVALID_SWITCH);
+}
+
 /* Clear and select the reverse-video editor status line. */
 __noinline void bank_editstatus(void)
 {
@@ -287,6 +399,26 @@ done:
     editprompt = 0;
 }
 
+/* The KERNAL's CTRL table maps function keys to $ff, so GETIN never
+ * receives them. Use its physical scan index instead, once per key press.
+ * Keep the latch across prompts so a held shortcut cannot execute twice. */
+__noinline unsigned char bank_controlkey(void)
+{
+    static unsigned char down;
+    unsigned char key = PEEK(197), mod = PEEK(653), c;
+    if (!(mod & 4))
+        key = 64;
+    if (key == down)
+        return 0;
+    down = key;
+    if (key < 3 || key > 6)
+        return 0;
+    c = key == 3 ? 136 : 133 + key - 4;
+    if (mod & 1)
+        c += 4;
+    return c;
+}
+
 /* One-row horizontal viewport, with an 64-character command behind it.
  *
  * Read an editable command line with completion and optional history; return zero on
@@ -306,7 +438,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
     unsigned char mod, quoted;
     Path cp;
     clock_t blink;
-    unsigned char visible = 1;
+    unsigned char visible = 1, accept = 0, control;
     /* Leave room for one bank_input character and its caret after a long prompt. */
     if (!w) {
         newline();
@@ -434,10 +566,34 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
             continue;
         }
         oldmod = mod;
-        if (!kbhit())
-            continue;
-        c = getch();
+        control = 0;
+        if (accept)
+            c = CH_ENTER;
+        else if (kbhit())
+            c = getch();
+        else {
+            c = recall && !editprompt ? bank_controlkey() : 0;
+            if (!c)
+                continue;
+            control = 1;
+        }
+        accept = 0;
         comp = 0;
+        if (recall && !editprompt && c >= 133 && c <= 139) {
+            const char *binding;
+            n = c <= 136 ? (c - 133) * 2 + 1 : (c - 137) * 2 + 2;
+            binding = bank_keytext(keybindings, n);
+            if (*binding) {
+                strcpy(buf, binding);
+                memset(rawline, 0, sizeof(rawline));
+                pos = strlen(buf);
+                view = 0;
+                h = histcount;
+                dirty = 1;
+                accept = control || (PEEK(653) & 4) != 0;
+            }
+            continue;
+        }
         if (c == CH_STOP && recall && !editprompt) {
             buf[0] = draft[0] = 0;
             memset(rawline, 0, sizeof(rawline));
@@ -530,6 +686,171 @@ __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char
             rawset(rawline, i, rawget(rawline, i - 1));
         rawset(rawline, pos, 0);
     }
+}
+
+/* Resolve a command or alias; return its commands index, or -1 if unknown.
+ *
+ * s: Terminated command name, compared without case sensitivity. */
+__noinline int bank_commandid(const char *s)
+{
+    unsigned char i;
+    if (!stricmp(s, "DELETE") || !stricmp(s, "ERASE"))
+        return 4;
+    if (!stricmp(s, "RENAME"))
+        return 18;
+    if (!stricmp(s, "VERSION"))
+        return 22;
+    for (i = 0; i < COMMANDCOUNT; ++i)
+        if (!stricmp(s, commands[i]))
+            return i;
+    return -1;
+}
+
+/* One destination per built-in command. Keep the wrapper responsible for
+ * closing output even when command handlers return early.
+ *
+ * Separate output redirection, execute the command, then close and finalize its output.
+ *
+ * s: Writable command line; redirection markers may be replaced with terminators. */
+__noinline void bank_execute(char *s)
+{
+    char *r, *op = 0, *target, *end;
+    unsigned char quote = 0, append = 0, helping;
+    int id, i;
+    aborted = 0;
+    /* KEY stores redirection text rather than opening its future destination. */
+    r = s;
+    while (*r == ' ' || *r == '@')
+        ++r;
+    if (!strnicmp(r, "KEY ", 4)) {
+        executecommand(s);
+        return;
+    }
+    for (r = s; *r; ++r) {
+        if (*r == '"')
+            quote = !quote;
+        else if (*r == '>' && !quote) {
+            if (op) {
+                error(SYSOUT_MULTIPLE_REDIR);
+                return;
+            }
+            op = r;
+            if (r[1] == '>') {
+                append = 1;
+                ++r;
+            }
+        }
+    }
+    if (!op) {
+        executecommand(s);
+        return;
+    }
+    if (quote) {
+        error(SYSOUT_SYNTAX_ERR);
+        return;
+    }
+    target = op + 1 + append;
+    *op = 0;
+    end = op;
+    while (end > s && end[-1] == ' ')
+        *--end = 0;
+    while (*s == ' ' || *s == '@')
+        ++s;
+    if (!tokenize(s) || !argc) {
+        error(SYSOUT_SYNTAX_ERR);
+        return;
+    }
+    id = commandid(args[0]);
+    if (!stricmp(args[0], "ECHO."))
+        id = 7;
+    helping = id == 11;
+    for (i = 1; i < argc; ++i)
+        if (!argquoted[i] && !strcmp(args[i], "/?"))
+            helping = 1;
+    if (helping || (id != 1 && id != 5 && id != 7 && id != 13 && id != 20 && id != 28)) {
+        error(SYSOUT_REDIR_NOT_SUPPORTED);
+        return;
+    }
+    /* Resolve file inputs before opening/truncating any destination. */
+    if (id == 20 || id == 28) {
+        unsigned char mode;
+        unsigned long limit;
+        char *needle;
+        if (id == 28) {
+            if (!findoptions(&mode, &needle))
+                return;
+        } else {
+            if (!typeoptions(&mode, &limit)) {
+                error(SYSOUT_SYNTAX_TYPE);
+                return;
+            }
+            if (!path(args[1], &p1))
+                return;
+        }
+        i = findfile(&p1);
+        if (i < 0) {
+            if (i == -1)
+                error(SYSOUT_FILE_NOT_FOUND);
+            return;
+        }
+        if (directory_entries[i].type != CBM_T_SEQ && directory_entries[i].type != CBM_T_PRG &&
+            directory_entries[i].type != CBM_T_USR) {
+            error(SYSOUT_UNSUPPORTED_FILE_TYPE);
+            return;
+        }
+    }
+    if (!tokenize(target) || argc != 1) {
+        error(SYSOUT_INVALID_DEST);
+        return;
+    }
+    if (!stricmp(args[0], "LPT1") || !stricmp(args[0], "LPT2")) {
+        error(SYSOUT_PRINTER_REDIR);
+        return;
+    }
+    if (!path(args[0], &outputpath))
+        return;
+    if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
+        error(SYSOUT_INVALID_DEST);
+        return;
+    }
+    if ((id == 20 || id == 28) && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
+        error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
+        return;
+    }
+    cachevalid = 0;
+    i = findfile(&outputpath);
+    if (i == -2)
+        return;
+    if (i >= 0 && directory_entries[i].type != CBM_T_SEQ) {
+        error(SYSOUT_DEST_MUST_BE_SEQ);
+        return;
+    }
+    /* Delay truncation until syntax, source type and self-redirection checks have all passed. */
+    if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
+        return;
+    if (!statuschannel(outputpath.dev)) {
+        error(SYSOUT_DRIVE_NOT_READY);
+        return;
+    }
+    snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, append && i >= 0 ? 'a' : 'w');
+    if (channel_open(5, outputpath.dev, 5, diskcmd) != 0) {
+        channel_close(5);
+        error(SYSOUT_WRITE_FAULT_ERR);
+        return;
+    }
+    if (diskstatus(outputpath.dev, 1) >= 20) {
+        channel_close(5);
+        return;
+    }
+    outputused = outputfailed = outputcol = 0;
+    redirected = 1;
+    executecommand(s);
+    /* Command handlers may return early; this outer path still flushes and closes their output. */
+    outputflush();
+    redirected = 0;
+    channel_close(5);
+    cachevalid = 0;
+    diskstatus(outputpath.dev, 1);
 }
 
 #pragma code(code)

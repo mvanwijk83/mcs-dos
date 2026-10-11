@@ -4,14 +4,14 @@ const cartridge = (id, ...args) => entry(id, 'easyflash', args);
 const groups = {
     unit: [
         'helpers', 'amount-switches', 'cache-capacity', 'concat-limits', 'delete-wildcards',
-        'dir-sort', 'dir-filter', 'diskinit', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
-        'prompt', 'pause', 'run-command', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
+        'dir-sort', 'dir-filter', 'diskinit', 'diskpart', 'cmd-storage', 'cmd-part-directory', 'cmd-free', 'format-label', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
+        'prompt', 'pause', 'run-command', 'key-bindings', 'key-input', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
     ].map(id => entry(id)),
     image: [entry('banked-image')],
     shell: [
         cartridge('commands', '--commands'), cartridge('find-files', '--find-redirection'),
         cartridge('delete-files', '--delete'), cartridge('initialize-disk', '--diskinit'),
-        entry('input-history'), entry('implicit-batch'), entry('filename-completion'), entry('petscii-completion'), entry('sample-startup'),
+        entry('input-history'), entry('key-session'), entry('key-scanner'), entry('implicit-batch'), entry('filename-completion'), entry('petscii-completion'), entry('sample-startup'),
         entry('editor-session'), entry('copy-wildcards'), entry('find-vice'), entry('help-session'),
         cartridge('cartridge-workflow', '--banked')
     ],
@@ -41,6 +41,8 @@ const groups = {
         [cartridge('tape-transfer', '--tape'), cartridge('tape-search', '--tape', '--tape-search')]
 };
 groups.all = Object.values(groups).flat();
+// Private CMD ROM/utilities are optional and are never redistributed.
+groups.cmd = [entry('cmd-hd'), entry('cmd-rel'), entry('cmd-sysinfo'), entry('cmd-overview')];
 groups.smoke = ['banked-image', 'commands', 'basic-session', 'sysinfo-pal'].map(
     id => groups.all.find(test => test.id === id));
 module.exports = groups;

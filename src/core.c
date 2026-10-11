@@ -14,6 +14,8 @@ unsigned char pagelines, aborted, editprompt;
 unsigned int screenbase = 0x0400;
 char environment[ENVSIZE];
 unsigned int envused;
+/* Seven terminated strings, in F1..F7 order, packed into one 256-byte buffer. */
+char keybindings[KEYBUFSIZE];
 /* Behavioral settings remain inactive until AUTOEXEC has unwound. */
 unsigned char envready;
 char line[LINE], history[10][LINE], draft[LINE];
@@ -55,7 +57,7 @@ const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "DISKPART"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -799,24 +801,6 @@ void memcmd(void)
     print(SYSOUT_MEM_FREE, decimal(freememory()));
 }
 
-/* Resolve a command or alias; return its commands index, or -1 if unknown.
- *
- * s: Terminated command name, compared without case sensitivity. */
-int commandid(const char *s)
-{
-    unsigned char i;
-    if (!stricmp(s, "DELETE") || !stricmp(s, "ERASE"))
-        return 4;
-    if (!stricmp(s, "RENAME"))
-        return 18;
-    if (!stricmp(s, "VERSION"))
-        return 22;
-    for (i = 0; i < COMMANDCOUNT; ++i)
-        if (!stricmp(s, commands[i]))
-            return i;
-    return -1;
-}
-
 /* Validate and dispatch one command using the shared argument and path workspaces.
  *
  * s: Writable command text, including any switches. */
@@ -840,17 +824,21 @@ void executecommand(char *s)
         newline();
         return;
     }
-    /* ECHO and REM retain their unparsed text. */
+    /* Commands with literal text bypass tokenization. */
     tail = strchr(s, ' ');
     if (tail) {
         c = *tail;
         *tail = 0;
         id = commandid(s);
         *tail = c;
-        if (id == 7 || id == 17 || id == 24 || id == 15) {
+        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32) {
             ++tail;
             if (!strcmp(tail, "/?")) {
                 help(id);
+                return;
+            }
+            if (id == 32) {
+                keycmd(tail);
                 return;
             }
             if (id == 15) {
@@ -911,6 +899,12 @@ void executecommand(char *s)
             return;
         }
     switch (id) {
+    case 33:
+        diskpartcmd();
+        break;
+    case 32:
+        keycmd("");
+        break;
     case 0:
         ms = argc > 1 ? strtoul(args[1], &end, 10) : 200;
         if (argc > 2 || (argc > 1 && (!args[1][0] || *end)) || ms > 60000UL) {
@@ -1039,151 +1033,18 @@ void executecommand(char *s)
         attribcmd();
         break;
     case 27:
-    case 31:
         if (argc != 1) {
             error(SYSOUT_INVALID_PARAM);
             break;
         }
-        bootsplash(id & 4); /* SPLASH=27 -> 0, SYSINFO=31 -> 4. */
+        bootsplash(0);
+        break;
+    case 31:
+        if (argc > 2 || (argc == 2 && stricmp(args[1], "/probe14"))) {
+            error(SYSOUT_INVALID_PARAM);
+            break;
+        }
+        bootsplash(argc == 2 ? 5 : 4);
         break;
     }
-}
-
-/* One destination per built-in command. Keep the wrapper responsible for
- * closing output even when command handlers return early.
- *
- * Separate output redirection, execute the command, then close and finalize its output.
- *
- * s: Writable command line; redirection markers may be replaced with terminators. */
-void execute(char *s)
-{
-    char *r, *op = 0, *target, *end;
-    unsigned char quote = 0, append = 0, helping;
-    int id, i;
-    aborted = 0;
-    for (r = s; *r; ++r) {
-        if (*r == '"')
-            quote = !quote;
-        else if (*r == '>' && !quote) {
-            if (op) {
-                error(SYSOUT_MULTIPLE_REDIR);
-                return;
-            }
-            op = r;
-            if (r[1] == '>') {
-                append = 1;
-                ++r;
-            }
-        }
-    }
-    if (!op) {
-        executecommand(s);
-        return;
-    }
-    if (quote) {
-        error(SYSOUT_SYNTAX_ERR);
-        return;
-    }
-    target = op + 1 + append;
-    *op = 0;
-    end = op;
-    while (end > s && end[-1] == ' ')
-        *--end = 0;
-    while (*s == ' ' || *s == '@')
-        ++s;
-    if (!tokenize(s) || !argc) {
-        error(SYSOUT_SYNTAX_ERR);
-        return;
-    }
-    id = commandid(args[0]);
-    if (!stricmp(args[0], "ECHO."))
-        id = 7;
-    helping = id == 11;
-    for (i = 1; i < argc; ++i)
-        if (!argquoted[i] && !strcmp(args[i], "/?"))
-            helping = 1;
-    if (helping || (id != 1 && id != 5 && id != 7 && id != 13 && id != 20 && id != 28)) {
-        error(SYSOUT_REDIR_NOT_SUPPORTED);
-        return;
-    }
-    /* Resolve file inputs before opening/truncating any destination. */
-    if (id == 20 || id == 28) {
-        unsigned char mode;
-        unsigned long limit;
-        char *needle;
-        if (id == 28) {
-            if (!findoptions(&mode, &needle))
-                return;
-        } else {
-            if (!typeoptions(&mode, &limit)) {
-                error(SYSOUT_SYNTAX_TYPE);
-                return;
-            }
-            if (!path(args[1], &p1))
-                return;
-        }
-        i = findfile(&p1);
-        if (i < 0) {
-            if (i == -1)
-                error(SYSOUT_FILE_NOT_FOUND);
-            return;
-        }
-        if (directory_entries[i].type != CBM_T_SEQ && directory_entries[i].type != CBM_T_PRG &&
-            directory_entries[i].type != CBM_T_USR) {
-            error(SYSOUT_UNSUPPORTED_FILE_TYPE);
-            return;
-        }
-    }
-    if (!tokenize(target) || argc != 1) {
-        error(SYSOUT_INVALID_DEST);
-        return;
-    }
-    if (!stricmp(args[0], "LPT1") || !stricmp(args[0], "LPT2")) {
-        error(SYSOUT_PRINTER_REDIR);
-        return;
-    }
-    if (!path(args[0], &outputpath))
-        return;
-    if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
-        error(SYSOUT_INVALID_DEST);
-        return;
-    }
-    if ((id == 20 || id == 28) && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
-        error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
-        return;
-    }
-    cachevalid = 0;
-    i = findfile(&outputpath);
-    if (i == -2)
-        return;
-    if (i >= 0 && directory_entries[i].type != CBM_T_SEQ) {
-        error(SYSOUT_DEST_MUST_BE_SEQ);
-        return;
-    }
-    /* Delay truncation until syntax, source type and self-redirection checks have all passed. */
-    if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
-        return;
-    if (!statuschannel(outputpath.dev)) {
-        error(SYSOUT_DRIVE_NOT_READY);
-        return;
-    }
-    snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, append && i >= 0 ? 'a' : 'w');
-    if (channel_open(5, outputpath.dev, 5, diskcmd) != 0) {
-        channel_close(5);
-        error(SYSOUT_WRITE_FAULT_ERR);
-        return;
-    }
-    if (diskstatus(outputpath.dev, 1) >= 20) {
-        channel_close(5);
-        return;
-    }
-    outputused = outputfailed = outputcol = 0;
-    redirected = 1;
-    executecommand(s);
-    /* Command handlers may return early; this outer path still flushes and closes their output. */
-    outputflush();
-    redirected = 0;
-    channel_close(5);
-    cachevalid = 0;
-    diskstatus(outputpath.dev, 1);
 }

@@ -49,13 +49,25 @@ selected suite names and entry points without running them; `--help` prints usag
 | `session` | BASIC handoff, shell restoration, program return and save faults | VICE |
 | `hardware` | Formatting/screen support, stock ROM probes, machine/drive reports, startup display and fonts | Oscar64 and VICE |
 | `drives` | D64/D71/D81 copies, large directories, REL records, formatting and incompatible media | VICE |
+| `cmd` | ROM-backed CMD HD detection, partitions, files, REL records, raw copies, formatting and native-format refusal | VICE and privately supplied CMD ROM/utilities |
 | `tape` | Real KERNAL pulse decoding, PRG/SEQ transfer, search, cancellation and failed-transfer cleanup | VICE |
 | `smoke` | Image, command, BASIC session and PAL machine checks | VICE |
-| `all` | Every suite above, including drives and tape | Oscar64 and VICE |
+| `all` | Standard suites, including drives and tape; excludes optional `cmd` | Oscar64 and VICE |
 
 Drive formatting/copying and tape pulse decoding can take several minutes per
 suite. Use named suites or feature groups while developing; run `all` for complete
 release coverage. The runner does not silently skip slow tests or retry failures.
+
+The optional `node tests/run.js cmd` suite needs a CMD HD boot ROM and the CMD
+HD Utilities D64 containing `CREATE SYS`. Set `CMD_HD_ROM` and `CMD_HD_UTILITIES`,
+or place them at `assets/cmd_hd_bootrom_v2.80.bin` and `assets/hd-utilities.d64`.
+The ROM may be 16 KiB or a 32 KiB dump containing two identical copies. The suite
+installs DOS using the utility, then builds disposable partition fixtures using
+the [VICE DHD format](https://vice-emu.sourceforge.io/vice_17.html#DHD).
+It compares disk bytes after copying and verifies that formatting leaves other
+partitions intact. ROMs and initialized DOS images remain in ignored directories.
+CMD FD protocol handling is covered by unit fixtures; this suite emulates an HD.
+Neither coverage substitutes for testing on physical CMD hardware.
 
 ## Fixtures, diagnostics and contributing
 
@@ -102,3 +114,10 @@ JavaScript formatting is configured in `.clang-format` within this directory;
 it uses four spaces and a 100-column limit. Embedded C fixtures follow the root
 K&R configuration, with explanatory comments around mocks and boundary cases.
 Formatting is optional for running tests.
+
+`cmd-sysinfo` repeats SYSINFO twenty times with only a CMD HD at device 8,
+then checks CHKDSK model names for all three emulation formats.
+
+`cmd-overview` checks the 40-column partition table, DOS free counts for all
+three emulation formats and Native mode, file allocation changes, and preservation
+of the selected partition. `cmd-free` covers count conversion and error cleanup.

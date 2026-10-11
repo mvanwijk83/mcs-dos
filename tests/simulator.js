@@ -9,6 +9,7 @@ module.exports = function simulate(source) {
     // Include the actual production helpers, while leaving disk/screen I/O mocked.
     const helpers =
         '#include "../src/sysout.h"\n#include <string.h>\n#include <ctype.h>\n#include <stdarg.h>\n' +
+        fs.readFileSync('src/storage.h', 'utf8').split('\n').filter(s => s.startsWith('#define DRIVE_')).join('\n') + '\n' +
         'typedef const char *StringPtr;\n' +
         support.slice(support.indexOf('char *strpbrk('), support.indexOf('void screen_reverse(')) +
         support.slice(support.indexOf('int vsnprintf('));

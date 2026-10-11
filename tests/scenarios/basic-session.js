@@ -38,11 +38,11 @@ function journal(file, replace) {
 }
 function record(bytes, slot) {
     const b = bytes.subarray(slot * 4096, (slot + 1) * 4096);
-    assert.equal(b.subarray(0, 4).toString('hex'), '4d535301');
+    assert.equal(b.subarray(0, 4).toString('hex'), '4d535302');
     assert.equal(b[15], 0xa5);
-    assert.equal(b.readUInt16LE(6), 3349);
+    assert.equal(b.readUInt16LE(6), 3605);
     let crc = 65535;
-    for (const v of b.subarray(16, 16 + 3349)) {
+    for (const v of b.subarray(16, 16 + 3605)) {
         crc ^= v << 8;
         for (let i = 0; i < 8; i++)
             crc = ((crc << 1) ^ ((crc & 32768) ? 0x1021 : 0)) & 65535;
@@ -103,11 +103,12 @@ module.exports =
     await enter('reboot', 3500);
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
     for (const cmd of ['set boot=changed', 'set test=preserved', 'set driveids=dos',
-             'set charset=missing', 'set color=1,0,0', 'set prompt=nextboot', 'echo off'])
+             'set charset=missing', 'set color=1,0,0', 'set prompt=nextboot',
+             'key /f1:help /f4:dir/w /f7:"my program"', 'echo off'])
         await enter(cmd);
     const fields = [
         ['environment', 512, 16], ['history', 650, 528], ['rawhistory', 90, 1178],
-        ['prompttext', 33, 1268]
+        ['prompttext', 33, 1268], ['keybindings', 256, 1301]
     ];
     await basic();
     assert.equal((await memory(0xd018))[0] & 0xfe, 0x14, 'uppercase ROM font');

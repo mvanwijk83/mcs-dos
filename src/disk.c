@@ -10,7 +10,6 @@ __noinline unsigned char bank_blockio(unsigned char dev, unsigned char track, un
                                       unsigned char writing);
 __noinline unsigned char bank_rawchannel(unsigned char dev, unsigned char lfn);
 __noinline unsigned char bank_rawopen(unsigned char dev);
-__noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report);
 __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tracks);
 __noinline unsigned char bank_bam(unsigned char dev);
 __noinline unsigned char bank_copyrel(void);
@@ -86,73 +85,6 @@ __noinline unsigned char bank_rawopen(unsigned char dev)
     return bank_rawchannel(dev, 2);
 }
 
-/* Read-only stock ROM identification: compressed DOS model strings have the
- * final digit's high bit set. Includes 1541-II and 1571CR. Never reset a drive:
- * DIR may be running with a redirected output file already open. Unknown ROMs
- * retain ordinary DOS file access, but cannot perform raw disk operations.
- *
- * Identify supported stock drive ROMs using fixed read-only fingerprints.
- *
- * dev: Disk device.
- * report: Nonzero reports unsupported models; return model ID or zero if unknown. */
-__noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report)
-{
-    unsigned char lfn = statuschannel(dev), i;
-    unsigned char probe[6] = {'m', '-', 'r', 0xc4, 0xe5, 4}, signature[4];
-    if (!dev) {
-        if (report)
-            error(SYSOUT_UNSUPPORTED_OP_CRT);
-        return 0;
-    }
-    if (!lfn)
-        return 0;
-    for (i = 0; i < 2; ++i) {
-        POKE(144, 0);
-        if (channel_write(lfn, probe, 6) != 6 || channel_read(lfn, signature, 4) != 4)
-            break;
-        if (signature[0] == '1' && signature[1] == '5') {
-            if (!i && signature[2] == '4' && signature[3] == 0xb1) {
-                /* Stock 1541-II: JMP opcode at $FF33 instead of TAX. */
-                probe[3] = 0x33;
-                probe[4] = 0xff;
-                probe[5] = 1;
-                POKE(144, 0);
-                if (channel_write(lfn, probe, 6) == 6 && channel_read(lfn, signature, 1) == 1 &&
-                    signature[0] == 0x4c)
-                    return 4;
-                return 1;
-            }
-            if (!i && signature[2] == '7') {
-                if (signature[3] == 0xb0)
-                    return 5; /* 1570 */
-                if (signature[3] == 0xb1)
-                    return 2; /* 1571 / 1571CR */
-            }
-            if (i && signature[2] == '8' && signature[3] == 0xb1)
-                return 3;
-        }
-        probe[3] = 0xe7;
-        probe[4] = 0xa6;
-    }
-    if (report)
-        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
-    return 0;
-}
-
-/* Geometry families stay 1541=1, 1571=2, 1581=3 for all raw operations.
- *
- * Return a supported geometry family, or the precise model when requested.
- *
- * dev: Disk device.
- * report: 0=quiet, 1=report errors, 128=return precise model instead of geometry. */
-__noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
-{
-    unsigned char model = bank_drivemodel(dev, report == 128 ? 0 : report);
-    if (report == 128)
-        return model;
-    return model == 4 || model == 5 ? 1 : model;
-}
-
 /* Return the sector count for a track in the detected disk geometry.
  *
  * track: One-based track number.
@@ -171,13 +103,13 @@ __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tr
  * dev: Disk device; return nonzero for a supported readable format. */
 __noinline unsigned char bank_bam(unsigned char dev)
 {
-    unsigned char ok, type = bank_drivetype(dev, 1);
+    unsigned char ok, type = drivetype(dev, 1);
     if (!type)
         return 0;
     headertrack = type == 3 ? 40 : 18;
     labeloff = type == 3 ? 4 : 144;
     idoff = type == 3 ? 22 : 162;
-    if (type == 2 && !command(dev, "u0>m1"))
+    if (type == 2 && !drivemode(dev, 1))
         return 0;
     if (!bank_rawopen(dev))
         return 0;
@@ -321,12 +253,20 @@ __noinline unsigned char bank_copyrel(void)
  * dev: Device to inspect. */
 __noinline void bank_driveinfo(unsigned char dev)
 {
-    unsigned char type;
+    unsigned char type, geometry;
     if (!dev) {
         print(SYSOUT_DRIVE_MODEL, "EasyFlash");
         say(SYSOUT_VOL_ID_CART);
     } else {
-        type = bank_drivemodel(dev, 0);
+        type = drivemodel(dev, 0);
+        if (type >= DRIVE_CMD_HD) {
+            geometry = drivetype(dev, 0);
+            print(SYSOUT_DRIVE_MODEL, type == DRIVE_CMD_HD
+                  ? (geometry == 1 ? "CMD HD (1541)" : geometry == 2 ? "CMD HD (1571)" :
+                     geometry == 3 ? "CMD HD (1581)" : "CMD HD")
+                  : (geometry == 1 ? "CMD FD (1541)" : geometry == 2 ? "CMD FD (1571)" :
+                     geometry == 3 ? "CMD FD (1581)" : "CMD FD"));
+        } else
         print(SYSOUT_DRIVE_MODEL, type == 1   ? "1541"
                                   : type == 2 ? "1571"
                                   : type == 3 ? "1581"
@@ -382,6 +322,8 @@ __noinline void bank_volcmd(unsigned char stats)
         return;
     }
     if (stats && validate) {
+        if (!drivetype(p1.dev, 1))
+            return;
         say(SYSOUT_CHECKING_AND_FIXING_DISK);
         if (!command(p1.dev, "v0")) {
             error(SYSOUT_DISK_VALIDATION_FAILED);
@@ -474,17 +416,28 @@ __noinline void bank_formatcmd(void)
         error(SYSOUT_SYNTAX_FORMAT);
         return;
     }
-    type = bank_drivetype(p1.dev, 1);
+    type = drivetype(p1.dev, 1);
     if (!type)
         return;
-    print(SYSOUT_INSERT_DISK, drivename(p1.dev));
-    say(SYSOUT_ALL_DATA_LOST);
+    if (drivemodel(p1.dev, 0) >= DRIVE_CMD_HD) {
+        print(SYSOUT_PARTITION_FORMAT_TARGET, p1.dev);
+        say(SYSOUT_PARTITION_ALL_LOST);
+    } else {
+        print(SYSOUT_INSERT_DISK, drivename(p1.dev));
+        say(SYSOUT_ALL_DATA_LOST);
+    }
     if (!yesno(SYSOUT_PROCEED_WITH_FORMAT))
         return;
     outs(SYSOUT_FORMAT_LABEL_PROMPT);
     if (!input(line, 17, 0))
         return;
     filename(line, name);
+    /* On CMD FD, comma-delimited NEW extensions can reformat the whole disk.
+     * A label is a single DOS field, never an extra format argument. */
+    if (strchr(name, ',')) {
+        error(SYSOUT_FORMAT_INVALID_LABEL);
+        return;
+    }
     if (!*name)
         strcpy(name, "MCS-DOS");
     outs(SYSOUT_DISK_ID_PROMPT);
@@ -496,7 +449,7 @@ __noinline void bank_formatcmd(void)
     }
     filename(line, id);
     say(SYSOUT_FORMATTING);
-    if (type == 2 && !command(p1.dev, "u0>m1"))
+    if (type == 2 && !drivemode(p1.dev, 1))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s", name, id);
     if (command(p1.dev, diskcmd))
@@ -604,23 +557,27 @@ __noinline void bank_diskcopycmd(void)
         error(SYSOUT_INVALID_DRIVE_SPEC);
         return;
     }
-    type = bank_drivetype(p1.dev, 1);
-    other = bank_drivetype(p2.dev, 1);
+    type = drivetype(p1.dev, 1);
+    other = drivetype(p2.dev, 1);
     if (!type || !other)
         return;
-    if (type != other) {
-        error(SYSOUT_INCOMPATIBLE_DRIVE);
-        return;
-    }
     if (!bank_bam(p1.dev))
         return;
     tracks = disktracks;
+    /* A physical 1571 can format either side count. CMD partitions have fixed
+     * geometries, so compare the source medium rather than physical models. */
+    type = tracks == 80 ? 3 : tracks == 70 ? 2 : 1;
+    if (type != other && !(type == 1 && drivemodel(p2.dev, 0) == DRIVE_1571)) {
+        error(SYSOUT_INCOMPATIBLE_DRIVE);
+        return;
+    }
     id[0] = io[idoff];
     id[1] = io[idoff + 1];
-    say(SYSOUT_DEST_DISK_OVERWRITTEN);
+    say(drivemodel(p2.dev, 0) >= DRIVE_CMD_HD ? SYSOUT_PARTITION_OVERWRITTEN
+                                           : SYSOUT_DEST_DISK_OVERWRITTEN);
     if (!yesno(SYSOUT_DISKCOPY_PROCEED))
         return;
-    if (type == 2 && !command(p2.dev, tracks == 70 ? "u0>m1" : "u0>m0"))
+    if (drivemodel(p2.dev, 0) == DRIVE_1571 && !drivemode(p2.dev, tracks == 70))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "n0:mcs-copy,%c%c", id[0], id[1]);
     if (!command(p2.dev, diskcmd))

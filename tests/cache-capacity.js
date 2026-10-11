@@ -44,10 +44,13 @@ static void error(const char *s)
  *
  * d: Device identifier.
  * report: Whether the caller requests an error report. */
-static unsigned char drivetype(unsigned char d, unsigned char report)
+static unsigned char drivemodel(unsigned char d, unsigned char report)
 {
     return 2;
 }
+
+/* Prepare a physical 1571 through the observable DOS mode command. */
+static unsigned char drivemode(unsigned char d, unsigned char doublesided);
 
 /* Provide the DOS command interface without talking to a physical disk drive.
  *
@@ -56,6 +59,11 @@ static unsigned char drivetype(unsigned char d, unsigned char report)
 static unsigned char command(unsigned char d, const char *s)
 {
     return !failmode;
+}
+
+static unsigned char drivemode(unsigned char d, unsigned char doublesided)
+{
+    return command(d, "u0>m1");
 }
 
 /* Start the synthetic directory stream at its header record.

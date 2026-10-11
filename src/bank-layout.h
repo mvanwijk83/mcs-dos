@@ -15,3 +15,7 @@
 #pragma section(boot_code, 0)
 #pragma section(boot_data, 0)
 #pragma region(boot_bank, 0xa000, 0xc000, , 9, {boot_code, boot_data})
+
+#pragma section(storage_code, 0)
+#pragma section(storage_data, 0)
+#pragma region(storage_bank, 0xa000, 0xc000, , 12, {storage_code, storage_data})

@@ -105,7 +105,7 @@ module.exports = async function withShell(name, test, prepare) {
         await until(s => s.endsWith('0:>'));
         await keys('8:\\x0d');
         await until(s => s.endsWith('8:>'));
-        await test({disk, crt, command, memory, screen, keys, enter, until});
+        await test({disk, crt, command, memory, screen, keys, enter, until, monitorPort: port});
     } finally {
         socket?.destroy();
         if (child.exitCode === null) {

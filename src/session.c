@@ -1,7 +1,8 @@
 #include "core.h"
 #include "session.h"
 /* Changing these sizes requires a new on-flash format and matching offsets. */
-#if LINE != 65 || ENVSIZE != 512 || ENVVALUE != 32 || RAWMAP != 9
+#if LINE != 65 || ENVSIZE != 512 || ENVVALUE != 32 || RAWMAP != 9 || KEYBUFSIZE != 256 || \
+    FUNCTIONKEYS != 7
 #error Update the session format before changing persistent buffer sizes
 #endif
 /* Session persistence belongs with RUN in the file utility bank. Keeping it
@@ -61,7 +62,9 @@ static unsigned char statebyte(unsigned int i)
         return ((char *)history)[i - SESSION_HISTORY_OFFSET];
     if (i < SESSION_PROMPT_OFFSET)
         return ((char *)rawhistory)[i - SESSION_RAW_HISTORY_OFFSET];
-    return prompttext[i - SESSION_PROMPT_OFFSET];
+    if (i < SESSION_KEYS_OFFSET)
+        return prompttext[i - SESSION_PROMPT_OFFSET];
+    return keybindings[i - SESSION_KEYS_OFFSET];
 }
 
 /* Decode one serialized byte into shell state or the saved font RAM.
@@ -109,8 +112,10 @@ static void stateput(unsigned int i, unsigned char value)
         ((char *)history)[i - SESSION_HISTORY_OFFSET] = value;
     else if (i < SESSION_PROMPT_OFFSET)
         ((char *)rawhistory)[i - SESSION_RAW_HISTORY_OFFSET] = value;
-    else if (i < SESSION_FONT_OFFSET)
+    else if (i < SESSION_KEYS_OFFSET)
         prompttext[i - SESSION_PROMPT_OFFSET] = value;
+    else if (i < SESSION_FONT_OFFSET)
+        keybindings[i - SESSION_KEYS_OFFSET] = value;
     else
         POKE(0xe800 + i - SESSION_FONT_OFFSET, value);
 }
@@ -174,6 +179,17 @@ __noinline unsigned char bank_session_restore(void)
     if (fg > 15 || bg > 15 || bd > 15 || (drive && (drive < 8 || drive > 30)) || histcount > 10 ||
         histnext >= 10 || envused > ENVSIZE)
         return 0;
+    pos = 0;
+    for (i = 0; i < FUNCTIONKEYS; ++i) {
+        n = 0;
+        while (pos < KEYBUFSIZE && keybindings[pos] && n < LINE) {
+            ++pos;
+            ++n;
+        }
+        if (pos >= KEYBUFSIZE || n >= LINE)
+            return 0;
+        ++pos;
+    }
     prompttext[ENVVALUE] = 0;
     for (i = 0; i < 10; ++i)
         history[i][LINE - 1] = 0;

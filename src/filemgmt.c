@@ -548,7 +548,7 @@ __noinline unsigned char bank_directory(unsigned char dev)
     cachevalid = 0;
     cachedev = dev;
     freeblocks = 0;
-    if (drivetype(dev, 0) == 2 && !command(dev, "u0>m1"))
+    if (drivemodel(dev, 0) == DRIVE_1571 && !drivemode(dev, 1))
         return 0;
     if (directory_open(2, dev) != 0) {
         channel_close(2);

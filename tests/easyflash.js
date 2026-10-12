@@ -4,7 +4,7 @@ const flags = new Set([
     '--commands', '--find-redirection', '--delete', '--diskinit', '--banked', '--journal',
     '--compact', '--session', '--run-return', '--sysinfo', '--ntsc', '--c128', '--sx64',
     '--boot-info', '--drive-info', '--display', '--display-fonts', '--tape', '--tape-search',
-    '--ultimate-report', '--large-launch', '--redirection'
+    '--ultimate-report', '--mega65-report', '--c65-report', '--large-launch', '--redirection'
 ]);
 if (process.argv.includes('--help')) {
     console.log('Use node tests/run.js --list to discover named cartridge suites.\n' +
@@ -116,6 +116,18 @@ function diskFile(file, name) {
             const pointer = 0xa000 + offset;
             Buffer.from([0xa9, pointer & 255, 0x85, 0x1b, 0xa9, pointer >> 8, 0x85, 0x1c, 0x60])
                 .copy(bytes, p + 16 + address - 0xa000);
+        }
+        fs.writeFileSync(crt, bytes);
+    }
+    if (process.argv.includes('--mega65-report') || process.argv.includes('--c65-report')) {
+        // Substitute only the hardware result, keeping real report formatting.
+        // The register-level test covers the unlock/alias/restore sequence.
+        const bytes = fs.readFileSync(crt), map = fs.readFileSync('build/easyflash/shell.map', 'utf8');
+        const address = parseInt(map.match(/^([\da-f]+) - [\da-f]+ : bank_victype, /m)[1], 16);
+        for (let p = 64; p < bytes.length; p += bytes.readUInt32BE(p + 4)) {
+            if (bytes.readUInt16BE(p + 10) === 9 && bytes.readUInt16BE(p + 12) === 0xa000)
+                Buffer.from([0xa9, process.argv.includes('--c65-report') ? 3 : 4, 0x60])
+                    .copy(bytes, p + 16 + address - 0xa000);
         }
         fs.writeFileSync(crt, bytes);
     }
@@ -265,6 +277,21 @@ function diskFile(file, name) {
         assert(s.includes('CPU:      MOS 6510 (FPGA)\nBoard:    Ultimate 64\nKERNAL:'), s);
         console.log(
             'PASS linked Ultimate report retains detection through real formatting and aligns Board after CPU');
+        return;
+    }
+    if (process.argv.includes('--mega65-report') || process.argv.includes('--c65-report')) {
+        const c65 = process.argv.includes('--c65-report');
+        const model = c65 ? 'Commodore 65 personal computer\n128 KB RAM' : 'MEGA65 personal computer\n64 KB RAM';
+        const cpu = c65 ? 'CPU:      CSG 4510' : 'CPU:      45GS02 (FPGA)';
+        const video = c65 ? 'Video:    VIC-III (PAL)' : 'Video:    VIC-IV (PAL)';
+        assert(s.includes(model) && s.includes(cpu + '\nKERNAL:') && s.includes(video), s);
+        assert(!s.includes('Board:') && !s.includes('display mode'), s);
+        await enter('cls');
+        s = await enter('sysinfo');
+        assert(s.includes(model) && s.includes(cpu + '\nKERNAL:') && s.includes(video), s);
+        assert(!s.includes('Board:') && !s.includes('Hz'), s);
+        assert(s.indexOf('KERNAL:') < s.indexOf('Video:') && s.indexOf('Video:') < s.indexOf('Drive 8:'), s);
+        console.log('PASS linked '+(c65 ? 'C65' : 'MEGA65')+' boot/SYSINFO model, CPU and aligned Video');
         return;
     }
     assert.deepEqual(

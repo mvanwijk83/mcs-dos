@@ -103,31 +103,6 @@ unsigned char cmd_nextpartition(unsigned int *number)
     return 0;
 }
 
-/* Ask DOS for the partition-wide free count without CP or a directory cache.
- * An exact filename filter returns at most one entry plus the free-block line.
- * No shell directory cache or file data reads are involved.
- * Native DOS reports the same free count from every subdirectory. */
-unsigned char cmd_free(unsigned char dev, unsigned char number, unsigned long *bytes)
-{
-    struct DirectoryEntry ent;
-    unsigned char address[2], r;
-    char request[10];
-    snprintf(request, sizeof(request), "$%u:!!", number);
-    if (channel_open(2, dev, 0, request) || channel_read(2, address, 2) != 2 ||
-        directory_read(2, &ent)) {
-        channel_close(2);
-        return 0;
-    }
-    do {
-        r = directory_read(2, &ent);
-    } while (!r);
-    channel_close(2);
-    if (r != 2)
-        return 0;
-    *bytes = (unsigned long)ent.size * 256;
-    return 1;
-}
-
 /* Read the partition numbers into EDIT's idle workspace, then close the
  * directory before G-P, keeping directory reads and command responses separate. */
 void cmd_list(unsigned char dev)
@@ -137,8 +112,6 @@ void cmd_list(unsigned char dev)
     unsigned char address[2], active, r;
     unsigned int listed = 0, n, number;
     char shown[17];
-    unsigned long available;
-    const char *space;
     static const char *const types[] = {"----", "CMD", "1541", "1571", "1581",
                                        "CP/M", "PRNT", "FRGN"};
     if (!cmd_partition(dev, 255, &info))
@@ -170,11 +143,9 @@ void cmd_list(unsigned char dev)
         if (!cmd_partition(dev, (unsigned char)editbuf[n], &info))
             return;
         uppername(info.name, shown);
-        space = info.type >= 1 && info.type <= 4 &&
-                cmd_free(dev, info.number, &available) ? decimal(available) : "--";
         /* 39 columns: never wrap a row or emit a second newline at column 40. */
         print("%c %-3u %-16s %-4s %11s\n", info.number == active ? '*' : ' ',
-              info.number, shown, info.type < 8 ? types[info.type] : "????", space);
+              info.number, shown, info.type < 8 ? types[info.type] : "????", decimal(info.bytes));
         if (!page())
             return;
     }

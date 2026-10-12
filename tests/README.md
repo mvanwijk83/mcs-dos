@@ -22,6 +22,14 @@ are found beside `bin`, or under `VICE_DATA_HOME` for a separate data installati
 `VICE_CHARGEN` can select a character ROM explicitly. Use stock ROMs when running
 the standard acceptance suites.
 
+`kernal-models` checks sparse EXOS, JaffyDOS and SpeedDOS reference fingerprints
+under ASCII and cartridge PETSCII encoding; provenance is recorded in
+`kernal-fingerprints.json`. `ultimate-models` also models MEGA65 VIC-IV and C65
+VIC-III register aliasing and restoration. `mega65-report` and `c65-report`
+substitute the hardware result in disposable cartridges to check actual boot
+and shell output; they do not emulate those machines. The `image` suite checks
+the compiled probe's bus access order.
+
 No build is needed for `unit`; most tests compile temporary C fixtures from
 production function bodies and execute them in Oscar64's 6502 simulator. `image`
 needs a build but no emulator. The other groups need the tools indicated below.
@@ -118,6 +126,6 @@ Formatting is optional for running tests.
 `cmd-sysinfo` repeats SYSINFO twenty times with only a CMD HD at device 8,
 then checks CHKDSK model names for all three emulation formats.
 
-`cmd-overview` checks the 40-column partition table, DOS free counts for all
-three emulation formats and Native mode, file allocation changes, and preservation
-of the selected partition. `cmd-free` covers count conversion and error cleanup.
+`cmd-overview` checks the 40-column partition table, allocated capacities for all
+three emulation formats and Native mode, unchanged capacity after file allocation, and preservation
+of the selected partition. `cmd-capacity` checks maximum-width rows and the metadata-only listing path.

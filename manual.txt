@@ -203,11 +203,10 @@ Upon booting the software, you are
 presented by a logo splash screen and
 some basic information about your
 system that MCS-DOS has detected.
-Ultimate boards are recognized (but
-need Command Interface enabled - if
-detection fails, manually reenable from
-the Ultimate menu), as well as JiffyDOS
-and DolphinDOS replacement KERNALs.
+Ultimate boards are recognized (with
+Command Interface enabled), as well as
+JiffyDOS and DolphinDOS replacement
+KERNALs.
 
   Boot configuration
 If an AUTOEXEC.BAT is present, it will
@@ -547,15 +546,9 @@ SET /ENV
 SPLASH
   Shows the MCS-DOS splash screen.
 
-SYSINFO [/PROBE14]
+SYSINFO
   Provides technical information about
   your computer.
-  Enumerates responding devices 8-30.
-  Device 14 is listed without a ROM
-  probe by default: some printer
-  interfaces hang on this command.
-  /PROBE14 enables identification when
-  device 14 is known to be a disk drive.
 
 TAPECOPY [filename] [drive:]
   Loads and transfers one or more files
@@ -806,6 +799,11 @@ Reengineered for EasyFlash distribution.
 Many refinements, several new commands
 and command options, improved BASIC
 integration and native program support.
+
+  2.1 (dd-Mmm-2026)
+Further expansions to the command set,
+launch programs without RUN, partial
+CMD-HD/FD support, new manual (PDF).
 
 
   C. About the author

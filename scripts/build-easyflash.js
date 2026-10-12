@@ -112,6 +112,9 @@ const names=['AUTOEXEC.SAMPLE','CGA.CPI','CHANGELOG.TXT','CONFIG.SAMPLE','LICENS
 const {image,used,fileBytes,available}=require('./journal-image')(names);
 for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
 const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.1',32);
+// REU-aware EasyFlash subtype: $DF00-$DF1F is free (EasyAPI uses $DF80-$DFFF).
+// Ultimate otherwise disables UCI after selecting its $DE1C relocation on load.
+header[0x1a]=1;
 const packets=[header];
 // Include complete filesystem and session sectors, including erased sides.
 for(let bank=0;bank<64;bank++)if(bank<=12||bank>=48)for(let chip=0;chip<2;chip++){

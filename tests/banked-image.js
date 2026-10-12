@@ -12,7 +12,76 @@ function packets(file) {
     return result;
 }
 const image = packets(base + 'MCS-DOS.crt'), linked = packets(base + 'shell-crt.crt');
+assert.equal(fs.readFileSync(base + 'MCS-DOS.crt')[0x1a], 1,
+    'REU-aware EasyFlash subtype must keep Ultimate UCI enabled when loading');
 assert(fs.readFileSync(base + 'shell-prg.asm').equals(fs.readFileSync(base + 'shell-crt.asm')));
+// MMIO ordering is essential: Oscar64 can move palette accesses across the
+// unlock even for volatile pointers. Check the linked probe, not just its C.
+const assembly = fs.readFileSync(base + 'shell-prg.asm', 'utf8');
+const megaProbe = assembly.split('bank_vicalias:')[1].split('--------------------------------------------------------------------')[0];
+const accesses = [...megaProbe.matchAll(/\b(LDA|LDX|LDY|STA|STX|STY) \$(d000|d100|d02f)\b/g)]
+    .map(m => (m[1].startsWith('ST') ? 'write ' : 'read ') + m[2]);
+assert.deepEqual(accesses, [
+    'read d000', 'write d02f', 'write d02f', 'read d100', 'write d100',
+    'read d000', 'write d100', 'write d02f', 'write d02f'
+], 'MEGA65 probe must unlock before borrowing palette and relock after restoration');
+// Execute the actual linked helper against VIC-II/III/IV bus models. This also
+// catches a constant-folded C return that an inline assembly block can cause.
+const probeStart = parseInt(megaProbe.match(/^09:([\da-f]+) :/m)[1], 16);
+const p0 = parseInt(megaProbe.match(/: a5 ([\da-f]{2}) __ LDA P0/)[1], 16);
+const p1 = parseInt(megaProbe.match(/: a5 ([\da-f]{2}) __ LDA P1/)[1], 16);
+for (const generation of [2, 3, 4]) {
+    for (const [first, second] of [[0x47, 0x53], [0xa5, 0x96]]) {
+        const ram = new Uint8Array(65536);
+        ram.set(image.get('9:40960'), 0xa000);
+        ram[p0] = first; ram[p1] = second;
+        let pc = probeStart, a = 0, y = 0, zero = false;
+        let sprite = 17, palette = 23, key = 0, unlocked = false, returned = false;
+        const read = address => address === 0xd000 ? sprite : address === 0xd100
+            ? (unlocked ? palette : sprite) : ram[address];
+        const write = (address, value) => {
+            if (address === 0xd02f) {
+                unlocked = generation === 4 && key === 0x47 && value === 0x53 ||
+                           generation >= 3 && key === 0xa5 && value === 0x96;
+                key = value;
+            } else if (address === 0xd100) {
+                if (unlocked) palette = value;
+                else sprite = value;
+            } else ram[address] = value;
+        };
+        const word = () => { const value = ram[pc] | ram[pc + 1] << 8; pc += 2; return value; };
+        for (let steps = 0; steps < 100 && !returned; ++steps) {
+            const op = ram[pc++];
+            switch (op) {
+            case 0xa9: a = ram[pc++]; zero = a === 0; break;
+            case 0xa5: a = read(ram[pc++]); zero = a === 0; break;
+            case 0xad: a = read(word()); zero = a === 0; break;
+            case 0x85: write(ram[pc++], a); break;
+            case 0x8d: write(word(), a); break;
+            case 0xa0: y = ram[pc++]; zero = y === 0; break;
+            case 0x84: write(ram[pc++], y); break;
+            case 0x49: a ^= ram[pc++]; zero = a === 0; break;
+            case 0xc5: zero = a === read(ram[pc++]); break;
+            case 0xcd: zero = a === read(word()); break;
+            case 0xf0: case 0xd0: {
+                const relative = ram[pc++] << 24 >> 24;
+                if (op === 0xf0 ? zero : !zero) pc += relative;
+                break;
+            }
+            case 0x4c: pc = word(); break;
+            case 0x60: returned = true; break;
+            default: assert.fail('Unexpected VIC probe opcode: ' + op.toString(16));
+            }
+        }
+        const expected = generation === 4 || generation === 3 && first === 0xa5;
+        assert(returned, 'VIC helper must return');
+        assert.equal(a, +expected, 'compiled VIC alias result');
+        assert.equal(sprite, 17, 'sprite restored');
+        assert.equal(palette, 23, 'palette restored');
+        assert.equal(key, 0, 'C64 I/O restored');
+        assert.equal(unlocked, false, 'extended registers hidden again');
+    }
+}
 assert.deepEqual(
     layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage']);
 for (const b of layout.commandBanks) {

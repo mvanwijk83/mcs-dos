@@ -10,13 +10,10 @@
   specifying their file name, as in
   classic DOS. The RUN command is
   retained for backwards compatibility.
-* Implemented limited CMD-FD/HD drive
-  support. Emulated 1541/1571/1581
-  partitions are fully supported. Basic
-  file operations work with native CMD
-  partitions, but subdirectories are not
-  supported. The DISKPART command was
-  added to list or select partitions.
+* Implemented partial CMD-FD/HD drive
+  support (emulated 1541/1571/1581
+  partitions only). Added the DISKPART
+  command to list or select partitions.
 * Added KEY command to bind command text
   to function keys.
 * Added a /T switch to DIR to filter on
@@ -28,6 +25,12 @@
   /HEX.
 * PAUSE can now be made to show a custom
   message.
+* Expanded SYSINFO computer model and
+  KERNAL detection, and changed video/
+  display presentation. Also, fixed a
+  bug where Ultimate detection required
+  explicitly re-enabling Command
+  Interface.
 * Pressing RUN/STOP on the command
   prompt will now erase the current
   input, instead of creating a new
@@ -41,17 +44,13 @@
   2.0 (03-Oct-2026)
 ----------------------------------------
 * MCS-DOS is now distributed as an Easy-
-  Flash cartridge image to enhance
+  Flash cartridge image to support new
   feature development and improve
   performance in some areas. The cart-
   ridge contains a 62.5 kb user-writable
-  area that can be used as any other
-  storage device.
+  storage area.
 * Added support for CONFIG.SYS to
   configure boot behaviour.
-* The command help library is no longer
-  represented as a file (COMMANDS.HLP)
-  but stored as internal cartridge data.
 * Improved native program support:
   programs with a clean BASIC exit and
   that preserve $C000-$C1FF will return

@@ -4,7 +4,7 @@ const cartridge = (id, ...args) => entry(id, 'easyflash', args);
 const groups = {
     unit: [
         'helpers', 'amount-switches', 'cache-capacity', 'concat-limits', 'delete-wildcards',
-        'dir-sort', 'dir-filter', 'diskinit', 'diskpart', 'cmd-storage', 'cmd-part-directory', 'cmd-free', 'format-label', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
+        'dir-sort', 'dir-filter', 'diskinit', 'diskpart', 'cmd-storage', 'cmd-part-directory', 'cmd-capacity', 'format-label', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
         'prompt', 'pause', 'run-command', 'key-bindings', 'key-input', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
     ].map(id => entry(id)),
     image: [entry('banked-image')],
@@ -27,6 +27,8 @@ const groups = {
         cartridge('sysinfo-c128', '--sysinfo', '--c128'),
         cartridge('sysinfo-sx64', '--sysinfo', '--sx64'),
         cartridge('ultimate-report', '--ultimate-report'),
+        cartridge('mega65-report', '--mega65-report'),
+        cartridge('c65-report', '--c65-report'),
         cartridge('startup-display', '--sysinfo', '--boot-info'),
         cartridge('fonts-pal', '--display', '--display-fonts'),
         cartridge('fonts-ntsc', '--display', '--ntsc')

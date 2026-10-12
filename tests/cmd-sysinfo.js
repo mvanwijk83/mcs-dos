@@ -20,7 +20,7 @@ async function main(){
   }
   await s.enter('cls','8:>');
   const listing=await s.enter('diskpart','8:>');
-  assert(listing.includes('Bytes free') && listing.includes('* 3') && listing.includes('169,984') && listing.includes('339,968') && listing.includes('808,960') && listing.includes('49,152'),listing);
+  assert(listing.includes('Capacity') && listing.includes('* 3') && listing.includes('175,104') && listing.includes('350,208') && listing.includes('819,200') && listing.includes('65,536'),listing);
   console.log('PASS 20 repeated SYSINFO scans with only CMD HD on device 8');
  }finally{await s.stop();}
 }

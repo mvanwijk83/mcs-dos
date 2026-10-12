@@ -26,9 +26,11 @@ module.exports = async ({command, memory, enter, check, kernalName}) => {
                                    ? 'Commodore SX-64 portable computer'
                                    : 'Commodore 64 personal computer');
     assert(s.includes(process.argv.includes('--c128') ? '128 KB RAM' : '64 KB RAM'), s);
-    assert(s.includes(process.argv.includes('--ntsc') ? 'NTSC display mode (60 Hz)'
-                                                      : 'PAL display mode (50 Hz)'),
+    assert(s.includes(process.argv.includes('--ntsc') ? 'Video:    VIC-II (NTSC)'
+                                                      : 'Video:    VIC-II (PAL)'),
         s);
+    assert(!s.includes('display mode') && !s.includes('Hz'), s);
+    assert(s.indexOf('KERNAL:') < s.indexOf('Video:') && s.indexOf('Video:') < s.indexOf('Drive 8:'), s);
     assert(s.includes(process.argv.includes('--c128')   ? 'CPU:      MOS 8502'
                       : process.argv.includes('--sx64') ? 'CPU:      MOS 6510'
                                                         : 'CPU:      MOS 6510/8500'),

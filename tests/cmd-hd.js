@@ -23,7 +23,7 @@ async function main(){
         let out=await s.check('sysinfo','CMD HD Storage Device');assert(out.includes('Drive 9:'),out);
         out=await s.check('diskpart','8 partition(s)');
         for(const p of parts)assert(out.includes(p.name),out);
-        assert(out.includes('* 1') && out.includes('169,984') && out.includes('808,960'),out);
+        assert(out.includes('* 1') && out.includes('175,104') && out.includes('819,200'),out);
         await s.check('diskpart 8:',messages.SYSOUT_NO_PARTITIONS);
         await s.check('diskpart 255','Syntax: DISKPART');
         await s.check('diskpart 8',messages.SYSOUT_PARTITION_NOT_FOUND);

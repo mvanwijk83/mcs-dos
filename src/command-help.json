@@ -27,10 +27,10 @@
   "REBOOT": "Reboots the environment.",
   "ATTRIB": "Displays or changes file attributes\n\nATTRIB [+L | -L] [[drive:]filename]\n\n  +   Sets an attribute.\n  -   Clears an attribute.\n  L   File lock attribute.",
   "SPLASH": "Shows the MCS-DOS splash screen.",
-  "SYSINFO": "Provides technical information about\nyour computer.\n\nScans devices 8-30. Device 14 is\nidentified only with /PROBE14; some\nprinter interfaces hang on ROM probes.\n\nSYSINFO [/PROBE14]",
+  "SYSINFO": "Provides technical information about\nyour computer.\n\nSYSINFO",
   "FIND": "Searches for a text string in a file.\n\nFIND [/V] [/C] [/N] [/I] \"string\"\n     [[drive:]filename]\n\n /V  Displays all lines NOT containing\n     the specified string.\n /C  Displays only the count of lines\n     containing the string.\n /N  Displays line numbers with the\n     displayed lines\n /I  Ignores the case of characters\n     when searching for the string\n \"string\"\n     Specifies the text string to find.\n [drive:]filename\n     Specifies a file to search.",
   "DISKINIT": "Resets disk drive state and forces a\nreread of the directory.\n\nDISKINIT [drive:]",
   "TAPECOPY": "Loads and transfers one or more files\nfrom tape to disk.\n\nTAPECOPY [filename] [drive:]\n\n  filename  The name of the file to seek\n            and load.\n  drive:    The drive to copy to.\n\nIf no drive is specified, the current\none is used. Omitting the filename will\nseek to the first file and prompt for\nsaving.",
   "KEY": "Binds command text to function keys.\n\nKEY [/Fn:[command] ...] [/CLEAR:[n]]\n\n  /Fn:command\n    Binds a command to a function key.\n    n is 1 to 7.\n  /Fn\n    Displays the current binding for\n    the specified function key.\n  /CLEAR:n\n    Clears the binding for one function\n    key.\n  /CLEAR\n    Clears all bindings.\n\nType KEY without parameters to display\nall current bindings.",
-  "DISKPART": "Lists or selects partitions on a\nstorage device.\n\nDISKPART [drive:] [n]\n\n  No number lists available partitions.\n  n selects the active partition.\n\nCMD FD and HD devices only.\nAn asterisk marks the active partition.\nBytes free is available file space.\nCMD denotes Native partition mode.\n-- means free space is unavailable.\nPartition names differ from disk labels.\nNative partitions can be selected;\nsubdirectories are not supported."
+  "DISKPART": "Lists or selects partitions on a\nstorage device.\n\nDISKPART [drive:] [n]\n\n  n  Partition number to select.\n\nType DISKPART without number to show all\navailable partitions."
 }

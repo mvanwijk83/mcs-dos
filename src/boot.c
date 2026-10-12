@@ -13,7 +13,10 @@ __noinline void bank_bootsplash(unsigned char wait);
 __noinline void bank_sysinfo(unsigned char probe14);
 __noinline const char *bank_kernalname(void);
 __noinline unsigned char bank_romtext(unsigned int address, const char *text);
+__noinline unsigned char bank_romcode(unsigned int address, const char *code);
 __noinline const char *bank_ultimate(void);
+__noinline unsigned char bank_victype(void);
+__noinline unsigned char bank_vicalias(unsigned char first, unsigned char second);
 
 /* -psci encodes uppercase literals with bit 7 set. ROM banners use $41-$5A.
  * Only compare the short supplied prefix; never search the ROM.
@@ -30,12 +33,43 @@ __noinline unsigned char bank_romtext(unsigned int address, const char *text)
     return 1;
 }
 
+/* Eight exact code bytes, including zeroes and bytes with bit 7 set. */
+__noinline unsigned char bank_romcode(unsigned int address, const char *code)
+{
+    unsigned char i;
+    for (i = 0; i < 8; ++i)
+        if (PEEK(address + i) != (unsigned char)code[i])
+            return 0;
+    return 1;
+}
+
 /* Fixed ROM fingerprints, not a ROM scan. Code identifies customized banners;
  * only the known standard name/version field earns a version suffix.
  *
  * Return a known replacement KERNAL name, or null when fingerprints do not identify it. */
 __noinline const char *bank_kernalname(void)
 {
+    /* Numeric data avoids -psci translating opcode operand $50 to $D0. */
+    static const char jaffycode[] = {0xa3, 0x50, 0x11, 0xad, 0x15, 0xd0, 0xf0, 0x1f};
+    /* Jaffy's replacement IRQ entry precedes the broader Jiffy fingerprint.
+     * Source: Jani's v1.3 patcher, ROM template at $2000. */
+    if (bank_romcode(0xfc00, jaffycode) ||
+        bank_romtext(0xe49c, "JAFFYDOS"))
+        return bank_romtext(0xe49c, "JAFFYDOS V1.3 ") ? "JaffyDOS 1.3" : "JaffyDOS";
+    /* EXOS v3/v4 share the CTRL-key handler; PAL/NTSC loader patches do not
+     * change it. Only an intact standard banner supplies the version. */
+    if (bank_romcode(0xfc00, "\x20\x06\xfc\xa9\x00\x60\xc9\x0f"))
+        return bank_romtext(0xe48d, "EXOS V3 ") ? "EXOS 3"
+             : bank_romtext(0xe49b, "EXOS V4.0 ") ? "EXOS 4.0" : "EXOS";
+    /* The shared PLUS entry covers the different 35/40-track banner layouts
+     * and survives customized startup text. */
+    if (bank_romcode(0xfc00, "\xf4\xee\x03\xdd\xa5\xaf\xc9\x08"))
+        return bank_romtext(0xe49b, "SPEEDDOS PLUS + ") ? "SpeedDOS PLUS+"
+             : bank_romtext(0xe49c, "SPEEDDOS + V1.1 ") ? "SpeedDOS PLUS 1.1"
+                                                         : "SpeedDOS PLUS";
+    if (bank_romcode(0xfc00, "\x60\x8d\x8b\x07\xa9\x24\x8d\x5e") ||
+        bank_romtext(0xe49b, "SPEEDDOS"))
+        return "SpeedDOS";
     unsigned char jiffyname = bank_romtext(0xe47c, "JIFFYDOS");
     if (jiffyname || (PEEK(0xfc00) == 0xa3 && PEEK(0xe4ee) == 0x44))
         return jiffyname && bank_romtext(0xe484, " V6.01 ") ? "JiffyDOS 6.01" : "JiffyDOS";
@@ -45,6 +79,52 @@ __noinline const char *bank_kernalname(void)
         bank_romtext(0xe49b, "DOLPHINDOS"))
         return bank_romtext(0xe49b, "DOLPHINDOS 2.0 ") ? "DolphinDOS 2.0" : "DolphinDOS";
     return 0;
+}
+
+/* Official VIC generation detection: try GS (VIC-IV) before A5/96 (VIC-III).
+ * In GO64 these are a sprite register and its mirror; after a successful
+ * unlock $D100 is a palette register. Restore both and return to C64 I/O.
+ * Use one assembly block: this compiler reorders even volatile accesses.
+ * https://github.com/MEGA65/mega65-user-guide/blob/master/appendix-viciv-registers.tex */
+#pragma optimize(push, 0)
+__noinline unsigned char bank_vicalias(unsigned char first, unsigned char second)
+{
+    unsigned char sprite, palette;
+    return __asm {
+        lda $d000
+        sta sprite
+        lda first
+        sta $d02f
+        lda second
+        sta $d02f
+        lda $d100
+        sta palette
+        lda sprite
+        eor #$ff
+        sta $d100
+        lda $d000
+        cmp sprite
+        beq distinct
+        ldy #0
+        jmp restore
+    distinct:
+        ldy #1
+    restore:
+        lda palette
+        sta $d100
+        lda #0
+        sta $d02f
+        sta $d02f
+        sty accu
+    };
+}
+#pragma optimize(pop)
+
+__noinline unsigned char bank_victype(void)
+{
+    if (bank_vicalias(0x47, 0x53))
+        return 4;
+    return bank_vicalias(0xa5, 0x96) ? 3 : 2;
 }
 
 /* UCI can use IO2 or IO1 when EasyFlash occupies IO2. Verify the read-only ID before
@@ -117,16 +197,18 @@ __noinline void bank_sysinfo(unsigned char probe14)
                                          "1581 Floppy Drive",
                                          "1541-II Floppy Drive",
                                          "1570 Floppy Drive",
-                                         "CMD HD Mass Storage Device",
+                                         "CMD HD Mass Storage Drive",
                                          "CMD FD Floppy Drive"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
-    unsigned char dev, model, pal = 0, raster, previous;
+    unsigned char dev, model, pal = 0, raster, previous, vic = 2;
     const char *kernal, *board = bank_ultimate();
     POKE(0xd02f, 0xf8);
     c128 = PEEK(0xd02f) == 0xf8;
     POKE(0xd02f, saved);
     if (board)
         c128 = 0;
+    else if (!c128)
+        vic = bank_victype();
     /* Observe the high raster region through its wrap. PAL reaches low-byte
      * 32 (line 288), whereas both NTSC variants wrap before that. */
     while (!(PEEK(0xd011) & 128)) {
@@ -140,18 +222,23 @@ __noinline void bank_sysinfo(unsigned char probe14)
             pal = 1;
         previous = raster;
     }
-    print("Commodore %s %s computer\n",
+    if (vic == 4)
+        say("MEGA65 personal computer");
+    else
+        print("Commodore %s %s computer\n",
           c128                         ? ((PEEK(0xd600) & 7) == 2 ? "128DCR" : "128")
+          : vic == 3                   ? "65"
           : !board && revision == 0x43 ? "SX-64"
                                        : "64",
-          !board && !c128 && revision == 0x43 ? "portable" : "personal");
-    print("%u KB RAM\n", c128 ? 128 : 64);
-    say(pal ? "PAL display mode (50 Hz)" : "NTSC display mode (60 Hz)");
+          !board && !c128 && vic == 2 && revision == 0x43 ? "portable" : "personal");
+    print("%u KB RAM\n", c128 || vic == 3 ? 128 : 64);
     newline();
     if (board)
         print("CPU:      MOS 6510 (FPGA)\nBoard:    %s\n", board);
     else
-        say(c128               ? "CPU:      MOS 8502"
+        say(vic == 4           ? "CPU:      45GS02 (FPGA)"
+            : vic == 3         ? "CPU:      CSG 4510"
+            : c128             ? "CPU:      MOS 8502"
             : revision == 0x43 ? "CPU:      MOS 6510"
                                : "CPU:      MOS 6510/8500");
     kernal = bank_kernalname();
@@ -165,6 +252,7 @@ __noinline void bank_sysinfo(unsigned char probe14)
         say("KERNAL:   Revision 1");
     else
         print("KERNAL:   ROM ID %u\n", revision);
+    print("Video:    VIC-%s (%s)\n", vic == 4 ? "IV" : vic == 3 ? "III" : "II", pal ? "PAL" : "NTSC");
     for (dev = 8; dev <= 30; ++dev) {
         if (!drivepresent(dev))
             continue;

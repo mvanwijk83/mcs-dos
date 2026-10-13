@@ -21,7 +21,7 @@ const groups = {
     ],
     session: [cartridge('basic-session', '--session'), cartridge('program-return', '--run-return')],
     hardware: [
-        entry('c64-support'), entry('kernal-models'), entry('ultimate-models'),
+        entry('c64-support'), entry('kernal-models'), entry('ultimate-models'), entry('sd2iec-models'),
         entry('drive-models'), cartridge('drive-info', '--drive-info'),
         cartridge('sysinfo-pal', '--sysinfo'), cartridge('sysinfo-ntsc', '--sysinfo', '--ntsc'),
         cartridge('sysinfo-c128', '--sysinfo', '--c128'),
@@ -44,7 +44,7 @@ const groups = {
 };
 groups.all = Object.values(groups).flat();
 // Private CMD ROM/utilities are optional and are never redistributed.
-groups.cmd = [entry('cmd-hd'), entry('cmd-rel'), entry('cmd-sysinfo'), entry('cmd-overview')];
+groups.cmd = [entry('cmd-hd'), entry('cmd-rel'), entry('cmd-sysinfo'), entry('cmd-overview'), entry('cmd-probe')];
 groups.smoke = ['banked-image', 'commands', 'basic-session', 'sysinfo-pal'].map(
     id => groups.all.find(test => test.id === id));
 module.exports = groups;

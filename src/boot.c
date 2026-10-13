@@ -194,14 +194,15 @@ __noinline const char *bank_ultimate(void)
 __noinline void bank_sysinfo(unsigned char probe14)
 {
     static const char *const models[] = {"",
-                                         "1541 Floppy Drive",
-                                         "1571 Floppy Drive",
-                                         "1581 Floppy Drive",
-                                         "1541-II Floppy Drive",
-                                         "1570 Floppy Drive",
+                                         "1541",
+                                         "1571",
+                                         "1581",
+                                         "1541-II",
+                                         "1570",
                                          "CMD HD Mass Storage Drive",
                                          "CMD FD Floppy Drive",
-                                         "SoftIEC drive"};
+                                         "SoftIEC Drive",
+                                         "SD2IEC Drive"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
     unsigned char dev, model, pal = 0, raster, previous, vic = 2;
     const char *kernal, *board = bank_ultimate();
@@ -267,8 +268,9 @@ __noinline void bank_sysinfo(unsigned char probe14)
                   dosdrives() || dev < 10 ? " " : "");
             continue;
         }
-        print("Drive %s: %s%s\n", drivename(dev),
-              dosdrives() || dev < 10 ? " " : "", models[model]);
+        print("Drive %s: %s%s%s\n", drivename(dev),
+              dosdrives() || dev < 10 ? " " : "", models[model],
+              model < DRIVE_CMD_HD ? " Floppy Drive" : "");
         if (model >= DRIVE_CMD_HD)
             continue;
         say(model == 3   ? "          3.5\" 800K DS/DD"

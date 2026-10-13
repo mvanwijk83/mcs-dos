@@ -40,6 +40,7 @@ int main(void)
     model=DRIVE_CMD_HD;run("13","12:",0);if(errors||selected!=13||p1.dev!=12)return 16;
     run("/list",0,0);if(!errors||calls)return 17;
     run("/select:1",0,0);if(!errors||calls)return 18;
+    model=DRIVE_SD2IEC;run(0,0,0);if(!errors||listcalls||selected)return 19;
     return 0;
 }
 `;

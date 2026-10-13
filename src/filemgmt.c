@@ -91,7 +91,7 @@ __noinline void bank_dircmd(void)
         strcpy(p1.name, "*");
     if (!bank_directory(p1.dev))
         return;
-    soft = drivemodel(p1.dev, 0) == DRIVE_SOFTIEC;
+    soft = drivemodel(p1.dev, 0) >= DRIVE_SOFTIEC;
     if (!bare) {
         volumeheader(p1.dev);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev));

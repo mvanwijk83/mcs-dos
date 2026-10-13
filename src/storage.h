@@ -10,6 +10,7 @@
 #define DRIVE_CMD_HD 6
 #define DRIVE_CMD_FD 7
 #define DRIVE_SOFTIEC 8
+#define DRIVE_SD2IEC 9
 
 typedef struct PartitionInfo {
     unsigned char number, type;
@@ -30,6 +31,7 @@ unsigned char cbm_model(unsigned char dev);
 unsigned char cbm_geometry(unsigned char model);
 unsigned char cbm_mode(unsigned char dev, unsigned char model, unsigned char doublesided);
 unsigned char cmd_model(unsigned char dev);
+unsigned char sd_model(unsigned char dev);
 unsigned char cmd_partition(unsigned char dev, unsigned char number, PartitionInfo *info);
 void cmd_geometry(unsigned char dev, unsigned char report, unsigned char *geometry);
 unsigned char cmd_select(unsigned char dev, unsigned char number);

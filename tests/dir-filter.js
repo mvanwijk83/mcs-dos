@@ -13,10 +13,10 @@ const harness = `
 #define SYSOUT_INVALID_SWITCH "invalid"
 #define SYSOUT_DIR_HEADER "header"
 #define SYSOUT_DIR_WIDE_ENTRY "%s"
-#define SYSOUT_DIR_ENTRY "%s"
-#define SYSOUT_DIR_BLOCKS "%s"
+#define SYSOUT_DIR_ENTRY "entry%s"
+#define SYSOUT_DIR_BLOCKS "blocks%s"
 #define SYSOUT_DIR_TOTAL "total"
-#define SYSOUT_DIR_BLOCKS_LINE "%s"
+#define SYSOUT_DIR_BLOCKS_LINE "blockline%s"
 #define SYSOUT_DIR_FREE "free"
 struct Entry {char name[17]; unsigned char type; unsigned int blocks;};
 struct Path {unsigned char dev; char name[17];};
@@ -25,15 +25,20 @@ static struct Path p1;
 static unsigned char drive, envready, pagelines, redirected, outputcol, ox, aborted;
 static unsigned int count=5, freeblocks, workspace[5];
 static int argc, errors, seen, selected;
+static unsigned char model, entries, blockreports, freereports;
 static const char *args[5];
 static char *envget(const char *s) {return 0;}
 static int path(const char *s, struct Path *p) {strcpy(p->name,s);return 1;}
 static int directory(unsigned char d) {return 1;}
-static unsigned char drivemodel(unsigned char d,unsigned char r) {return 0;}
+static unsigned char drivemodel(unsigned char d,unsigned char r) {return model;}
 static void error(const char *s) {++errors;}
 static void volumeheader(unsigned char d) {}
 static const char *drivename(unsigned char d) {return "0";}
-static void print(const char *fmt, ...) {}
+static void print(const char *fmt, ...) {
+    if(!strcmp(fmt,SYSOUT_DIR_ENTRY))++entries;
+    if(!strcmp(fmt,SYSOUT_DIR_BLOCKS) || !strcmp(fmt,SYSOUT_DIR_BLOCKS_LINE))++blockreports;
+    if(!strcmp(fmt,SYSOUT_DIR_FREE))++freereports;
+}
 static void say(const char *s) {++seen; selected |= 1 << (s[0]=='d'?0:s[0]=='s'?1:s[0]=='p'?2:s[0]=='u'?3:4);}
 static int match(const char *pattern,const char *name) {return !strcmp(pattern,"*") || !strcmp(pattern,name);}
 static void uppername(const char *s,char *d) {strcpy(d,s);}
@@ -65,6 +70,10 @@ int main(void) {
     if(errors!=1 || seen) return 9;
     argc=2;errors=seen=0;dircmd();
     if(errors || seen!=5) return 10;
+    argc=1;model=DRIVE_SD2IEC;p1.name[0]=0;entries=blockreports=freereports=0;
+    dircmd();if(entries!=5 || blockreports || freereports)return 11;
+    model=DRIVE_1541;entries=blockreports=freereports=0;
+    dircmd();if(entries!=5 || !blockreports || freereports!=1)return 12;
     return 0;
 }
 `;

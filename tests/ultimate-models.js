@@ -171,7 +171,7 @@ static const char *drivename(unsigned char dev) {
 }
 static unsigned char drivepresent(unsigned char dev)
 {
-    return drivefixture && (dev == 12 || dev == 14 || dev == 30);
+    return drivefixture && (dev == 12 || dev == 14 || dev == 30 || (drivefixture == 2 && dev == 29));
 }
 
 /* Provide the synthetic drive family needed by this isolated test.
@@ -182,7 +182,7 @@ static unsigned char drivemodel(unsigned char dev, unsigned char report)
 {
     if (dev == 14)
         ++probes14;
-    return dev == 12 ? DRIVE_CMD_HD : dev == 30 ? DRIVE_SOFTIEC : DRIVE_1541;
+    return dev == 12 ? DRIVE_CMD_HD : dev == 30 ? DRIVE_SOFTIEC : dev == 29 ? DRIVE_SD2IEC : DRIVE_1541;
 }
 
 ${functions('sysinfo')}
@@ -340,6 +340,11 @@ int main(void)
         !strstr(output, "Drive G:  Unknown device"))
         return 34;
     letters = 0;
+    drivefixture = 2;
+    output[0] = 0;
+    sysinfo(0);
+    if (!strstr(output, "Drive 29: SD2IEC drive\\nDrive 30: SoftIEC drive"))
+        return 35;
     drivefixture = 0;
     reset(0, "", "");
     mega = 4;

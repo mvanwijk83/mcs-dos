@@ -30,7 +30,12 @@ substitute the hardware result in disposable cartridges to check actual boot
 and shell output; they do not emulate those machines. The `image` suite checks
 the compiled probe's bus access order.
 
-`cmd-storage` also checks SoftIEC identification through a verified UCI bus ID,
+`sd2iec-models` checks provisional SD2IEC/uIEC identification using X? under
+ASCII and PETSCII encoding, before ROM-emulation probes, and raw-operation
+rejection. `dir-filter` checks SD2IEC sizes without block/free-space fields.
+These fixtures do not constitute SD2IEC hardware validation.
+
+`cmd-storage` checks SoftIEC identification through a verified UCI bus ID,
 its IO1/IO2 mappings, and rejection of raw geometry operations. `sysinfo-pal`
 checks DRIVEIDS letters and numbers, plus DIR/DISKID behavior with a simulated
 SoftIEC identification over a real emulated IEC directory.

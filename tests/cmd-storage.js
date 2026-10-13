@@ -13,6 +13,7 @@ static unsigned int ultimatebase;
 static char diskcmd[160], sent[16];
 static unsigned char signature[2]={'h','d'};
 static unsigned char statuschannel(unsigned char dev) { return 15; }
+static unsigned char sd_model(unsigned char dev) { return 0; }
 #define POKE(a,b) ((void)0)
 static void error(const char *s) { ++errors; }
 static int channel_write(unsigned char lfn, const void *data, unsigned int n)

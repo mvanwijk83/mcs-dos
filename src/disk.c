@@ -259,8 +259,8 @@ __noinline void bank_driveinfo(unsigned char dev)
         say(SYSOUT_VOL_ID_CART);
     } else {
         type = drivemodel(dev, 0);
-        if (type == DRIVE_SOFTIEC)
-            print(SYSOUT_DRIVE_MODEL, "SoftIEC drive");
+        if (type >= DRIVE_SOFTIEC)
+            print(SYSOUT_DRIVE_MODEL, type == DRIVE_SD2IEC ? "SD2IEC drive" : "SoftIEC drive");
         else if (type >= DRIVE_CMD_HD) {
             geometry = drivetype(dev, 0);
             print(SYSOUT_DRIVE_MODEL, type == DRIVE_CMD_HD

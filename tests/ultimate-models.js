@@ -286,8 +286,16 @@ int main(void)
     vdc = 2;
     sysinfo(0);
     if (!strstr(output, "Commodore 128DCR personal computer\\n128 KB RAM") ||
-        !strstr(output, "CPU:      MOS 8502") || strstr(output, "Board:"))
+        !strstr(output, "CPU:      MOS 8502") ||
+        !strstr(output, "Video:    VIC-II E (PAL)") || strstr(output, "Board:"))
         return 19;
+    reset(0, "", "");
+    c128 = 1;
+    vdc = 0;
+    sysinfo(0);
+    if (!strstr(output, "Commodore 128 personal computer") ||
+        !strstr(output, "Video:    VIC-II E (PAL)"))
+        return 36;
     reset(0, "", "00,OK");
     c128 = 0;
     revision = 67;
@@ -326,7 +334,7 @@ int main(void)
     reset(0, "", "");
     drivefixture = 1;
     sysinfo(0);
-    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: SoftIEC drive") ||
+    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: SoftIEC Drive") ||
         !strstr(output, "Drive 14: Unknown device") || probes14)
         return 28;
     output[0] = 0;
@@ -336,14 +344,14 @@ int main(void)
     letters = 1;
     output[0] = 0;
     sysinfo(0);
-    if (!strstr(output, "Drive E:  CMD HD") || !strstr(output, "Drive W:  SoftIEC drive") ||
+    if (!strstr(output, "Drive E:  CMD HD") || !strstr(output, "Drive W:  SoftIEC Drive") ||
         !strstr(output, "Drive G:  Unknown device"))
         return 34;
     letters = 0;
     drivefixture = 2;
     output[0] = 0;
     sysinfo(0);
-    if (!strstr(output, "Drive 29: SD2IEC drive\\nDrive 30: SoftIEC drive"))
+    if (!strstr(output, "Drive 29: SD2IEC Drive\\nDrive 30: SoftIEC Drive"))
         return 35;
     drivefixture = 0;
     reset(0, "", "");

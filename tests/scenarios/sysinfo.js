@@ -15,6 +15,7 @@ module.exports = async ({command, memory, enter, check, kernalName, root}) => {
             s = await check(
                 'sysinfo', `Commodore ${revision === 2 ? '128DCR' : '128'} personal computer`);
             assert(s.includes('128 KB RAM') && s.includes('CPU:      MOS 8502'), s);
+            assert(s.includes('Video:    VIC-II E (PAL)'), s);
             assert.equal(
                 (await memory(0xd600))[0] & 7, before[0] & 7, 'VDC revision remains unchanged');
         }
@@ -26,8 +27,8 @@ module.exports = async ({command, memory, enter, check, kernalName, root}) => {
                                    ? 'Commodore SX-64 portable computer'
                                    : 'Commodore 64 personal computer');
     assert(s.includes(process.argv.includes('--c128') ? '128 KB RAM' : '64 KB RAM'), s);
-    assert(s.includes(process.argv.includes('--ntsc') ? 'Video:    VIC-II (NTSC)'
-                                                      : 'Video:    VIC-II (PAL)'),
+    assert(s.includes('Video:    VIC-' + (process.argv.includes('--c128') ? 'II E' : 'II') +
+                      (process.argv.includes('--ntsc') ? ' (NTSC)' : ' (PAL)')),
         s);
     assert(!s.includes('display mode') && !s.includes('Hz'), s);
     assert(s.indexOf('KERNAL:') < s.indexOf('Video:') && s.indexOf('Video:') < s.indexOf('Drive 8:'), s);

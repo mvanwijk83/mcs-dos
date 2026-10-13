@@ -256,7 +256,7 @@ __noinline void bank_sysinfo(unsigned char probe14)
         say("KERNAL:   Revision 1");
     else
         print("KERNAL:   ROM ID %u\n", revision);
-    print("Video:    VIC-%s (%s)\n", vic == 4 ? "IV" : vic == 3 ? "III" : "II", pal ? "PAL" : "NTSC");
+    print("Video:    VIC-%s (%s)\n", c128 ? "II E" : vic == 4 ? "IV" : vic == 3 ? "III" : "II", pal ? "PAL" : "NTSC");
     for (dev = 8; dev <= 30; ++dev) {
         if (!drivepresent(dev))
             continue;

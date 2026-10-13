@@ -29,6 +29,7 @@ static const char *args[5];
 static char *envget(const char *s) {return 0;}
 static int path(const char *s, struct Path *p) {strcpy(p->name,s);return 1;}
 static int directory(unsigned char d) {return 1;}
+static unsigned char drivemodel(unsigned char d,unsigned char r) {return 0;}
 static void error(const char *s) {++errors;}
 static void volumeheader(unsigned char d) {}
 static const char *drivename(unsigned char d) {return "0";}

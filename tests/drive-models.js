@@ -18,6 +18,8 @@ const harness = `
 
 #include <string.h>
 #define POKE(a, b) ((void)0)
+#define PEEK(a) 0
+static unsigned int ultimatebase;
 static const unsigned char fixtures[][11] = {${rows.join(',')}};
 static unsigned char current, offset, errors, bad, fail;
 

@@ -49,7 +49,7 @@ __noinline void bank_dircmd(void)
     unsigned int *order = (unsigned int *)workspace;
     unsigned int usedblocks = 0;
     char shown[17];
-    unsigned char flags = 0, explicit = 0, filter = 255, type;
+    unsigned char flags = 0, explicit = 0, filter = 255, type, soft;
     char *defaults = envready ? envget("DIRCMD") : (char *)0;
     for (i = 1; i < argc; ++i)
         if (args[i][0] == '/')
@@ -91,6 +91,7 @@ __noinline void bank_dircmd(void)
         strcpy(p1.name, "*");
     if (!bank_directory(p1.dev))
         return;
+    soft = drivemodel(p1.dev, 0) == DRIVE_SOFTIEC;
     if (!bare) {
         volumeheader(p1.dev);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev));
@@ -131,7 +132,8 @@ __noinline void bank_dircmd(void)
         } else {
             print(SYSOUT_DIR_ENTRY, shown, typename(directory_entries[j].type),
                   allocated(directory_entries[j].blocks));
-            print(SYSOUT_DIR_BLOCKS, decimal(directory_entries[j].blocks));
+            if (!soft)
+                print(SYSOUT_DIR_BLOCKS, decimal(directory_entries[j].blocks));
             /* Short block labels also fit four-digit free-block counts. */
             if (redirected ? outputcol : ox)
                 newline();
@@ -143,6 +145,10 @@ __noinline void bank_dircmd(void)
         newline();
     if (!bare && !aborted) {
         print(SYSOUT_DIR_TOTAL, total, allocated(usedblocks));
+        if (soft) {
+            newline();
+            return;
+        }
         print(SYSOUT_DIR_BLOCKS_LINE, decimal(usedblocks));
         print(SYSOUT_DIR_FREE, allocated(freeblocks));
         print(SYSOUT_DIR_BLOCKS_LINE, decimal(freeblocks));

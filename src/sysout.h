@@ -119,7 +119,7 @@
 #define SYSOUT_PARTITION_NOT_FOUND "Partition not found"
 #define SYSOUT_PARTITION_SELECT_FAILED "Partition selection failed"
 #define SYSOUT_PARTITION_SELECTED "Partition %u selected on drive %u\n"
-#define SYSOUT_PARTITION_HEADER "Partitions on drive %u (* = active)\n\n  #   Partition name   Mode    Capacity\n  --- ---------------- ---- -----------\n"
+#define SYSOUT_PARTITION_HEADER "Partitions on drive %u (* = active)\n\n  #   Partition name   Mode    Size\n  --- ---------------- ---- -----------\n"
 #define SYSOUT_PARTITION_COUNT "\n%u partition(s)\n"
 #define SYSOUT_PARTITION_FORMAT_TARGET "Selected partition on drive %u\n"
 #define SYSOUT_PARTITION_ALL_LOST "All data in this partition will be lost!"

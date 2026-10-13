@@ -20,14 +20,18 @@ module.exports = async ({command, enter, check, root}) => {
         await command(`resourceset "Drive${dev}TrueEmulation" "1"`);
         const attached = await command(`attach "${file}" $${dev.toString(16)}`);
         assert(!/error|invalid/i.test(attached), attached);
+        await enter('set driveids=c64');
         await enter('cls');
         s = await check('sysinfo', `Drive ${dev}: ${dev < 10 ? ' ' : ''}${shown} Floppy Drive`);
         assert(s.includes('          ' + (model === 1581      ? '3.5" 800K DS/DD'
                                              : model === 1571 ? '5.25" 340K DS/DD'
                                                               : '5.25" 170K SS/DD')),
             s);
-        for (const ids of ['CBM', 'DOS']) {
+        for (const ids of ['C64', 'DOS']) {
             await enter('set driveids=' + ids);
+            await enter('cls');
+            const label = ids === 'DOS' ? String.fromCharCode(65 + dev - 8) : String(dev);
+            s = await check('sysinfo', `Drive ${label}: ${label.length === 1 ? ' ' : ''}${shown} Floppy Drive`);
             s = await check('chkdsk ' + dev + ':', 'Drive model is ' + shown);
             assert(s.includes('\n\nDrive model is ' + shown + '\nDrive identifier is ' + dev +
                               ' (CBM) / ' + String.fromCharCode(65 + dev - 8) + ' (DOS)\n'),

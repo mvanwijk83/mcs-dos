@@ -9,6 +9,7 @@
 #define DRIVE_1570 5
 #define DRIVE_CMD_HD 6
 #define DRIVE_CMD_FD 7
+#define DRIVE_SOFTIEC 8
 
 typedef struct PartitionInfo {
     unsigned char number, type;

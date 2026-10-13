@@ -102,9 +102,6 @@ PC-compatibles. Some notable limitations
 and omissions include:
 
 * No subdirectory support.
-* No support for SD2IEC, IDE64, Ultimate
-  storage, etc. Only standard CBM disk
-  formats are fully supported.
 * Automatic return from native programs
   depends on their exit implementation
   (if any) and whether they don't over-

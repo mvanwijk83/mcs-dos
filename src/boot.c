@@ -136,6 +136,7 @@ __noinline const char *bank_ultimate(void)
 {
     unsigned char n, c, ok, started;
     unsigned int base = 0xdf1c;
+    ultimatebase = 0;
     if (PEEK(base + 1) != 0xc9)
         base = 0xde1c;
     /* DATA_ACC can remain set after an earlier reply; it is not a busy flag. */
@@ -172,6 +173,7 @@ __noinline const char *bank_ultimate(void)
     POKE(base, ok ? 2 : 4);
     if (!ok)
         return 0;
+    ultimatebase = base;
     if (bank_romtext((unsigned int)io, "ULTIMATE 64")) {
         if (c == 11)
             return "Ultimate 64";
@@ -198,7 +200,8 @@ __noinline void bank_sysinfo(unsigned char probe14)
                                          "1541-II Floppy Drive",
                                          "1570 Floppy Drive",
                                          "CMD HD Mass Storage Drive",
-                                         "CMD FD Floppy Drive"};
+                                         "CMD FD Floppy Drive",
+                                         "SoftIEC drive"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
     unsigned char dev, model, pal = 0, raster, previous, vic = 2;
     const char *kernal, *board = bank_ultimate();
@@ -260,10 +263,12 @@ __noinline void bank_sysinfo(unsigned char probe14)
          * in automatic enumeration; explicitly targeted disk commands work on 14. */
         model = dev == 14 && !probe14 ? 0 : drivemodel(dev, 0);
         if (!model) {
-            print("Drive %u: %sUnknown device\n", dev, dev < 10 ? " " : "");
+            print("Drive %s: %sUnknown device\n", drivename(dev),
+                  dosdrives() || dev < 10 ? " " : "");
             continue;
         }
-        print("Drive %u: %s%s\n", dev, dev < 10 ? " " : "", models[model]);
+        print("Drive %s: %s%s\n", drivename(dev),
+              dosdrives() || dev < 10 ? " " : "", models[model]);
         if (model >= DRIVE_CMD_HD)
             continue;
         say(model == 3   ? "          3.5\" 800K DS/DD"

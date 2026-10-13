@@ -4,7 +4,7 @@ const cartridge = (id, ...args) => entry(id, 'easyflash', args);
 const groups = {
     unit: [
         'helpers', 'amount-switches', 'cache-capacity', 'concat-limits', 'delete-wildcards',
-        'dir-sort', 'dir-filter', 'diskinit', 'diskpart', 'cmd-storage', 'cmd-part-directory', 'cmd-capacity', 'format-label', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
+        'dir-sort', 'dir-filter', 'optional-diskid', 'diskinit', 'diskpart', 'cmd-storage', 'cmd-part-directory', 'cmd-capacity', 'format-label', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
         'prompt', 'pause', 'run-command', 'key-bindings', 'key-input', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
     ].map(id => entry(id)),
     image: [entry('banked-image')],

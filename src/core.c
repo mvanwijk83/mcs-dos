@@ -10,6 +10,9 @@ char volume[17], diskid[3];
 unsigned char ox, oy, fg = 15, bg = 0, bd = 0, quit, reboot, echoon = 1, batching;
 volatile unsigned char skipautoexec;
 unsigned char copysuppress;
+unsigned int ultimatebase;
+/* Optional DIR disk-ID lookup must not turn an otherwise valid listing into errors. */
+static unsigned char optionalheader;
 unsigned char pagelines, aborted, editprompt;
 unsigned int screenbase = 0x0400;
 char environment[ENVSIZE];
@@ -156,6 +159,8 @@ void say(const char *s)
  * s: Error message. */
 void error(const char *s)
 {
+    if (optionalheader)
+        return;
     /* Errors must remain visible even if the output file is full or its write failed. */
     unsigned char saved = redirected;
     redirected = 0;
@@ -248,6 +253,7 @@ char *allocated(unsigned int blocks)
 void volumeheader(unsigned char dev)
 {
     char shown[17];
+    unsigned char ok;
     uppername(volume, shown);
     print(SYSOUT_VOL_HEADER, drivename(dev));
     if (ox + strlen(shown) > 40)
@@ -259,7 +265,10 @@ void volumeheader(unsigned char dev)
         outs(SYSOUT_CRT_ID_HEADER);
         return;
     }
-    if (bam(dev)) {
+    optionalheader = 1;
+    ok = bam(dev);
+    optionalheader = 0;
+    if (ok) {
         diskid[0] = toupper(io[idoff]);
         diskid[1] = toupper(io[idoff + 1]);
         diskid[2] = 0;

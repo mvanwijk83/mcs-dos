@@ -259,7 +259,9 @@ __noinline void bank_driveinfo(unsigned char dev)
         say(SYSOUT_VOL_ID_CART);
     } else {
         type = drivemodel(dev, 0);
-        if (type >= DRIVE_CMD_HD) {
+        if (type == DRIVE_SOFTIEC)
+            print(SYSOUT_DRIVE_MODEL, "SoftIEC drive");
+        else if (type >= DRIVE_CMD_HD) {
             geometry = drivetype(dev, 0);
             print(SYSOUT_DRIVE_MODEL, type == DRIVE_CMD_HD
                   ? (geometry == 1 ? "CMD HD (1541)" : geometry == 2 ? "CMD HD (1571)" :
@@ -497,6 +499,9 @@ __noinline void bank_diskidcmd(void)
         error(SYSOUT_SYNTAX_DISKID);
         return;
     }
+    /* Reject unsupported media before asking for an ID. */
+    if (!drivetype(p1.dev, 1))
+        return;
     if (argc == a + 1) {
         if (strlen(args[a]) != 2) {
             say(SYSOUT_DISK_ID_FORMAT);

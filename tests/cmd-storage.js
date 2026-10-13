@@ -8,6 +8,8 @@ const harness = `
 static unsigned char cachevalid, errors, active=1, type=2, requested, bad, shortread, selectfail;
 static unsigned char physical=DRIVE_CMD_HD, writes, cbmcalls;
 static unsigned char wrongnumber, badtrailer, ignoreselect;
+static unsigned int ultimatebase;
+#define PEEK(a) ((unsigned char)((a)==ultimatebase+1?0xc9:11))
 static char diskcmd[160], sent[16];
 static unsigned char signature[2]={'h','d'};
 static unsigned char statuschannel(unsigned char dev) { return 15; }
@@ -77,6 +79,14 @@ int main(void)
     if(cmd_partition(12,13,&info) || errors!=1)return 18;
     badtrailer=0;ignoreselect=1;active=13;errors=0;cachevalid=1;
     if(cmd_select(12,2) || errors!=1 || cachevalid || active!=13)return 19;
+    ultimatebase=0xde1c;writes=cbmcalls=errors=0;
+    if(drivemodel(11,0)!=DRIVE_SOFTIEC || writes || cbmcalls || errors)return 20;
+    if(drivetype(11,0) || errors)return 21;
+    if(drivetype(11,1) || errors!=1 || writes)return 22;
+    ultimatebase=0xdf1c;errors=0;
+    if(drivemodel(11,0)!=DRIVE_SOFTIEC || writes || cbmcalls || errors)return 23;
+    ultimatebase=0;errors=0;
+    if(drivemodel(11,0)!=DRIVE_1571 || !writes || !cbmcalls || errors)return 24;
     return bad?16:0;
 }
 `;

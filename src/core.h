@@ -50,6 +50,7 @@ extern char volume[17], diskid[3];
 extern unsigned char ox, oy, fg, bg, bd, quit, reboot, echoon, batching;
 extern volatile unsigned char skipautoexec;
 extern unsigned char copysuppress;
+extern unsigned int ultimatebase;
 extern unsigned char pagelines, aborted, editprompt;
 extern unsigned int screenbase;
 extern char environment[ENVSIZE];

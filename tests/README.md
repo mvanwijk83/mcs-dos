@@ -30,6 +30,11 @@ substitute the hardware result in disposable cartridges to check actual boot
 and shell output; they do not emulate those machines. The `image` suite checks
 the compiled probe's bus access order.
 
+`cmd-storage` also checks SoftIEC identification through a verified UCI bus ID,
+its IO1/IO2 mappings, and rejection of raw geometry operations. `sysinfo-pal`
+checks DRIVEIDS letters and numbers, plus DIR/DISKID behavior with a simulated
+SoftIEC identification over a real emulated IEC directory.
+
 No build is needed for `unit`; most tests compile temporary C fixtures from
 production function bodies and execute them in Oscar64's 6502 simulator. `image`
 needs a build but no emulator. The other groups need the tools indicated below.

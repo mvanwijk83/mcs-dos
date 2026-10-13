@@ -30,6 +30,10 @@ __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report
             error(SYSOUT_UNSUPPORTED_OP_CRT);
         return 0;
     }
+    /* UCI's read-only SoftIEC bus ID identifies the virtual filesystem drive.
+     * EasyFlash relocates UCI to IO1; never write either window to identify it. */
+    if (ultimatebase && PEEK(ultimatebase + 1) == 0xc9 && PEEK(ultimatebase - 1) == dev)
+        return DRIVE_SOFTIEC;
     model = cmd_model(dev);
     if (!model)
         model = cbm_model(dev);
@@ -46,6 +50,11 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
     unsigned char model = bank_drivemodel(dev, report == 128 ? 0 : report);
     if (report == 128 || !model)
         return model;
+    if (model == DRIVE_SOFTIEC) {
+        if (report)
+            error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        return 0;
+    }
     if (model < DRIVE_CMD_HD)
         return cbm_geometry(model);
     cmd_geometry(dev, report, &geometry);
@@ -59,6 +68,10 @@ __noinline unsigned char bank_drivemode(unsigned char dev, unsigned char doubles
     unsigned char model = bank_drivemodel(dev, 1);
     if (!model)
         return 0;
+    if (model == DRIVE_SOFTIEC) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        return 0;
+    }
     if (model >= DRIVE_CMD_HD) {
         cmd_geometry(dev, 1, &geometry);
         if (geometry == 2 && doublesided)
@@ -102,6 +115,10 @@ __noinline void bank_diskpartcmd(void)
     model = bank_drivemodel(p1.dev, 1);
     if (!model)
         return;
+    if (model == DRIVE_SOFTIEC) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        return;
+    }
     if (model < DRIVE_CMD_HD) {
         error(SYSOUT_NO_PARTITIONS);
         return;

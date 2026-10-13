@@ -129,6 +129,7 @@ static unsigned char vicalias(unsigned char first, unsigned char second)
     poke(0xd02f, 0);
     return observed == saved;
 }
+static unsigned int ultimatebase;
 ${functions('romtext', 'romcode', 'kernalname', 'ultimate', 'victype')}
 /* Provide the newline hook; fixtures capture it when text layout is under test. */
 static void newline(void)
@@ -160,7 +161,14 @@ static void print(const char *fmt, ...)
 /* Return a synthetic status-channel handle without opening a drive.
  *
  * dev: Synthetic device identifier. */
-static unsigned char drivefixture, probes14;
+static unsigned char drivefixture, probes14, letters;
+static unsigned char dosdrives(void) { return letters; }
+static const char *drivename(unsigned char dev) {
+    static char text[4];
+    if (letters) { text[0] = 'A' + dev - 8; text[1] = 0; }
+    else snprintf(text, sizeof(text), "%u", dev);
+    return text;
+}
 static unsigned char drivepresent(unsigned char dev)
 {
     return drivefixture && (dev == 12 || dev == 14 || dev == 30);
@@ -174,7 +182,7 @@ static unsigned char drivemodel(unsigned char dev, unsigned char report)
 {
     if (dev == 14)
         ++probes14;
-    return dev == 12 ? DRIVE_CMD_HD : DRIVE_1541;
+    return dev == 12 ? DRIVE_CMD_HD : dev == 30 ? DRIVE_SOFTIEC : DRIVE_1541;
 }
 
 ${functions('sysinfo')}
@@ -318,13 +326,20 @@ int main(void)
     reset(0, "", "");
     drivefixture = 1;
     sysinfo(0);
-    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: 1541") ||
+    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: SoftIEC drive") ||
         !strstr(output, "Drive 14: Unknown device") || probes14)
         return 28;
     output[0] = 0;
     sysinfo(1);
     if (!strstr(output, "Drive 14: 1541") || probes14 != 1)
         return 29;
+    letters = 1;
+    output[0] = 0;
+    sysinfo(0);
+    if (!strstr(output, "Drive E:  CMD HD") || !strstr(output, "Drive W:  SoftIEC drive") ||
+        !strstr(output, "Drive G:  Unknown device"))
+        return 34;
+    letters = 0;
     drivefixture = 0;
     reset(0, "", "");
     mega = 4;

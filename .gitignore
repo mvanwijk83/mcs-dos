@@ -1,9 +1,7 @@
 archive/
 assets/*
-!assets/fonts/
+assets/fonts/
 assets/fonts/*
-!assets/fonts/README.md
-!assets/fonts/vga_8x8.yaff
 branches/
 build/
 dev/

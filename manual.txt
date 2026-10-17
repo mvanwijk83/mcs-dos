@@ -76,8 +76,7 @@ MCS-DOS main features:
 * Some batch file support.
 * Supports multiple attached drives and
   multiple models: 1541, 1541-II, 1570,
-  1571, 1581, and CMD-FD/HD emulation
-  partitions.
+  1571, 1581, and CMD-FD/HD.
 * Supports multiple attached drives and
   multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and
@@ -398,67 +397,6 @@ data (SEQ) files of up to 44 kb can be
 transferred, assuming no custom loader
 is used on the source tape.
 
-  Directories and paths
-Use the pound key to type a backslash.
-Paths and commands allow 127 characters
-plus their terminating byte. Each name
-component allows 16 native characters.
-
-FILE uses the current directory.
-TOOLS\FILE is relative to it.
-\TOOLS\FILE starts at the device root.
-A:FILE uses A's remembered directory.
-A:\TOOLS\FILE is absolute on A.
-A: selects A and its remembered location.
-CD A:path changes A's remembered location
-without selecting A. CD .. moves up one
-level; CD \ reaches the device root.
-
-CD\DIR1 and CD.. accept paths without
-a space after CD or CHDIR. CD /D also
-selects the target drive after changing
-its directory. Without /D, CD changes
-the remembered directory on that drive
-while leaving the selected drive alone.
-
-DIR shows . and .. in subdirectories.
-DIR /S recursively lists only files,
-using their full paths, without headings
-or totals. Patterns and file-type
-filters also apply within subdirectories.
-
-1581 subdirectories are fixed-size
-partitions. MD name /SIZE:400 reserves
-400 sectors, including directory space.
-Sizes must be multiples of 40, at least
-120. Omit /SIZE for an interactive size
-prompt; batch files require /SIZE.
-The shell finds free aligned space and
-protects the parent's directory track.
-
-CMD device roots list existing top-level
-partitions. Enter one by name or by its
-reserved @number alias (such as @13).
-Stored paths use the numeric alias.
-Cannot create or move files into this
-virtual root, or manage its partitions.
-Use CMD's dedicated tools for that.
-Native CMD directories need no /SIZE.
-
-RD removes empty directories. RD /S
-removes their contents too; /P suppresses
-confirmation. DEL always leaves directory
-entries alone. Cannot remove a working
-directory or any of its ancestors.
-
-Temporary file operations preserve the
-selected drive and working directories.
-After external execution the shell tries
-to restore its saved location. If that
-fails, it uses the device root (including
-the CMD virtual root), then cartridge 0
-if the device cannot be reached.
-
   Redirection and piping
 Command output redirection to file is
 supported (see chapter 9). Input
@@ -504,6 +442,11 @@ BASIC
 BEEP [duration]
   Plays a SID beep.
 
+CD [drive:][path] [/D]
+CHDIR [drive:][path] [/D]
+  Changes or displays the current
+  directory or partition.
+
 CHKDSK [drive:] [/V] [/C]
   Checks a disk and returns a status
   report.
@@ -536,7 +479,6 @@ DISKINIT [drive:]
   Resets disk drive state and forces a
   reread of the directory.
 
-
 ECHO [ON | OFF]
 ECHO [message]
 ECHO.
@@ -563,6 +505,10 @@ LABEL [drive:] [label]
   Creates, changes, or deletes the
   volume label of a disk.
 
+MD [drive:][path] [/SIZE:n]
+MKDIR [drive:][path] [/SIZE:n]
+  Creates a directory or partition.
+
 MEM
   Displays the amount of used and free
   memory in your system.
@@ -579,6 +525,9 @@ PAUSE [message]
 PRINT filename [4:|5:|LPT1|LPT2]
   Sends the contents of a file to a
   printer.
+
+RD [drive:][path] [/S [/P]]
+  Removes a directory or partition.
 
 REBOOT
   Reboots the environment.

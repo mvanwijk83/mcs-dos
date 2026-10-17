@@ -6,31 +6,30 @@
 
   2.1 (dd-Mmm-2026)
 ----------------------------------------
+* Added subdirectory support including
+  CD/CHDIR, MD/MKDIR and RD/RMDIR
+  commands. 1581 and CMD-FD/HD
+  partitions are rendered as and
+  navigated as subdirectories with
+  transparent partition switching.
 * Programs can now be run by only
   specifying their file name, as in
   classic DOS. The RUN command is
   retained for backwards compatibility.
-* Added DOS paths and CD/CHDIR, MD/MKDIR
-  and RD/RMDIR for 1581 sub-partitions
-  and CMD native directories. CMD roots
-  list existing top-level partitions.
-* Replaced DISKPART with directory-based
-  partition selection. CMD partition
-  management remains in external tools.
-* Expanded command and path buffers to
-  128 bytes including their terminator.
-  The pound key now displays backslash.
-* Preserved working directories across
-  temporary operations and shell returns.
 * Added KEY command to bind command text
   to function keys.
 * Added a /T switch to DIR to filter on
-  file types (PRG, SEQ, REL, USR, DEL).
+  file types (PRG, SEQ, REL, USR, DEL),
+  and /S to recursively list files from
+  all subdirectories.
 * Added a /C switch to TYPE to specify a
   number of bytes or characters instead
   of lines when used with /H and /T.
   Additionally, /H and /T now work with
   /HEX.
+* $P in SET PROMPT now denotes the
+  current path; the DRIVEIDS-dependent
+  drive identifier is now $I.
 * PAUSE can now be made to show a custom
   message.
 * Expanded SYSINFO computer model and
@@ -39,12 +38,17 @@
   bug where Ultimate detection required
   explicitly re-enabling Command
   Interface.
+* Updated CHKDSK to take into account
+  subdirectories and partitions.
 * Pressing RUN/STOP on the command
   prompt will now erase the current
   input, instead of creating a new
   prompt.
-* Added a safe boot hint on the
-  bootsplash.
+* Added a safe boot hint on the boot-
+  splash.
+* The backslash symbol has been remapped
+  to the pound key (£), making it
+  typable when using paths.
 * The documentation .TXT files have been
   replaced with a more extensive PDF
   manual in the ZIP archive.

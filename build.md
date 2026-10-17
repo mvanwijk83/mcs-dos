@@ -56,8 +56,8 @@ node scripts/build.js
 The code is compiled with Oscar64 flags `-n -Os -Oo -psci`. The build script
 will emit an EasyFlash cartridge image at `build/easyflash/MCS-DOS.crt`. Aside
 from executable code and the command help library, the image includes
-documentation text files, sample config files, and an alternate character set
-(CGA.CPI).
+documentation text files, sample config files, and alternate character sets
+(CGA.CPI and VGA.CPI).
 
 ## C source style
 

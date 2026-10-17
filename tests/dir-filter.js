@@ -18,7 +18,9 @@ const harness = `
 #define SYSOUT_DIR_BLOCKS "blocks%s"
 #define SYSOUT_DIR_TOTAL "total"
 #define SYSOUT_DIR_FREE "free"
-struct Entry {char name[17]; unsigned char type; unsigned int blocks;};
+typedef struct Entry {char name[17]; unsigned char type; unsigned int blocks;} Entry;
+typedef struct PartitionInfo {unsigned char type;} PartitionInfo;
+static unsigned char partition_info(unsigned char d,unsigned char n,PartitionInfo *p){return 0;}
 struct Path {unsigned char dev; char name[17]; char dir[128];};
 static struct Entry files[5] = {{"del",CBM_T_DEL,1},{"seq",CBM_T_SEQ,2},{"prg",CBM_T_PRG,3},{"usr",CBM_T_USR,4},{"rel",CBM_T_REL,5}};
 static struct Path p1;
@@ -36,6 +38,7 @@ static void error(const char *s) {++errors;}
 static void volumeheader(unsigned char d) {}
 static const char *drivename(unsigned char d) {return "0";}
 static void print(const char *fmt, ...) {
+    ox=outputcol=1;
     if(!strcmp(fmt,SYSOUT_DIR_ENTRY))++entries;
     if(!strcmp(fmt,SYSOUT_DIR_BLOCKS))++blockreports;
     if(!strcmp(fmt,SYSOUT_DIR_FREE))++freereports;
@@ -47,8 +50,9 @@ static const char *typename(unsigned char t) {return "";}
 static const char *allocated(unsigned int n) {return "";}
 static const char *decimal(unsigned int n) {return "";}
 static int page(void) {return 1;}
-static void newline(void) {}
-${functions('diroption','dirdefaults','dircompare','dircmd')}
+static void outs(const char *s) {ox=outputcol=1;}
+static void newline(void) {ox=outputcol=0;}
+${functions('diroption','dirdefaults','dircompare','direntry','dirfooter','dircmd')}
 int main(void) {
     int i;
     static const char *types[5]={"/TD","/TS","/TP","/TU","/TR"};

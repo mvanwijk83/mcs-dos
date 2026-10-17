@@ -47,7 +47,7 @@ const code=map.match(/^([\da-f]+) - ([\da-f]+) : DATA, code/m);
 // Filesystem calls temporarily expose ROML too; resident services must be
 // below $8000 even though persistent data may extend through $9FFF.
 if(!code||parseInt(code[2],16)>0x8000)throw Error('Resident code overlaps filesystem ROML');
-const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer'].map((name,i)=>{
+const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer','volume'].map((name,i)=>{
  const sections=[...map.matchAll(new RegExp(`^([\\da-f]+) - ([\\da-f]+) : DATA, ${name}_(?:code|data)$`,'gm'))]
   .map(m=>[parseInt(m[1],16),parseInt(m[2],16)]).filter(([a,b])=>b>a);
  if(!sections.length||sections.some(([a,b])=>a<0xa000||b>0xc000))throw Error('Command bank overflow: '+name);
@@ -96,7 +96,7 @@ payload.copy(rom,16384);
 const banks=fs.readFileSync(`${out}/shell-crt.crt`);
 for(let at=64;at<banks.length;at+=banks.readUInt32BE(at+4)){
  const bank=banks.readUInt16BE(at+10),address=banks.readUInt16BE(at+12),length=banks.readUInt16BE(at+14);
- if((bank>=5&&bank<=9)||(bank>=12&&bank<=14))banks.copy(rom,bank*16384+address-0x8000,at+16,at+16+length);
+ if(commandBanks.some(b=>b.bank===bank))banks.copy(rom,bank*16384+address-0x8000,at+16,at+16+length);
 }
 const driver=fs.readFileSync(`${out}/fs.bin`); if(driver.length>0x3f00)throw Error('Driver bank overflow'); driver.copy(rom,4*16384);
 const executableBytes=prg.length+commandBanks.reduce((n,b)=>n+b.used,0);
@@ -105,10 +105,11 @@ const help=fs.readFileSync(`${out}/help.bin`);insert(10,0,help);
 const tape=fs.readFileSync(`${out}/tape.bin`);insert(11,1,tape);
 exec(process.execPath,['scripts/make-examples.js'],{stdio:'inherit',windowsHide:true});
 fs.copyFileSync('disk-content/CGA.CPI','build/CGA.CPI');
+fs.copyFileSync('disk-content/VGA.CPI','build/VGA.CPI');
 fs.writeFileSync('build/AUTOEXEC.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/AUTOEXEC.SAMPLE','utf8')));
 // Configuration keys use unshifted PETSCII, as written by the shell's ECHO.
 fs.writeFileSync('build/CONFIG.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/CONFIG.SAMPLE','utf8').toLowerCase()));
-const names=['AUTOEXEC.SAMPLE','CGA.CPI','CHANGELOG.TXT','CONFIG.SAMPLE','LICENSE.TXT','MANUAL.TXT'];
+const names=['AUTOEXEC.SAMPLE','CGA.CPI','CHANGELOG.TXT','CONFIG.SAMPLE','LICENSE.TXT','MANUAL.TXT','VGA.CPI'];
 const {image,used,fileBytes,available}=require('./journal-image')(names);
 for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
 const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.1',32);
@@ -117,7 +118,7 @@ const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt3
 header[0x1a]=1;
 const packets=[header];
 // Include complete filesystem and session sectors, including erased sides.
-for(let bank=0;bank<64;bank++)if(bank<=14||bank>=48)for(let chip=0;chip<2;chip++){
+for(let bank=0;bank<64;bank++)if(bank<=Math.max(...commandBanks.map(b=>b.bank))||bank>=48)for(let chip=0;chip<2;chip++){
  const h=Buffer.alloc(16);h.write('CHIP');h.writeUInt32BE(8208,4);h.writeUInt16BE(2,8);h.writeUInt16BE(bank,10);h.writeUInt16BE(chip?0xa000:0x8000,12);h.writeUInt16BE(8192,14);
  packets.push(h,rom.subarray(bank*16384+chip*8192,bank*16384+(chip+1)*8192));
 }

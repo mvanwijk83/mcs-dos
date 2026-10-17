@@ -94,7 +94,8 @@ function crc(bytes) {
 function verifyDistribution(file) {
     const {files} = readImage(file);
     const names = [
-        'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT', 'CONFIG.SAMPLE', 'LICENSE.TXT', 'MANUAL.TXT'
+        'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT', 'CONFIG.SAMPLE', 'LICENSE.TXT', 'MANUAL.TXT',
+        'VGA.CPI'
     ];
     assert.equal(files.size, names.length);
     assert.deepEqual([...files.keys()], names, 'bundled files in alphabetical order');

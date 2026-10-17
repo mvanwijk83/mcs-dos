@@ -112,10 +112,10 @@ async function fixture(file,nativeSectors=256){
         if(type===1){
             const o=lba*512;
             b[o+256]=1;b[o+257]=34;b[o+258]=72;
-            b.fill(160,o+260,o+276);b.write('native',o+260,'ascii');
-            b.write('ct',o+278,'ascii');b[o+280]=160;b[o+281]=49;b[o+282]=72;b[o+283]=b[o+284]=160;
+            b.fill(160,o+260,o+276);b.write('NATIVE',o+260,'ascii');
+            b.write('CT',o+278,'ascii');b[o+280]=160;b[o+281]=49;b[o+282]=72;b[o+283]=b[o+284]=160;
             b[o+256+32]=1;b[o+256+33]=1;
-            b[o+512+2]=72;b[o+512+3]=183;b.write('ct',o+516,'ascii');b[o+518]=192;b[o+512+8]=sectors/256;
+            b[o+512+2]=72;b[o+512+3]=183;b.write('CT',o+516,'ascii');b[o+518]=192;b[o+512+8]=sectors/256;
             b.fill(255,o+512+40,o+512+64);
             b[o+34*256+1]=255;
         }

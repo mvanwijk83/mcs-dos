@@ -136,7 +136,7 @@ function diskFile(file, name) {
             'build/AUTOEXEC.BAT', require('../scripts/petscii')('@ECHO OFF\rECHO AUTOEXEC-RAN\r'));
         const journal = require('../scripts/journal-image')([
             'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT', 'CONFIG.SAMPLE', 'LICENSE.TXT',
-            'MANUAL.TXT', 'AUTOEXEC.BAT'
+            'MANUAL.TXT', 'VGA.CPI', 'AUTOEXEC.BAT'
         ]).image;
         const bytes = fs.readFileSync(crt);
         for (let p = bytes.readUInt32BE(16); p < bytes.length; p += bytes.readUInt32BE(p + 4)) {
@@ -497,7 +497,7 @@ function diskFile(file, name) {
     assert.equal(saved.get('TEST.TXT').data.toString(), 'HELLO\rSECOND\r');
     assert.equal(saved.get('EDITED.TXT').data.toString(), 'EDITED ON CARTRIDGE\r');
     for (const name of ['AUTOEXEC.SAMPLE', 'CONFIG.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT',
-             'LICENSE.TXT', 'MANUAL.TXT'])
+             'LICENSE.TXT', 'MANUAL.TXT', 'VGA.CPI'])
         assert.deepEqual(
             saved.get(name).data, fs.readFileSync('build/' + name), name + ' remains intact');
     console.log('PASS persisted file bytes and bundled resources');
@@ -593,9 +593,10 @@ async function defaultFont(patch) {
     const rom = fs.readFileSync(process.env.VICE_CHARGEN ||
                                 require('./environment').viceData('C64', 'chargen-901225-01.bin'));
     const expected = Buffer.from(rom.subarray(2048, 4096));
+    const backslash = [0xc0, 0x60, 0x30, 0x18, 0x0c, 0x06, 0x03, 0x00];
     for (let row = 0; row < 8; row++) {
-        expected[28 * 8 + row] = rom[77 * 8 + row];
-        expected[156 * 8 + row] = rom[77 * 8 + row] ^ 255;
+        expected[28 * 8 + row] = backslash[row];
+        expected[156 * 8 + row] = backslash[row] ^ 255;
     }
     if (patch)
         for (let i = 0; i < patch[5]; i++) {

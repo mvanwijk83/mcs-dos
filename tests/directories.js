@@ -81,6 +81,8 @@ async function main() {
         await run('md docs');
         await run('cd docs', null, '9:\\@4\\DOCS>');
         await run('echo native > text');
+        out = await run('dir');
+        assert(out.includes('Volume in drive 9: is NATIVE') && out.includes('Partition type is NATIVE') && out.includes('Disk ID is CT'), out);
         await run('type text', 'native');
         await run('dir \\ /b > listing');
         await run('type listing', 'NATIVE');
@@ -103,7 +105,9 @@ async function main() {
         await run('rd native /s /p', 'Cannot store files in virtual root');
         await run('cd @4', null, '9:\\@4>');
         await run('rd docs', 'Directory is not empty');
-        await run('rd docs /s /p');
+        await run('rd docs /s /p', 'Unsupported drive type');
+        await run('del docs\\* /p');
+        await run('rd docs');
         out = await run('dir /b');
         assert(!out.includes('DOCS') && out.includes('BINARY'), out);
         await s.command('detach 9');

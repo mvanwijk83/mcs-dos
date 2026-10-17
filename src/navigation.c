@@ -422,47 +422,26 @@ static unsigned char make1581(Path *p, unsigned int sectors)
     return command(p->dev, diskcmd);
 }
 
-/* Remove a native tree iteratively. Re-read the current directory after each
- * mutation; path length bounds traversal without a separate depth limit. */
-static unsigned char removetree(Path *p, unsigned char recursive)
+/* Native RD accepts only empty real subdirectories, never CMD partitions. */
+static unsigned char removenative(Path *p)
 {
-    unsigned int boundary;
     char *slash;
-    if (!bank_path_join(p))
+    if (!bank_path_join(p) || !bank_location_list(p->dev, p->dir))
         return 0;
-    boundary = strlen(p->dir);
-    for (;;) {
-        if (!bank_location_list(p->dev, p->dir))
-            return 0;
-        if (count) {
-            if (!recursive) {
-                error(SYSOUT_DIRECTORY_NOT_EMPTY);
-                return 0;
-            }
-            strcpy(p->name, directory_entries[0].name);
-            if (directory_entries[0].type == CBM_T_DIR) {
-                if (!bank_path_join(p))
-                    return 0;
-            } else if (!scratch(p))
-                return 0;
-        } else {
-            unsigned char done = strlen(p->dir) == boundary;
-            slash = strrchr(p->dir, 0x5c);
-            strcpy(p->name, slash ? slash + 1 : p->dir);
-            if (slash)
-                *slash = 0;
-            else
-                p->dir[0] = 0;
-            if (!select_ok(p->dev, p->dir))
-                return 0;
-            snprintf(diskcmd, sizeof(diskcmd), "rd:%s", p->name);
-            if (!command(p->dev, diskcmd))
-                return 0;
-            physicaldev = 255;
-            if (done)
-                return 1;
-        }
+    if (count) {
+        error(SYSOUT_DIRECTORY_NOT_EMPTY);
+        return 0;
     }
+    slash = strrchr(p->dir, 0x5c);
+    strcpy(p->name, slash ? slash + 1 : p->dir);
+    if (slash)
+        *slash = 0;
+    else
+        p->dir[0] = 0;
+    if (!select_ok(p->dev, p->dir))
+        return 0;
+    snprintf(diskcmd, sizeof(diskcmd), "rd:%s", p->name);
+    return command(p->dev, diskcmd);
 }
 
 /* CD/CHDIR, MD/MKDIR and RD/RMDIR share path handling but retain backend
@@ -560,6 +539,10 @@ __noinline void bank_navcmd(unsigned char operation)
         error(SYSOUT_CANNOT_REMOVE_CURRENT_DIRECTORY);
         return;
     }
+    if (recursive && filesystem == 1) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        return;
+    }
     if (recursive && !suppress && !yesno(SYSOUT_REMOVE_DIRECTORY_TREE))
         return;
     if (filesystem == 4) {
@@ -576,7 +559,7 @@ __noinline void bank_navcmd(unsigned char operation)
             command(navpath.dev, diskcmd);
         }
     } else if (filesystem == 1)
-        removetree(&navpath, recursive);
+        removenative(&navpath);
     physicaldev = 255;
     return;
 syntax:

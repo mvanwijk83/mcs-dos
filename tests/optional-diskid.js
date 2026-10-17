@@ -5,6 +5,7 @@ const harness = `
 static char volume[17]="TEST", diskid[3];
 static unsigned char io[256], idoff=10, ox, optionalheader, redirected;
 static unsigned char ready, ids, errors, failures;
+static unsigned char rootmetadata(unsigned char d,char *name,char *id) { return 0; }
 static void say(const char *s) { ++errors; }
 static void outs(const char *s) {}
 static void newline(void) {}

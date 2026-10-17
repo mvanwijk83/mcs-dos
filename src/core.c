@@ -13,7 +13,7 @@ volatile unsigned char skipautoexec;
 unsigned char copysuppress;
 unsigned int ultimatebase;
 /* Optional DIR disk-ID lookup must not turn an otherwise valid listing into errors. */
-static unsigned char optionalheader;
+unsigned char optionalheader;
 unsigned char pagelines, aborted, editprompt;
 unsigned int screenbase = 0x0400;
 char environment[ENVSIZE];
@@ -246,35 +246,6 @@ char *decimal(unsigned long bytes)
 char *allocated(unsigned int blocks)
 {
     return decimal((unsigned long)blocks * 256);
-}
-
-/* Print the cached volume name and, for disks, read and display its ID.
- *
- * dev: Device whose directory metadata is currently cached. */
-void volumeheader(unsigned char dev)
-{
-    char shown[17];
-    unsigned char ok;
-    uppername(volume, shown);
-    print(SYSOUT_VOL_HEADER, drivename(dev));
-    if (ox + strlen(shown) > 40)
-        newline();
-    outs(shown);
-    if (ox)
-        newline();
-    if (!dev) {
-        outs(SYSOUT_CRT_ID_HEADER);
-        return;
-    }
-    optionalheader = 1;
-    ok = bam(dev);
-    optionalheader = 0;
-    if (ok) {
-        diskid[0] = toupper(io[idoff]);
-        diskid[1] = toupper(io[idoff + 1]);
-        diskid[2] = 0;
-        print(SYSOUT_DISK_ID_HEADER, diskid);
-    }
 }
 
 /* A single-color sprite supplies a true eight-pixel underscore without

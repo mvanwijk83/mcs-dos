@@ -7,7 +7,7 @@ const edit = fn('editnumber');
 const compare = fn('dircompare');
 const s = fn('dircmd');
 const sort = s.slice(s.indexOf('for (i = 0; i < count; ++i)\n        order[i] = i;'),
-    s.indexOf('pagelines = 5;', s.indexOf('static void dircmd(')));
+    s.indexOf('pagelines = headerlines;', s.indexOf('static void dircmd(')));
 const fixtures = [
     ['zboot', 3, 99], ['beta', 1, 3], ['alpha', 1, 3], ['delta', 0, 65535], ['gamma', 2, 0],
     ['epsilon', 4, 256]

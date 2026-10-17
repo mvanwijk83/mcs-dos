@@ -14,6 +14,8 @@ static char working[24][128], cachedir[128];
 #define disk_location(p) 1
 #define navcmd(op) ((void)0)
 #define dirwalk(flags,filter) ((void)0)
+#define partitionheader(d) 0
+#define validate_disk(d) 1
 #define nav_finish() ((void)0)
 #define nav_invalidate() ((void)0)
 /* Legacy DISKINIT tests resolve only device specifications. */

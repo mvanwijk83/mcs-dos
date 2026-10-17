@@ -14,6 +14,7 @@
 #pragma compile("storage-cmd.c")
 #pragma compile("navigation.c")
 #pragma compile("transfer.c")
+#pragma compile("volume.c")
 #pragma compile("boot.c")
 #pragma compile("session.c")
 #pragma compile("tape.c")

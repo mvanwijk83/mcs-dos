@@ -169,3 +169,28 @@ paths, compact CD/CHDIR syntax, CD /D, and uppercase $P versus drive-only $I.
 
 The `partition-channels` probe documents the 1581 WRITE FILE OPEN restriction.
 The production transfer closes readers and writers between buffered chunks.
+
+`format-disk` formats a disposable 1581 from a nested directory, checks that
+all partitions disappear and the full capacity returns, and verifies label/ID
+switches, cancellation, blank media, preservation of another selected drive,
+and CMD HD rejection without image changes. CMD FD format extensions are
+covered by the `format-label` fixture and a linked-cartridge command-byte
+probe in `format-disk`; these do not constitute FD hardware validation.
+
+`disk-tree` checks root labels/IDs below 1581 partitions, all CMD directory
+header types, native MD/RD/REN (including R-H), and CMD DISKINIT rejection.
+It deliberately reserves orphan sectors in three nested D81 allocation maps
+and every supported CMD partition, then checks that CHKDSK /V repairs all of
+them while preserving files and the original working directory. The CMD
+fixture includes native, 1541, 1571 and 1581 partitions, nested 1581 storage,
+and partition 13. System and non-CBM regions are not validated.
+
+`dos-fileops` checks MOVE directory renames on 1581 and CMD native storage,
+including native directory headers, preserved contents and conflict rejection.
+It also verifies implicit COPY destinations for single files and wildcards,
+both within one drive and from another drive, using independent byte decoding.
+
+`dir-layout-session` verifies full-width screen rows and redirected listings,
+CMD root partition types, and aligned file/free byte counts on 1581 and 1541
+media. The `dir-layout` unit fixture also checks the exact sample layout,
+maximum allocation counts, separator settings and four-digit entry counts.

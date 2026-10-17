@@ -12,9 +12,12 @@ module.exports = async ({command, enter, check, defaultFont, root, disk}) => {
         process.argv.includes('--ntsc') ? 'ntsc' : 'pal'}.png" 2`);
     if (process.argv.includes('--display-fonts')) {
         const patch = fs.readFileSync('build/CGA.CPI');
-        await enter('echo set charset=cga >autoexec.bat', 4000);
-        await enter('reboot');
-        await defaultFont(patch);
+        for (const name of ['CGA', 'VGA']) {
+            await enter('echo set charset=' + name.toLowerCase() + ' >autoexec.bat', 4000);
+            await enter('reboot');
+            await defaultFont(fs.readFileSync('build/' + name + '.CPI'));
+            await command(`screenshot "${root}/build/easyflash/display-${name.toLowerCase()}.png" 2`);
+        }
         await enter('echo set charset=missing >autoexec.bat', 4000);
         await enter('reboot');
         await defaultFont();

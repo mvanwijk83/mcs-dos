@@ -272,7 +272,7 @@ __noinline void bank_volcmd(unsigned char stats)
 {
     unsigned int i;
     unsigned int used = 0, filecount = 0, total = 0, reserved = 0;
-    unsigned char whole1581;
+    unsigned char whole1581, model;
     DiskWide1581 report;
     char shown[17];
     int compacted;
@@ -283,12 +283,21 @@ __noinline void bank_volcmd(unsigned char stats)
             return;
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;
-    whole1581 = stats && p1.dev && drivemodel(p1.dev, 0) == DRIVE_1581;
+    model = p1.dev ? drivemodel(p1.dev, 0) : 0;
+    whole1581 = stats && model == DRIVE_1581;
+    if (stats && validate == 1 && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+        say(SYSOUT_CHECKING_AND_FIXING_DISK);
+        if (!validate_disk(p1.dev))
+            error(SYSOUT_DISK_VALIDATION_FAILED);
+        else
+            say(SYSOUT_DISK_VALIDATION_COMPLETE);
+        return;
+    }
     if (whole1581) {
         p1.dir[0] = 0;
         if (!location_select(p1.dev, p1.dir))
             return;
-    } else if (p1.dev && !disk_location(&p1))
+    } else if (p1.dev && stats && !disk_location(&p1))
         return;
     if (stats && validate == 2 && p1.dev) {
         error(SYSOUT_COMPACT_CRT_ONLY);
@@ -323,13 +332,13 @@ __noinline void bank_volcmd(unsigned char stats)
         if (!drivetype(p1.dev, 1))
             return;
         say(SYSOUT_CHECKING_AND_FIXING_DISK);
-        if (!command(p1.dev, "v0")) {
+        if (!(whole1581 ? validate_disk(p1.dev) : command(p1.dev, "v0"))) {
             error(SYSOUT_DISK_VALIDATION_FAILED);
             return;
         }
         say(SYSOUT_DISK_VALIDATION_COMPLETE);
     }
-    if (!whole1581 && !directory(p1.dev))
+    if (!whole1581 && !location_list(p1.dev, p1.dir))
         return;
     if (stats) {
         if (whole1581) {
@@ -424,53 +433,161 @@ __noinline void bank_labelcmd(void)
         say(SYSOUT_VOL_LABEL_CHANGED);
 }
 
-/* Validate FORMAT, confirm with the user, and format the selected disk. */
+/* FORMAT always targets a physical floppy, independently of its working path.
+ * FD extensions are explicit: bare NEW could erase only one CMD partition. */
+#pragma code(storage_code)
+#pragma data(storage_data)
 __noinline void bank_formatcmd(void)
 {
-    char name[17], id[3];
-    unsigned char type;
-    if (argc != 2 || !path(args[1], &p1)) {
+    static const char *const formats[] = {"81", "DD8", "HD8", "ED8", "DDN", "HDN", "EDN", "S8", "SN"};
+    const char *target = 0, *label = 0, *diskid = 0, *format = 0, *colon;
+    char name[17], id[3], root[6], extension[4];
+    unsigned char i, n, type, model, lfn;
+    for (i = 1; i < argc; ++i) {
+        if (!strnicmp(args[i], "/V:", 3) && !label)
+            label = args[i] + 3;
+        else if (!strnicmp(args[i], "/ID:", 4) && !diskid)
+            diskid = args[i] + 4;
+        else if (!strnicmp(args[i], "/F:", 3) && !format)
+            format = args[i] + 3;
+        else if (args[i][0] == '/') {
+            error(SYSOUT_INVALID_SWITCH);
+            return;
+        } else if (!target)
+            target = args[i];
+        else {
+            error(SYSOUT_TOO_MANY_PARAMS);
+            return;
+        }
+    }
+    if (!target || !(colon = strchr(target, ':')) || colon[1] || colon - target > 2) {
         error(SYSOUT_SYNTAX_FORMAT);
         return;
     }
-    if (!disk_location(&p1))
+    /* Parse an absolute root, so stale remembered CMD paths need no lookup. */
+    strcpy(root, target);
+    n = strlen(root);
+    root[n] = 0x5c; root[n + 1] = 0;
+    if (!path(root, &p1))
         return;
-    type = drivetype(p1.dev, 1);
-    if (!type)
+    if (p1.name[0] || p1.dir[0]) {
+        error(SYSOUT_INVALID_DRIVE_SPEC);
         return;
-    if (drivemodel(p1.dev, 0) >= DRIVE_CMD_HD) {
-        print(SYSOUT_PARTITION_FORMAT_TARGET, p1.dev);
-        say(SYSOUT_PARTITION_ALL_LOST);
-    } else {
-        print(SYSOUT_INSERT_DISK, drivename(p1.dev));
-        say(SYSOUT_ALL_DATA_LOST);
     }
+    if (!p1.dev) {
+        error(SYSOUT_UNSUPPORTED_OP_CRT);
+        return;
+    }
+    model = drivemodel(p1.dev, 1);
+    if (!model)
+        return;
+    if (model == DRIVE_CMD_HD) {
+        error(SYSOUT_FORMAT_CMD_HD_UNSUPPORTED);
+        return;
+    }
+    if (model == DRIVE_CMD_FD) {
+        if (!format) {
+            error(SYSOUT_FORMAT_FD_REQUIRES_TYPE);
+            return;
+        }
+        for (n = 0; n < sizeof(formats) / sizeof(formats[0]); ++n)
+            if (!stricmp(format, formats[n]))
+                break;
+        if (n == sizeof(formats) / sizeof(formats[0])) {
+            error(SYSOUT_UNSUPPORTED_DISK_FORMAT);
+            return;
+        }
+        /* The NEW extension uses DOS bytes, not presentation PETSCII. */
+        filename(formats[n], extension);
+        format = extension;
+        type = 3; /* Formatting must also work with native or unformatted media. */
+    } else {
+        if (format) {
+            error(SYSOUT_FORMAT_FD_ONLY);
+            return;
+        }
+        type = drivetype(p1.dev, 1);
+        if (!type)
+            return;
+    }
+    /* Reject supplied values before confirmation or any drive mutation. */
+    if (label && (strlen(label) > 16 || strchr(label, ','))) {
+        error(strlen(label) > 16 ? SYSOUT_VOLUME_LABEL_TOO_LONG : SYSOUT_FORMAT_INVALID_LABEL);
+        return;
+    }
+    if (diskid) {
+        if (strlen(diskid) != 2) {
+            error(SYSOUT_DISK_ID_FORMAT);
+            return;
+        }
+        filename(diskid, id);
+        if (!isalnum(id[0]) || !isalnum(id[1])) {
+            error(SYSOUT_DISK_ID_FORMAT);
+            return;
+        }
+    }
+    print(SYSOUT_INSERT_DISK, drivename(p1.dev));
+    say(SYSOUT_ALL_DATA_LOST);
+    if (format)
+        print(SYSOUT_FORMAT_TYPE, format);
     if (!yesno(SYSOUT_PROCEED_WITH_FORMAT))
         return;
-    outs(SYSOUT_FORMAT_LABEL_PROMPT);
-    if (!input(line, 17, 0))
-        return;
-    filename(line, name);
-    /* On CMD FD, comma-delimited NEW extensions can reformat the whole disk.
-     * A label is a single DOS field, never an extra format argument. */
+    if (!label) {
+        outs(SYSOUT_FORMAT_LABEL_PROMPT);
+        if (!input(line, 17, 0))
+            return;
+        label = line;
+    }
+    filename(label, name);
     if (strchr(name, ',')) {
         error(SYSOUT_FORMAT_INVALID_LABEL);
         return;
     }
     if (!*name)
-        strcpy(name, "MCS-DOS");
-    outs(SYSOUT_DISK_ID_PROMPT);
-    if (!input(line, LINE, 0))
-        return;
-    if (strlen(line) != 2 || !isalnum(line[0]) || !isalnum(line[1])) {
-        say(SYSOUT_DISK_ID_FORMAT);
+        strcpy(name, SYSOUT_FORMAT_DEFAULT_LABEL);
+    if (!diskid) {
+        outs(SYSOUT_DISK_ID_PROMPT);
+        if (!input(line, LINE, 0))
+            return;
+        diskid = line;
+    }
+    if (strlen(diskid) != 2) {
+        error(SYSOUT_DISK_ID_FORMAT);
         return;
     }
-    filename(line, id);
+    filename(diskid, id);
+    if (!isalnum(id[0]) || !isalnum(id[1])) {
+        error(SYSOUT_DISK_ID_FORMAT);
+        return;
+    }
+    /* Establish physical root only after confirmation and value validation. */
+    if (model == DRIVE_1581 || model == DRIVE_CMD_FD) {
+        nav_invalidate();
+        if (!location_select(p1.dev, p1.dir))
+            return;
+    }
+    if (model == DRIVE_CMD_FD) {
+        /* NEW is rejected inside native subdirectories. Both root commands
+         * are harmless on other formats; discard their unsupported/unformatted
+         * status so blank media can still be formatted. Check transport writes. */
+        lfn = statuschannel(p1.dev);
+        POKE(144, 0);
+        if (!lfn || channel_write(lfn, "cd//\r", 5) != 5) {
+            error(SYSOUT_WRITE_FAULT_ERR);
+            return;
+        }
+        diskstatus(p1.dev, 0);
+        POKE(144, 0);
+        if (channel_write(lfn, "/\r", 2) != 2) {
+            error(SYSOUT_WRITE_FAULT_ERR);
+            return;
+        }
+        diskstatus(p1.dev, 0);
+    }
     say(SYSOUT_FORMATTING);
     if (type == 2 && !drivemode(p1.dev, 1))
         return;
-    snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s", name, id);
+    snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s%s%s", name, id, format ? "," : "", format ? format : "");
     if (command(p1.dev, diskcmd)) {
         working[location_index(p1.dev)][0] = 0;
         nav_invalidate();
@@ -478,9 +595,12 @@ __noinline void bank_formatcmd(void)
     }
 }
 
+#pragma code(disk_code)
+#pragma data(disk_data)
 /* Execute DISKINIT to initialize a disk through its command channel. */
 __noinline void bank_diskinitcmd(void)
 {
+    unsigned char model;
     if (argc > 2) {
         error(SYSOUT_SYNTAX_DISKINIT);
         return;
@@ -496,6 +616,11 @@ __noinline void bank_diskinitcmd(void)
     }
     if (!p1.dev) {
         error(SYSOUT_UNSUPPORTED_OP_CRT);
+        return;
+    }
+    model = drivemodel(p1.dev, 0);
+    if (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         return;
     }
     command(p1.dev, "i0");

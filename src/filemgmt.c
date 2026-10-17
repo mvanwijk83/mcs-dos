@@ -48,7 +48,7 @@ __noinline void bank_dircmd(void)
     unsigned int *order = (unsigned int *)workspace;
     unsigned int usedblocks = 0;
     char shown[17];
-    unsigned char flags = 0, explicit = 0, filter = 255, type, soft;
+    unsigned char flags = 0, explicit = 0, filter = 255, type, soft, headerlines = 5;
     char *defaults = envready ? envget("DIRCMD") : (char *)0;
     for (i = 1; i < argc; ++i)
         if (args[i][0] == '/')
@@ -99,8 +99,9 @@ __noinline void bank_dircmd(void)
         return;
     soft = location_root(p1.dev, p1.dir) || drivemodel(p1.dev, 0) >= DRIVE_SOFTIEC;
     if (!bare) {
-        if (!p1.dir[0] && !location_root(p1.dev, p1.dir))
+        if (!location_root(p1.dev, p1.dir))
             volumeheader(p1.dev);
+        headerlines += partitionheader(p1.dev);
         uppername(p1.dir, io);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
     }
@@ -117,7 +118,7 @@ __noinline void bank_dircmd(void)
             }
             order[j] = tmp;
         }
-    pagelines = 5;
+    pagelines = headerlines;
     /* These are display entries, never cached files or traversal targets. */
     if (p1.dir[0] && filter == 255) {
         for (j = 0; j < 2; ++j) {
@@ -134,8 +135,10 @@ __noinline void bank_dircmd(void)
                     newline();
                     col = 0;
                 }
-            } else
+            } else {
                 print(SYSOUT_DIR_SUBDIR_ENTRY, dot);
+                newline();
+            }
         }
     }
     for (i = 0; i < count; ++i) {
@@ -161,34 +164,15 @@ __noinline void bank_dircmd(void)
                 newline();
                 col = 0;
             }
-        } else if (directory_entries[j].type == CBM_T_DIR)
-            print(SYSOUT_DIR_SUBDIR_ENTRY, shown);
-        else {
-            print(SYSOUT_DIR_ENTRY, shown, typename(directory_entries[j].type),
-                  allocated(directory_entries[j].blocks));
-            if (!soft)
-                print(SYSOUT_DIR_BLOCKS, decimal(directory_entries[j].blocks));
-            /* Short block labels also fit four-digit free-block counts. */
-            if (redirected ? outputcol : ox)
-                newline();
-        }
+        } else
+            direntry(j, shown, soft);
         if ((!wide || bare || !col) && !page())
             break;
     }
     if (col)
         newline();
-    if (!bare && !aborted) {
-        print(SYSOUT_DIR_TOTAL, total, allocated(usedblocks));
-        newline();
-        print(SYSOUT_DIR_COUNT, dirs);
-        if (soft) {
-            newline();
-            return;
-        }
-        newline();
-        print(SYSOUT_DIR_FREE, allocated(freeblocks));
-        newline();
-    }
+    if (!bare && !aborted)
+        dirfooter(total, dirs, usedblocks, soft);
 }
 
 /* Execute COPY or MOVE, including wildcard expansion and concatenation handling.
@@ -197,6 +181,7 @@ __noinline void bank_dircmd(void)
 __noinline void bank_copycmd(unsigned char moving)
 {
     unsigned int i, limit, total = 0;
+    int found;
     char *source = 0, *destination = 0;
     char pattern[17];
     copysuppress = 0;
@@ -210,9 +195,14 @@ __noinline void bank_copycmd(unsigned char moving)
         else
             destination = args[i];
     }
-    if (i < argc || !source || !destination) {
+    if (i < argc || !source || (!destination && (moving || strchr(source, '+')))) {
         error(moving ? SYSOUT_SYNTAX_MOVE : SYSOUT_SYNTAX_COPY);
         return;
+    }
+    if (!destination) {
+        /* Keep the default in RAM: path() switches ROM banks. */
+        pattern[0] = 0;
+        destination = pattern;
     }
     args[1] = source;
     args[2] = destination;
@@ -222,6 +212,20 @@ __noinline void bank_copycmd(unsigned char moving)
     }
     if (!path(source, &p1) || !path(destination, &p2))
         return;
+    if (moving) {
+        found = findfile(&p1);
+        if (found == -2)
+            return;
+        if (found >= 0 && (directory_entries[found].type == CBM_T_DIR ||
+                           directory_entries[found].type == CBM_T_CBM)) {
+            /* REN consumes exactly two operands; /P has already been parsed. */
+            i = argc;
+            argc = 3;
+            renamecmd();
+            argc = i;
+            return;
+        }
+    }
     path_directory(&p2);
     if (!moving && strpbrk(p1.name, "*?")) {
         if (p2.name[0]) {
@@ -490,8 +494,12 @@ __noinline void bank_concatcmd(void)
 }
 
 /* Validate two paths and rename within one device, checking the destination first. */
+#pragma code(volume_code)
+#pragma data(volume_data)
 __noinline void bank_renamecmd(void)
 {
+    int found;
+    unsigned char native_directory, directory;
     if (argc != 3 || !path(args[1], &p1) || !path(args[2], &p2)) {
         error(SYSOUT_SYNTAX_REN);
         return;
@@ -507,19 +515,36 @@ __noinline void bank_renamecmd(void)
     if (!strcmp(p1.name, p2.name))
         return;
     cachevalid = 0;
-    if (bank_findfile(&p1) < 0) {
+    found = findfile(&p1);
+    if (found < 0) {
         error(SYSOUT_FILE_NOT_FOUND);
         return;
     }
-    if (!bank_preparewrite(&p2))
+    directory = directory_entries[found].type == CBM_T_DIR || directory_entries[found].type == CBM_T_CBM;
+    native_directory = directory_entries[found].type == CBM_T_DIR && location_kind() == 1;
+    if (directory) {
+        found = findfile(&p2);
+        if (found >= 0) {
+            error(SYSOUT_FILE_OR_DIRECTORY_EXISTS);
+            return;
+        }
+        if (found == -2)
+            return;
+    } else if (!preparewrite(&p2))
         return;
     if (!location_file(p1.dev, p1.dir))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "r0:%s=%s", p2.name, p1.name);
-    command(p1.dev, diskcmd);
+    if (command(p1.dev, diskcmd) && native_directory) {
+        /* R updates the parent's entry; R-H updates the child's own header. */
+        snprintf(diskcmd, sizeof(diskcmd), "r-h/%s/:%s", p2.name, p2.name);
+        command(p1.dev, diskcmd);
+    }
     return;
 }
 
+#pragma code(filemgmt_code)
+#pragma data(filemgmt_data)
 /* Replace the shared directory cache; publish it only after a complete successful read.
  *
  * dev: Device to enumerate; return nonzero on success. */

@@ -48,6 +48,7 @@ typedef struct Entry {
 extern Entry directory_entries[MAXFILES];
 extern unsigned int count;
 extern unsigned char cachedev, cachevalid, drive;
+extern unsigned char optionalheader;
 extern char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
 extern unsigned int freeblocks;
 extern char volume[17], diskid[3];
@@ -199,6 +200,8 @@ void executecommand(char *s);
 void execute(char *s);
 void bootsplash(unsigned char wait);
 void renamecmd(void);
+void direntry(unsigned int index, const char *shown, unsigned char soft);
+void dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft);
 
 unsigned char bootstart(unsigned char startdrive);
 unsigned char findoptions(unsigned char *flags, char **needle);

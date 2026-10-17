@@ -64,5 +64,7 @@ void nav_finish(void);
 void nav_invalidate(void);
 void nav_reset(void);
 unsigned char disk_location(const struct Path *p);
+unsigned char partitionheader(unsigned char dev);
+unsigned char validate_disk(unsigned char dev);
 
 #endif

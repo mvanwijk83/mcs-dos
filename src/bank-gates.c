@@ -226,8 +226,24 @@ __noinline void bank_renamecmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void renamecmd(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    unsigned char previous = bank_enter(BANK_VOLUME);
     bank_renamecmd();
+    bank_leave(previous);
+}
+
+__noinline void bank_direntry(unsigned int index, const char *shown, unsigned char soft);
+__noinline void direntry(unsigned int index, const char *shown, unsigned char soft)
+{
+    unsigned char previous = bank_enter(BANK_VOLUME);
+    bank_direntry(index, shown, soft);
+    bank_leave(previous);
+}
+
+__noinline void bank_dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft);
+__noinline void dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft)
+{
+    unsigned char previous = bank_enter(BANK_VOLUME);
+    bank_dirfooter(files, dirs, blocks, soft);
     bank_leave(previous);
 }
 
@@ -350,7 +366,7 @@ __noinline void bank_formatcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void formatcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    unsigned char previous = bank_enter(BANK_STORAGE);
     bank_formatcmd();
     bank_leave(previous);
 }
@@ -892,6 +908,30 @@ __noinline int raw_reader_read(unsigned char lfn, void *buffer, unsigned int siz
 {
     unsigned char previous = bank_enter(BANK_TRANSFER);
     int result = bank_raw_reader_read(lfn, buffer, size);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline void bank_volumeheader(unsigned char dev);
+__noinline void volumeheader(unsigned char dev)
+{
+    unsigned char previous = bank_enter(BANK_VOLUME);
+    bank_volumeheader(dev);
+    bank_leave(previous);
+}
+__noinline unsigned char bank_partitionheader(unsigned char dev);
+__noinline unsigned char partitionheader(unsigned char dev)
+{
+    unsigned char previous = bank_enter(BANK_VOLUME);
+    unsigned char result = bank_partitionheader(dev);
+    bank_leave(previous);
+    return result;
+}
+__noinline unsigned char bank_validate_disk(unsigned char dev);
+__noinline unsigned char validate_disk(unsigned char dev)
+{
+    unsigned char previous = bank_enter(BANK_VOLUME);
+    unsigned char result = bank_validate_disk(dev);
     bank_leave(previous);
     return result;
 }

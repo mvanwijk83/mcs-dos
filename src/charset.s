@@ -32,12 +32,12 @@ _charset_prepare:
     .endrepeat
     inx
     bne @font
-    ; Slot 28 replaces the pound sign. Use the graphics-ROM backslash
-    ; (slot 77); regular mixed-case M remains untouched. Also stage the
-    ; fallback for older external fonts that omit the new slot.
+    ; Slot 28 replaces the pound sign with a thin, two-pixel diagonal.
+    ; Also stage the fallback for external fonts that omit this slot;
+    ; CPI records with their own backslash replace it during loading.
     ldx #7
 @backslash:
-    lda $d268,x
+    lda @backslash_glyph,x
     sta $e8e0,x
     sta $f0e0,x
     eor #$ff
@@ -49,6 +49,8 @@ _charset_prepare:
     sta $01
     plp
     rts
+@backslash_glyph:
+    .byte $c0,$60,$30,$18,$0c,$06,$03,$00
 
 _charset_commit:
     php

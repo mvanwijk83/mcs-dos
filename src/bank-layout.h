@@ -27,3 +27,7 @@
 #pragma section(transfer_code, 0)
 #pragma section(transfer_data, 0)
 #pragma region(transfer_bank, 0xa000, 0xc000, , 14, {transfer_code, transfer_data})
+
+#pragma section(volume_code, 0)
+#pragma section(volume_data, 0)
+#pragma region(volume_bank, 0xa000, 0xc000, , 15, {volume_code, volume_data})

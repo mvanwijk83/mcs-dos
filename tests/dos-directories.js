@@ -31,7 +31,7 @@ async function main() {
         let out = await run('dir');
         assert(/^DIR1\s+<DIR>$/m.test(out), out);
         assert(!/^\.\.?\s+<DIR>$/m.test(out), out);
-        assert(/^  1 File\(s\)/m.test(out) && /^  1 Dir\(s\)$/m.test(out), out);
+        assert(/^  1 File\(s\)/m.test(out) && /^  1 Dir\(s\) +[\d,]+ bytes free$/m.test(out), out);
         assert(!out.slice(out.indexOf('File(s)')).includes(' bl)'), out);
         await run('cd\\dir1', '8:\\DIR1>');
         await run('echo one > one.txt');
@@ -39,7 +39,7 @@ async function main() {
         out = await run('dir');
         assert(out.includes('Directory of 8:\\DIR1'), out);
         assert(/^\.\s+<DIR>$/m.test(out) && /^\.\.\s+<DIR>$/m.test(out), out);
-        assert(/^  3 Dir\(s\)$/m.test(out), out);
+        assert(/^  3 Dir\(s\) +[\d,]+ bytes free$/m.test(out), out);
         await run('chdir\\dir1\\inner', '8:\\DIR1\\INNER>');
         await run('echo deep > deep.txt');
         await run('cd..', '8:\\DIR1>');

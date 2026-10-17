@@ -17,8 +17,10 @@ extern unsigned char resume_requested;
 #include <stdarg.h>
 #include <time.h>
 
-/* 64 command characters plus terminator. */
-#define LINE 65
+/* Classic DOS limits include the terminating byte. */
+#define LINE 128
+#define PATHSIZE 128
+#define LOCATIONCOUNT 24
 #define MAXARGS 33
 #define ENVVALUE 32
 #define ENVSIZE 512
@@ -34,6 +36,7 @@ extern unsigned char resume_requested;
 typedef struct Path {
     unsigned char dev; /* 0 is cartridge storage; disk devices are 8-30. */
     char name[17];     /* Native filename bytes, at most 16 plus a terminator. */
+    char dir[PATHSIZE]; /* Absolute parent directory; empty means the root. */
 } Path;
 
 typedef struct Entry {
@@ -45,6 +48,7 @@ typedef struct Entry {
 extern Entry directory_entries[MAXFILES];
 extern unsigned int count;
 extern unsigned char cachedev, cachevalid, drive;
+extern char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
 extern unsigned int freeblocks;
 extern char volume[17], diskid[3];
 extern unsigned char ox, oy, fg, bg, bd, quit, reboot, echoon, batching;
@@ -79,13 +83,13 @@ extern unsigned char argc;
 extern unsigned char argquoted[MAXARGS];
 extern Path p1, p2;
 extern Path outputpath;
-extern unsigned char redirected, outputfailed, outputused, outputcol;
+extern unsigned char redirected, outputfailed, outputused, outputcol, outputmode, outputstarted;
 extern unsigned char outputbuf[128];
 extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators, validate;
-#define COMMANDCOUNT 34
+#define COMMANDCOUNT 36
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */
@@ -132,6 +136,13 @@ unsigned char diroption(const char *s, unsigned char *flags);
 unsigned char dirdefaults(const char *s, unsigned char *flags);
 unsigned char charsetname(const char *s);
 void setcmd(const char *s);
+unsigned char output_append(void);
+extern unsigned char rawreadmask, rawreading;
+unsigned char raw_reader_open(const Path *p, unsigned char lfn);
+int raw_reader_read(unsigned char lfn, void *buffer, unsigned int size);
+void raw_reader_clone(void);
+unsigned char deletable(const Path *p);
+unsigned char copyfile(unsigned char moving);
 unsigned char path(const char *s, Path *p);
 /* Channel services and shared file helpers. Success is nonzero unless a
  * routine explicitly returns a count, status code or directory index. */

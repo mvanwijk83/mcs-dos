@@ -4,10 +4,11 @@ const {functions} = require('./source');
 const harness = `
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 #include <time.h>
-#define LINE 65
-#define RAWMAP 9
+#define LINE 128
+#define RAWMAP 16
 #define KEYBUFSIZE 256
 #define CH_ENTER 13
 #define CH_STOP 3
@@ -24,7 +25,7 @@ static unsigned char rawline[9],rawdraft[9],rawhistory[10][9];
 static char history[10][65],draft[65],keybindings[256],shownline[40];
 static unsigned char events[10],mods[10];
 static int used,reads,newlines;
-typedef struct {unsigned char dev;char name[17];} Path;
+typedef struct {unsigned char dev; char name[17]; char dir[128];} Path;
 static struct {char name[17];} files[1];
 static clock_t ticks;
 static clock_t testclock(void) {return ++ticks;}

@@ -1,7 +1,7 @@
 #include "core.h"
 #include "session.h"
 /* Changing these sizes requires a new on-flash format and matching offsets. */
-#if LINE != 65 || ENVSIZE != 512 || ENVVALUE != 32 || RAWMAP != 9 || KEYBUFSIZE != 256 || \
+#if LINE != 128 || ENVSIZE != 512 || ENVVALUE != 32 || RAWMAP != 16 || KEYBUFSIZE != 256 || \
     FUNCTIONKEYS != 7
 #error Update the session format before changing persistent buffer sizes
 #endif
@@ -64,7 +64,9 @@ static unsigned char statebyte(unsigned int i)
         return ((char *)rawhistory)[i - SESSION_RAW_HISTORY_OFFSET];
     if (i < SESSION_KEYS_OFFSET)
         return prompttext[i - SESSION_PROMPT_OFFSET];
-    return keybindings[i - SESSION_KEYS_OFFSET];
+    if (i < SESSION_LOCATIONS_OFFSET)
+        return keybindings[i - SESSION_KEYS_OFFSET];
+    return ((char *)working)[i - SESSION_LOCATIONS_OFFSET];
 }
 
 /* Decode one serialized byte into shell state or the saved font RAM.
@@ -114,8 +116,10 @@ static void stateput(unsigned int i, unsigned char value)
         ((char *)rawhistory)[i - SESSION_RAW_HISTORY_OFFSET] = value;
     else if (i < SESSION_KEYS_OFFSET)
         prompttext[i - SESSION_PROMPT_OFFSET] = value;
-    else if (i < SESSION_FONT_OFFSET)
+    else if (i < SESSION_LOCATIONS_OFFSET)
         keybindings[i - SESSION_KEYS_OFFSET] = value;
+    else if (i < SESSION_FONT_OFFSET)
+        ((char *)working)[i - SESSION_LOCATIONS_OFFSET] = value;
     else
         POKE(0xe800 + i - SESSION_FONT_OFFSET, value);
 }
@@ -193,6 +197,10 @@ __noinline unsigned char bank_session_restore(void)
     prompttext[ENVVALUE] = 0;
     for (i = 0; i < 10; ++i)
         history[i][LINE - 1] = 0;
+    for (i = 0; i < LOCATIONCOUNT; ++i)
+        working[i][PATHSIZE - 1] = 0;
+    nav_invalidate();
+    nav_finish();
     colors();
     clear();
     caret_init();

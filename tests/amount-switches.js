@@ -13,6 +13,7 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 #include <stdarg.h>
 static int argc, errors, prompts, deleted, answer = 1;
@@ -25,13 +26,13 @@ static char BSSEnd;
 #define SHELL_STACK_SIZE 2048U
 
 static struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } p1;
 
 static struct {
     unsigned int blocks;
     char name[17];
+    unsigned char type;
 } files[2] = {{2, "one"}, {2, "two"}};
 
 /* Resolve a controlled fixture path without performing device I/O.
@@ -40,6 +41,7 @@ static struct {
  * p: Result path or placeholder used by this fixture. */
 static int path(const char *s, void *p)
 {
+    p1.dev = drive;
     p1.name[0] = 0;
     if (!strchr(s, ':'))
         strcpy(p1.name, s);
@@ -193,6 +195,14 @@ static void volumeheader(int d)
 {
 }
 
+static int findfile(const void *p) { return 0; }
+/* Raw 1581 traversal is exercised against independently audited full D81s.
+ * Here, provide its completed statistics to test the report formatting. */
+#define DRIVE_1581 3
+typedef struct DiskWide1581 {unsigned int blocks,files,free,directories,directoryblocks;unsigned char id[2];} DiskWide1581;
+static unsigned char diskwide1581(unsigned char d,DiskWide1581 *r) {
+    memset(r,0,sizeof(*r));r->blocks=4;r->files=2;r->free=3156;r->id[0]='M';r->id[1]='C';return 1;
+}
 ${code}
 /* Reset observable state and load fixture inputs before an independent case.
  *
@@ -202,6 +212,7 @@ static void reset(const char *a, const char *b)
 {
     out[0] = 0;
     errors = prompts = deleted = noseparators = 0;
+    freeblocks = 660;
     argc = 1;
     if (a) {
         strcpy(argstore[0], a);
@@ -314,6 +325,7 @@ int main(void)
     if (!strstr(out, "\\n\\nDrive model is EasyFlash\\nDrive identifier is 0\\n"))
         return 32;
     drive = 8;
+    model = 1;
     reset("/V", 0);
     volcmd(1);
     if (errors || strstr(out, "Drive model"))
@@ -353,7 +365,7 @@ int main(void)
         return 13;
     reset("*", "/p");
     delcmd();
-    if (prompts || deleted != 1)
+    if (prompts || deleted != 2)
         return 14;
     reset("/P", "file");
     delcmd();

@@ -23,6 +23,8 @@
 #define CBM_T_PRG 17
 #define CBM_T_USR 18
 #define CBM_T_REL 19
+#define CBM_T_DIR 20
+#define CBM_T_CBM 21
 
 #define CBM_A_RO 1
 #define CBM_A_RW 3

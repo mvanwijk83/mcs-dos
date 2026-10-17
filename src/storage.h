@@ -24,7 +24,6 @@ typedef struct PartitionInfo {
 unsigned char drivemodel(unsigned char dev, unsigned char report);
 unsigned char drivepresent(unsigned char dev);
 unsigned char drivemode(unsigned char dev, unsigned char doublesided);
-void diskpartcmd(void);
 
 /* Private backend entry points, called only within the storage bank. */
 unsigned char cbm_model(unsigned char dev);
@@ -35,6 +34,35 @@ unsigned char sd_model(unsigned char dev);
 unsigned char cmd_partition(unsigned char dev, unsigned char number, PartitionInfo *info);
 void cmd_geometry(unsigned char dev, unsigned char report, unsigned char *geometry);
 unsigned char cmd_select(unsigned char dev, unsigned char number);
-void cmd_list(unsigned char dev);
+unsigned char cmd_root(unsigned char dev);
+unsigned char cmd_lookup(unsigned char dev, const char *name, PartitionInfo *info);
+
+struct Path;
+unsigned char partition_root(unsigned char dev);
+unsigned char partition_info(unsigned char dev, unsigned char number, PartitionInfo *info);
+unsigned char startup_path(struct Path *p);
+extern char startupdir[];
+unsigned char partition_lookup(unsigned char dev, const char *name, PartitionInfo *info);
+
+/* Locations use an empty directory string for the root. Only explicit CD
+ * changes working[]. All other transitions are temporary until nav_finish. */
+unsigned char location_index(unsigned char dev);
+unsigned char location_select(unsigned char dev, const char *dir);
+unsigned char location_file(unsigned char dev, const char *dir);
+unsigned char location_root(unsigned char dev, const char *dir);
+unsigned char location_list(unsigned char dev, const char *dir);
+unsigned char path_directory(struct Path *p);
+unsigned char path_join(struct Path *p);
+unsigned char sameplace(const struct Path *a, const struct Path *b);
+unsigned char location_kind(void);
+unsigned char location_header(void);
+unsigned char fileentry(const struct Path *p);
+extern unsigned char entrytrack, entrysector, entryoffset;
+void navcmd(unsigned char operation);
+void dirwalk(unsigned char flags, unsigned char filter);
+void nav_finish(void);
+void nav_invalidate(void);
+void nav_reset(void);
+unsigned char disk_location(const struct Path *p);
 
 #endif

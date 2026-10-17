@@ -205,7 +205,7 @@ module.exports = async ({command, memory, screen, keys, enter, root, disk, crt, 
         await until('Filename');
         await keys('\\x0d', 100);
         s = await until('Tape read error');
-        assert(s.includes('0:>'), s);
+        assert(s.includes('0:\\>'), s);
         s = await enter('dir ' + dest + ':badseq');
         assert(!/BADSEQ\s+SEQ/.test(s), s);
         if (dest)

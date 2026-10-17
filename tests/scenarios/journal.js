@@ -47,12 +47,12 @@ module.exports =
         await command('x');
         await delay(2000);
         let s = await screen();
-        for (let i = 0; i < 50 && !s.endsWith('0:>'); i++) {
+        for (let i = 0; i < 50 && !s.endsWith('0:\\>'); i++) {
             await command('x');
             await delay(500);
             s = await screen();
         }
-        assert(s.endsWith('0:>'), s);
+        assert(s.endsWith('0:\\>'), s);
         return s;
     }
     async function attach() {

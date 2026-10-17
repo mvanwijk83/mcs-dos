@@ -66,7 +66,7 @@ module.exports =
     const savedMessage = parseInt(loader.match(/LDA \$9d[^\n]*\n[^\n]*STA \$([0-9a-f]+)/i)[1], 16);
     const basicEntry = loader.match(/^([0-9a-f]+) :[^\n]*JSR \$a659/m)[1];
     async function restored(s) {
-        await settled(s, s => s.endsWith('0:>'));
+        await settled(s, s => s.endsWith('0:\\>'));
         for (let i = 0; i < fields.length; i++)
             assert.deepEqual(await variable(...fields[i]), expected[i], fields[i][0]);
         assert.equal((await memory(0xc1e0))[0], 0, 'resume request consumed');
@@ -99,7 +99,7 @@ module.exports =
             if (name !== 'error')
                 assert.equal((await memory(0xc2f0))[0], name === 'return' ? 0x41 : 0x42,
                     'native code executed');
-            const history = await variable('history', 650);
+            const history = await variable('history', 1280);
             assert(history.includes(Buffer.from(`${prefix.toUpperCase()}${device}:${name.toUpperCase()}\0`)),
                 'launch command retained in history');
         }
@@ -113,7 +113,7 @@ module.exports =
         assert.equal((await memory(0xc2f0))[0], 0x42, 'absolute native entry executed');
     }
     await enter('8:');
-    await settled(await keys('return\\x0d', 3500), s => s.endsWith('8:>'));
+    await settled(await keys('return\\x0d', 3500), s => s.endsWith('8:\\>'));
     assert.equal((await variable('drive', 1))[0], 8, 'current disk restored');
     await enter('0:');
     console.log(
@@ -141,7 +141,7 @@ module.exports =
         await delay(600);
         const prompt = await screen();
         assert(prompt.replace(/\s/g, '').includes('Runprogramanyway(Y/N)?'), prompt);
-        return settled(await keys(answer, 3500), s => s.endsWith('0:>'));
+        return settled(await keys(answer, 3500), s => s.endsWith('0:\\>'));
     }
     await command('> c2f0 00');
     await fail('n');
@@ -162,7 +162,7 @@ module.exports =
     await command('reset 0');
     await command('x');
     await delay(3500);
-    await settled(await screen(), s => s.endsWith('0:>'));
+    await settled(await screen(), s => s.endsWith('0:\\>'));
     await check('set', 'BOOT=must-not-run');
     console.log(
         'PASS lost hook leaves BASIC usable; cartridge reset retains ordinary startup behavior');

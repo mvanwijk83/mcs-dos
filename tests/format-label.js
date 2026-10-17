@@ -3,6 +3,7 @@ require('./setup');
 const fs = require('fs'), {functions} = require('./source');
 fs.writeFileSync('build/test-format-label.c', `
 #include <string.h>
+#include "../tests/location-fixture.h"
 #define LINE 160
 typedef struct {unsigned char dev;char name[17];} Path;
 static Path p1;

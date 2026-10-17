@@ -14,7 +14,6 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags);
 __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags);
 __noinline int bank_dircompare(unsigned int a, unsigned int b, unsigned char flags);
 __noinline void bank_dircmd(void);
-__noinline unsigned char bank_copyfile(unsigned char moving);
 __noinline void bank_copycmd(unsigned char moving);
 __noinline unsigned char bank_deletable(const Path *p);
 __noinline void bank_delcmd(void);
@@ -44,8 +43,8 @@ __noinline int bank_dircompare(unsigned int a, unsigned int b, unsigned char fla
 /* Parse DIR options, build a bounded directory order, and print the selected listing. */
 __noinline void bank_dircmd(void)
 {
-    unsigned char bare = 0, lower = 0, sort = 0, wide = 0, col = 0;
-    unsigned int i, j, total = 0, tmp;
+    unsigned char bare = 0, lower = 0, sort = 0, wide = 0, col = 0, recursive = 0;
+    unsigned int i, j, total = 0, dirs = 0, tmp;
     unsigned int *order = (unsigned int *)workspace;
     unsigned int usedblocks = 0;
     char shown[17];
@@ -56,8 +55,8 @@ __noinline void bank_dircmd(void)
             explicit = 1;
     if (!explicit && defaults)
         bank_dirdefaults(defaults, &flags);
-    p1.dev = drive;
-    strcpy(p1.name, "*");
+    if (!path("", &p1))
+        return;
     for (i = 1; i < argc; ++i) {
         if (args[i][0] == '/') {
             if (toupper(args[i][1]) == 'T' && args[i][2] && !args[i][3]) {
@@ -76,7 +75,9 @@ __noinline void bank_dircmd(void)
                     error(SYSOUT_INVALID_SWITCH);
                     return;
                 }
-            } else if (!bank_diroption(args[i], &flags)) {
+            } else if (!stricmp(args[i], "/S"))
+                recursive = 1;
+            else if (!bank_diroption(args[i], &flags)) {
                 error(SYSOUT_INVALID_SWITCH);
                 return;
             }
@@ -87,14 +88,21 @@ __noinline void bank_dircmd(void)
     lower = flags & 2;
     sort = flags & 4;
     wide = flags & 8;
+    path_directory(&p1);
     if (!p1.name[0])
         strcpy(p1.name, "*");
-    if (!bank_directory(p1.dev))
+    if (recursive) {
+        dirwalk(flags, filter);
         return;
-    soft = drivemodel(p1.dev, 0) >= DRIVE_SOFTIEC;
+    }
+    if (!location_list(p1.dev, p1.dir))
+        return;
+    soft = location_root(p1.dev, p1.dir) || drivemodel(p1.dev, 0) >= DRIVE_SOFTIEC;
     if (!bare) {
-        volumeheader(p1.dev);
-        print(SYSOUT_DIR_HEADER, drivename(p1.dev));
+        if (!p1.dir[0] && !location_root(p1.dev, p1.dir))
+            volumeheader(p1.dev);
+        uppername(p1.dir, io);
+        print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
     }
     /* Sort an index rather than the shared entries, preserving lookup and completion order. */
     for (i = 0; i < count; ++i)
@@ -110,13 +118,37 @@ __noinline void bank_dircmd(void)
             order[j] = tmp;
         }
     pagelines = 5;
+    /* These are display entries, never cached files or traversal targets. */
+    if (p1.dir[0] && filter == 255) {
+        for (j = 0; j < 2; ++j) {
+            const char *dot = j ? ".." : ".";
+            if (!match(p1.name, dot))
+                continue;
+            ++dirs;
+            if (bare)
+                say(dot);
+            else if (wide) {
+                print(SYSOUT_DIR_WIDE_ENTRY, dot);
+                ++col;
+                if (col == 2) {
+                    newline();
+                    col = 0;
+                }
+            } else
+                print(SYSOUT_DIR_SUBDIR_ENTRY, dot);
+        }
+    }
     for (i = 0; i < count; ++i) {
         j = order[i];
         if ((filter != 255 && directory_entries[j].type != filter) ||
             !match(p1.name, directory_entries[j].name))
             continue;
-        ++total;
-        usedblocks += directory_entries[j].blocks;
+        if (directory_entries[j].type == CBM_T_DIR)
+            ++dirs;
+        else {
+            ++total;
+            usedblocks += directory_entries[j].blocks;
+        }
         if (lower)
             strcpy(shown, directory_entries[j].name);
         else
@@ -129,7 +161,9 @@ __noinline void bank_dircmd(void)
                 newline();
                 col = 0;
             }
-        } else {
+        } else if (directory_entries[j].type == CBM_T_DIR)
+            print(SYSOUT_DIR_SUBDIR_ENTRY, shown);
+        else {
             print(SYSOUT_DIR_ENTRY, shown, typename(directory_entries[j].type),
                   allocated(directory_entries[j].blocks));
             if (!soft)
@@ -145,85 +179,16 @@ __noinline void bank_dircmd(void)
         newline();
     if (!bare && !aborted) {
         print(SYSOUT_DIR_TOTAL, total, allocated(usedblocks));
+        newline();
+        print(SYSOUT_DIR_COUNT, dirs);
         if (soft) {
             newline();
             return;
         }
-        print(SYSOUT_DIR_BLOCKS_LINE, decimal(usedblocks));
+        newline();
         print(SYSOUT_DIR_FREE, allocated(freeblocks));
-        print(SYSOUT_DIR_BLOCKS_LINE, decimal(freeblocks));
+        newline();
     }
-}
-
-/* Copy p1 to p2 with overwrite confirmation and I/O checks; return nonzero on success.
- *
- * moving: Nonzero removes the source after a successful copy. */
-__noinline unsigned char bank_copyfile(unsigned char moving)
-{
-    int n, i;
-    unsigned char type, ok = 1;
-    if (!p2.name[0])
-        strcpy(p2.name, p1.name);
-    if (p1.dev == p2.dev && !strcmp(p1.name, p2.name)) {
-        say(SYSOUT_FILE_COPY_ON_SELF);
-        return 0;
-    }
-    cachevalid = 0;
-    i = bank_findfile(&p1);
-    if (i < 0) {
-        error(SYSOUT_FILE_NOT_FOUND);
-        return 0;
-    }
-    type = directory_entries[i].type;
-    if (type == CBM_T_REL) {
-        ok = copyrel();
-    } else {
-        if (type != CBM_T_PRG && type != CBM_T_SEQ && type != CBM_T_USR) {
-            error(SYSOUT_UNSUPPORTED_FILE_TYPE);
-            return 0;
-        }
-        if (!bank_preparewrite(&p2))
-            return 0;
-        /* Same-disk copies can run inside DOS; cross-device copies must stream through RAM. */
-        if (p1.dev && p1.dev == p2.dev) {
-            snprintf(diskcmd, sizeof(diskcmd), "c0:%s=0:%s", p2.name, p1.name);
-            ok = command(p1.dev, diskcmd);
-        } else {
-            if (!bank_openreadtype(&p1, 2, type))
-                return 0;
-            if (!bank_openwrite(&p2, type)) {
-                channel_close(2);
-                return 0;
-            }
-            uppername(p1.name, statusbuf);
-            outs(statusbuf);
-            while ((n = readio(2, io, sizeof(io))) > 0) {
-                if (channel_write(3, io, n) != n || stop()) {
-                    ok = 0;
-                    break;
-                }
-            }
-            if (n < 0)
-                ok = 0;
-            /* An unsuccessful cartridge copy must discard its unfinished record rather than commit it. */
-            if (!ok)
-                channel_abort(3);
-            channel_close(2);
-            channel_close(3);
-            newline();
-            if (diskstatus(p2.dev, 1) >= 20)
-                ok = 0;
-        }
-    }
-    cachevalid = 0;
-    if (!ok) {
-        say(SYSOUT_COPY_NOT_COMPLETED);
-        return 0;
-    }
-    /* MOVE deletes the source only after the destination closes successfully. */
-    if (moving && !bank_scratch(&p1))
-        return 0;
-    return 1;
 }
 
 /* Execute COPY or MOVE, including wildcard expansion and concatenation handling.
@@ -257,24 +222,25 @@ __noinline void bank_copycmd(unsigned char moving)
     }
     if (!path(source, &p1) || !path(destination, &p2))
         return;
+    path_directory(&p2);
     if (!moving && strpbrk(p1.name, "*?")) {
         if (p2.name[0]) {
             error(SYSOUT_WILDCARDS_DEST_DRV);
             return;
         }
-        if (p1.dev == p2.dev) {
+        if (sameplace(&p1, &p2)) {
             say(SYSOUT_FILE_COPY_ON_SELF);
             return;
         }
         strcpy(pattern, p1.name);
-        if (!bank_directory(p1.dev))
+        if (!location_list(p1.dev, p1.dir))
             return;
         limit = count;
         /* Destination checks replace the shared bank_directory cache. Reload the
          * unchanged source before using the next source bank_directory index. */
         for (i = 0; i < limit && !aborted; ++i) {
-            if (!cachevalid || cachedev != p1.dev)
-                if (!bank_directory(p1.dev))
+            if (!cachevalid || cachedev != p1.dev || strcmp(cachedir, p1.dir))
+                if (!location_list(p1.dev, p1.dir))
                     return;
             if (i >= count)
                 break;
@@ -285,7 +251,7 @@ __noinline void bank_copycmd(unsigned char moving)
                 continue;
             strcpy(p1.name, directory_entries[i].name);
             strcpy(p2.name, p1.name);
-            if (!bank_copyfile(0))
+            if (!copyfile(0))
                 return;
             ++total;
             if (stop())
@@ -296,7 +262,7 @@ __noinline void bank_copycmd(unsigned char moving)
             return;
         }
         print(SYSOUT_FILES_COPIED, total);
-    } else if (bank_copyfile(moving))
+    } else if (copyfile(moving))
         say(moving ? SYSOUT_ONE_FILE_MOVED : SYSOUT_ONE_FILE_COPIED);
 }
 
@@ -309,6 +275,8 @@ __noinline unsigned char bank_deletable(const Path *p)
 {
     struct DirectoryEntry ent;
     unsigned char r;
+    if (!location_file(p->dev, p->dir))
+        return 0;
     if (directory_open(2, p->dev) != 0) {
         channel_close(2);
         error(SYSOUT_DRIVE_NOT_READY);
@@ -317,7 +285,8 @@ __noinline unsigned char bank_deletable(const Path *p)
     r = directory_read(2, &ent);
     if (!r)
         while (!(r = directory_read(2, &ent))) {
-            if (ent.access == CBM_A_RO && match(p->name, ent.name)) {
+            if (ent.type != CBM_T_DIR && ent.type != CBM_T_CBM &&
+                ent.access == CBM_A_RO && match(p->name, ent.name)) {
                 channel_close(2);
                 error(SYSOUT_FILE_IS_LOCKED);
                 return 0;
@@ -352,20 +321,31 @@ __noinline void bank_delcmd(void)
     }
     if (!bank_deletable(&p1))
         return;
-    if (!suppress && strpbrk(p1.name, "*?")) {
+    if (!strpbrk(p1.name, "*?")) {
+        int found = bank_findfile(&p1);
+        if (found < 0)
+            return;
+        if (directory_entries[found].type == CBM_T_DIR || directory_entries[found].type == CBM_T_CBM) {
+            error(SYSOUT_USE_RD_FOR_DIRECTORIES);
+            return;
+        }
+    }
+    if (strpbrk(p1.name, "*?")) {
         strcpy(pattern, p1.name);
-        if (!bank_directory(p1.dev))
+        if (!location_list(p1.dev, p1.dir))
             return;
         /* Scratch invalidates the cache but does not replace its entries.
          * Keep this snapshot so deleted entries cannot shift later matches. */
         for (entry = 0; entry < count && !aborted; ++entry) {
-            if (!match(pattern, directory_entries[entry].name))
+            if (directory_entries[entry].type == CBM_T_DIR ||
+                directory_entries[entry].type == CBM_T_CBM ||
+                !match(pattern, directory_entries[entry].name))
                 continue;
             ++matches;
             strcpy(p1.name, directory_entries[entry].name);
             uppername(p1.name, shown);
             snprintf(request, sizeof(request), SYSOUT_DELETE_FILE, shown);
-            if (yesno(request) && !bank_scratch(&p1))
+            if ((suppress || yesno(request)) && !bank_scratch(&p1))
                 return;
         }
         if (!matches)
@@ -417,57 +397,48 @@ __noinline void bank_attribcmd(void)
             error(SYSOUT_FILE_NOT_FOUND);
         return;
     }
-    if (!bam(p1.dev))
-        return;
-    track = io[0];
-    sector = io[1];
-    memset(visited, 0, sizeof(visited));
-    pagelines = 0;
-    if (!rawopen(p1.dev))
-        return;
-    while (track) {
-        if (track != headertrack || sector < (headertrack == 40 ? 3 : 1) ||
-            sector >= tracksectors(track, disktracks) ||
-            (visited[sector / 8] & (1 << (sector % 8)))) {
-            error(SYSOUT_INVALID_BANK_DIR_CHAIN);
-            break;
-        }
-        visited[sector / 8] |= 1 << (sector % 8);
-        if (!blockio(p1.dev, track, sector, 0))
-            break;
-        dirty = 0;
-        for (offset = 2; offset < 256; offset += 32) {
-            if (!(io[offset] & 7))
-                continue;
-            for (n = 0; n < 16 && io[offset + 3 + n] != 0xa0; ++n)
-                name[n] = io[offset + 3 + n];
-            name[n] = 0;
-            if (!match(p1.name, name))
+    {
+        unsigned int index = 0, limit;
+        char pattern[17];
+        unsigned char locked;
+        strcpy(pattern, p1.name);
+        if (!location_file(p1.dev, p1.dir) || !location_list(p1.dev, p1.dir))
+            return;
+        limit = count;
+        while (index < limit && !aborted) {
+            if (!location_list(p1.dev, p1.dir) || index >= count)
+                break;
+            strcpy(p1.name, directory_entries[index].name);
+            n = directory_entries[index++].type;
+            if ((n != CBM_T_PRG && n != CBM_T_SEQ && n != CBM_T_USR && n != CBM_T_REL) ||
+                !match(pattern, p1.name))
                 continue;
             found = 1;
-            if (mode) {
-                n = mode == 1 ? io[offset] | 0x40 : io[offset] & 0xbf;
-                if (n != io[offset]) {
-                    io[offset] = n;
-                    dirty = 1;
-                }
+            if (!fileentry(&p1))
+                return;
+            locked = io[entryoffset + 2] & 64;
+            if (!mode) {
+                uppername(p1.name, shown);
+                print(SYSOUT_ATTR_ENTRY, locked ? 'L' : ' ', shown);
             } else {
-                uppername(name, shown);
-                print(SYSOUT_ATTR_ENTRY, io[offset] & 0x40 ? 'L' : ' ', shown);
-                if (!page())
-                    goto done;
+                if (mode == 1)
+                    io[entryoffset + 2] |= 64;
+                else
+                    io[entryoffset + 2] &= 191;
+                if (!rawopen(p1.dev))
+                    return;
+                n = blockio(p1.dev, entrytrack, entrysector, 1);
+                channel_close(2);
+                if (!n)
+                    return;
+                cachevalid = 0;
             }
+            if (stop())
+                break;
         }
-        if (dirty && !blockio(p1.dev, track, sector, 1))
-            break;
-        track = io[0];
-        sector = io[1];
+        if (!found)
+            error(SYSOUT_FILE_NOT_FOUND);
     }
-done:
-    channel_close(2);
-    cachevalid = 0;
-    if (!found && !track)
-        error(SYSOUT_FILE_NOT_FOUND);
 }
 
 /* Build a bounded device-side concatenation command from COPY arguments. */
@@ -491,14 +462,16 @@ __noinline void bank_concatcmd(void)
             *next++ = 0;
         if (!path(source, &p2))
             return;
-        if (!strchr(source, ':'))
-            p2.dev = p1.dev;
-        if (p2.dev != p1.dev) {
+        if (!sameplace(&p1, &p2)) {
             error(SYSOUT_FILES_SAME_DISK);
             return;
         }
         if (!p2.name[0] || strpbrk(p2.name, "*?=")) {
             error(SYSOUT_INVALID_FILE_NAME);
+            return;
+        }
+        if (!strcmp(p1.name, p2.name)) {
+            say(SYSOUT_FILE_COPY_ON_SELF);
             return;
         }
         len = strlen(request);
@@ -523,9 +496,11 @@ __noinline void bank_renamecmd(void)
         error(SYSOUT_SYNTAX_REN);
         return;
     }
-    if (!strchr(args[2], ':'))
+    if (!strchr(args[2], ':') && !strchr(args[2], 0x5c)) {
         p2.dev = p1.dev;
-    if (p1.dev != p2.dev) {
+        strcpy(p2.dir, p1.dir);
+    }
+    if (!sameplace(&p1, &p2)) {
         say(SYSOUT_CANNOT_RENAME_ACROSS_DRIVES);
         return;
     }
@@ -537,6 +512,8 @@ __noinline void bank_renamecmd(void)
         return;
     }
     if (!bank_preparewrite(&p2))
+        return;
+    if (!location_file(p1.dev, p1.dir))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "r0:%s=%s", p2.name, p1.name);
     command(p1.dev, diskcmd);
@@ -576,7 +553,8 @@ __noinline unsigned char bank_directory(unsigned char dev)
         }
         strcpy(directory_entries[count].name, ent.name);
         directory_entries[count].blocks = ent.size;
-        directory_entries[count].type = ent.type;
+        directory_entries[count].type = ent.type == CBM_T_CBM && ent.size >= 120 &&
+            !(ent.size % 40) ? CBM_T_DIR : ent.type;
         ++count;
     }
     channel_close(2);
@@ -596,8 +574,8 @@ __noinline unsigned char bank_directory(unsigned char dev)
 __noinline int bank_findfile(const Path *p)
 {
     unsigned int i;
-    if (!cachevalid || cachedev != p->dev)
-        if (!bank_directory(p->dev))
+    if (!cachevalid || cachedev != p->dev || strcmp(cachedir, p->dir))
+        if (!location_list(p->dev, p->dir))
             return -2;
     for (i = 0; i < count; ++i)
         if (!strcmp(directory_entries[i].name, p->name))
@@ -615,11 +593,17 @@ __noinline unsigned char bank_preparewrite(const Path *p)
         error(SYSOUT_INVALID_DEST);
         return 0;
     }
+    if (!location_file(p->dev, p->dir))
+        return 0;
     cachevalid = 0;
     i = bank_findfile(p);
     if (i == -2)
         return 0;
     if (i >= 0) {
+        if (directory_entries[i].type == CBM_T_DIR || directory_entries[i].type == CBM_T_CBM) {
+            error(SYSOUT_INVALID_DEST);
+            return 0;
+        }
         if (!copysuppress && !yesno(SYSOUT_OVERWRITE_FILE))
             return 0;
         if (editprompt)
@@ -648,6 +632,12 @@ __noinline unsigned char bank_openreadtype(const Path *p, unsigned char lfn, uns
         error(SYSOUT_UNSUPPORTED_FILE_TYPE);
         return 0;
     }
+    if (!location_file(p->dev, p->dir))
+        return 0;
+    if (redirected && p->dev && p->dev == outputpath.dev && strcmp(p->dir, outputpath.dir) &&
+        location_kind() == 4)
+        return raw_reader_open(p, lfn);
+    rawreadmask &= ~(1 << lfn);
     snprintf(diskcmd, sizeof(diskcmd), "0:%s,%c,r", p->name, t);
     if (channel_open(lfn, p->dev, 2, diskcmd) != 0) {
         channel_close(lfn);
@@ -688,6 +678,8 @@ __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
         t = 'p';
     else if (type == CBM_T_USR)
         t = 'u';
+    if (!location_file(p->dev, p->dir))
+        return 0;
     snprintf(diskcmd, sizeof(diskcmd), "0:%s,%c,w", p->name, t);
     if (channel_open(3, p->dev, 3, diskcmd) != 0) {
         channel_close(3);
@@ -706,6 +698,8 @@ __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
  * p: Path to scratch; return nonzero on success. */
 __noinline unsigned char bank_scratch(const Path *p)
 {
+    if (!location_file(p->dev, p->dir))
+        return 0;
     snprintf(diskcmd, sizeof(diskcmd), "s0:%s", p->name);
     return command(p->dev, diskcmd);
 }

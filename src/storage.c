@@ -112,58 +112,5 @@ __noinline unsigned char bank_drivemode(unsigned char dev, unsigned char doubles
     return cbm_mode(dev, model, doublesided);
 }
 
-/* Parse an optional drive and exactly one operation; selection never changes
- * the shell's current drive. Partition zero is reserved for CMD system data. */
-__noinline void bank_diskpartcmd(void)
-{
-    unsigned char i, device = 0, operation = 0, model;
-    unsigned int number = 0;
-    const char *digit;
-    p1.dev = drive;
-    p1.name[0] = 0;
-    for (i = 1; i < argc; ++i) {
-        if (!strchr(args[i], ':')) {
-            if (operation)
-                goto syntax;
-            digit = args[i];
-            if (*digit < '0' || *digit > '9')
-                goto syntax;
-            while (*digit >= '0' && *digit <= '9') {
-                number = number * 10 + *digit++ - '0';
-                if (number > 254)
-                    goto syntax;
-            }
-            if (*digit || !number)
-                goto syntax;
-            operation = 2;
-        } else {
-            if (device || !strchr(args[i], ':') || !path(args[i], &p1) || p1.name[0])
-                goto syntax;
-            device = 1;
-        }
-    }
-    model = bank_drivemodel(p1.dev, 1);
-    if (!model)
-        return;
-    if (model >= DRIVE_SOFTIEC) {
-        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
-        return;
-    }
-    if (model < DRIVE_CMD_HD) {
-        error(SYSOUT_NO_PARTITIONS);
-        return;
-    }
-    if (operation == 2) {
-        if (model == DRIVE_CMD_FD && number > 31)
-            goto syntax;
-        if (cmd_select(p1.dev, (unsigned char)number))
-            print(SYSOUT_PARTITION_SELECTED, (unsigned int)number, p1.dev);
-    } else
-        cmd_list(p1.dev);
-    return;
-syntax:
-    error(SYSOUT_SYNTAX_DISKPART);
-}
-
 #pragma code(code)
 #pragma data(data)

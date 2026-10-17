@@ -7,14 +7,14 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #define MAXARGS 33
 static char *args[MAXARGS], parsebuf[98], line[65], rawparse[13], rawline[9], sent[41];
 static unsigned char argc, drive = 8, argquoted[MAXARGS];
 static int errors, calls;
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev;char name[17];char dir[128];
 } Path;
 
 static Path p1, p2;
@@ -86,13 +86,13 @@ ${code}
 /* Run the independent fixture cases; failure results identify the violated invariant. */
 int main(void)
 {
-    strcpy(line, "copy abcdefghijklmnop+abc abcdefghijklmnop");
+    strcpy(line, "copy abcdefghijklmnop+abc qrstuvwxyzabcdef");
     if (!tokenize(line))
         return 1;
     concatcmd();
     if (calls != 1 || strlen(sent) != 40)
         return 2;
-    strcpy(line, "copy abcdefghijklmnop+abcd abcdefghijklmnop");
+    strcpy(line, "copy abcdefghijklmnop+abcd qrstuvwxyzabcdef");
     tokenize(line);
     concatcmd();
     if (calls != 1 || errors != 1)

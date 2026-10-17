@@ -335,7 +335,9 @@ __noinline void bank_findcmd(void)
         return;
     /* The same specification, but a distinct secondary address/cursor. */
     if (!(flags & 2)) {
-        if (channel_open(3, p1.dev, 3, diskcmd) != 0 || diskstatus(p1.dev, 1) >= 20) {
+        if (rawreadmask & 4)
+            raw_reader_clone();
+        else if (channel_open(3, p1.dev, 3, diskcmd) != 0 || diskstatus(p1.dev, 1) >= 20) {
             channel_close(2);
             channel_close(3);
             error(SYSOUT_FILE_NOT_FOUND);

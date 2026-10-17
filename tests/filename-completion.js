@@ -31,19 +31,19 @@ require('./shell')('filename-completion', async ({disk, command, keys, enter, sc
     }
     await enter('cls');
     await keys('t');
-    await complete(/^8:>"TEST D420 MONO"$/i);
-    await complete(/^8:>"TEST SECOND MONO"$/i);
-    await complete(/^8:>"TEST D420 MONO"$/i);
+    await complete(/^8:\\>"TEST D420 MONO"$/i);
+    await complete(/^8:\\>"TEST SECOND MONO"$/i);
+    await complete(/^8:\\>"TEST D420 MONO"$/i);
     await command('> c2f0 00');
     await enter('');
     assert.equal((await memory(0xc2f0))[0], 0x41, 'completed first-token program executes');
     for (const [prefix, expected] of [
-        ['8:t', /^8:>"8:TEST D420 MONO"$/i],
-        ['"t', /^8:>"TEST D420 MONO"$/i],
-        ['run t', /^8:>RUN "TEST D420 MONO"$/i],
-        ['type t', /^8:>TYPE "TEST D420 MONO"$/i],
-        ['run', /^8:>RUN "[^"]+"$/i],
-        ['type', /^8:>TYPE "[^"]+"$/i]
+        ['8:t', /^8:\\>"8:TEST D420 MONO"$/i],
+        ['"t', /^8:\\>"TEST D420 MONO"$/i],
+        ['run t', /^8:\\>RUN "TEST D420 MONO"$/i],
+        ['type t', /^8:\\>TYPE "TEST D420 MONO"$/i],
+        ['run', /^8:\\>RUN "[^"]+"$/i],
+        ['type', /^8:\\>TYPE "[^"]+"$/i]
     ]) {
         await keys(prefix);
         await complete(expected);

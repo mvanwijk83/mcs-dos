@@ -12,6 +12,8 @@
 #pragma compile("storage.c")
 #pragma compile("storage-cbm.c")
 #pragma compile("storage-cmd.c")
+#pragma compile("navigation.c")
+#pragma compile("transfer.c")
 #pragma compile("boot.c")
 #pragma compile("session.c")
 #pragma compile("tape.c")
@@ -39,6 +41,7 @@ int main(void)
     if (!resume_requested)
         bootsplash(1);
 restart:
+    nav_reset();
     startdrive = bootstart(startdrive);
     startup = 1;
     if (resume_requested) {
@@ -101,6 +104,7 @@ again:
             }
         }
         execute(line);
+        nav_finish();
         /* Unwind the old batch before restarting startup processing. */
         if (reboot)
             goto restart;

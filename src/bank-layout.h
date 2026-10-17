@@ -19,3 +19,11 @@
 #pragma section(storage_code, 0)
 #pragma section(storage_data, 0)
 #pragma region(storage_bank, 0xa000, 0xc000, , 12, {storage_code, storage_data})
+
+#pragma section(nav_code, 0)
+#pragma section(nav_data, 0)
+#pragma region(nav_bank, 0xa000, 0xc000, , 13, {nav_code, nav_data})
+
+#pragma section(transfer_code, 0)
+#pragma section(transfer_data, 0)
+#pragma region(transfer_bank, 0xa000, 0xc000, , 14, {transfer_code, transfer_data})

@@ -8,7 +8,7 @@ const harness = `
 #include <stdarg.h>
 #define KEYBUFSIZE 256
 #define FUNCTIONKEYS 7
-#define LINE 65
+#define LINE 128
 #define SYSOUT_INVALID_SWITCH "invalid"
 #define SYSOUT_KEY_TOO_LONG "long"
 #define SYSOUT_KEY_FULL "full"
@@ -22,7 +22,7 @@ ${functions('keytext','keyswitch','keyshow','keycmd')}
 static void run(const char *s) {errors=0;output[0]=0;keycmd(s);}
 int main(void) {
     int i;
-    char command[100];
+    char command[160];
     run("/F1:HELP /F4:DIR/W /F7:\\"MY PROGRAM\\"");
     if(errors || strcmp(keytext(keybindings,1),"HELP") || strcmp(keytext(keybindings,4),"DIR/W") ||
        strcmp(keytext(keybindings,7),"\\"MY PROGRAM\\""))return 1;
@@ -54,7 +54,7 @@ int main(void) {
     run("/F6:X");if(errors!=1 || memcmp(snapshot,keybindings,256))return 18;
     run("/F1:");if(errors || memcmp(snapshot,keybindings,256))return 19;
     run("/CLEAR:3 /F6:OK");if(errors || strcmp(keytext(keybindings,6),"OK") || *keytext(keybindings,3))return 20;
-    strcpy(command,"/F1:");memset(command+4,'A',65);command[69]=0;
+    strcpy(command,"/F1:");memset(command+4,'A',128);command[132]=0;
     memcpy(snapshot,keybindings,256);run(command);if(errors!=1 || memcmp(snapshot,keybindings,256))return 21;
     run("/CLEAR /F7:unterminated\\"text");if(errors || strcmp(keytext(keybindings,7),"unterminated\\"text"))return 22;
     return 0;

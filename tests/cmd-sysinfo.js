@@ -12,15 +12,15 @@ async function main(){
    console.log('PASS CMD-only SYSINFO scan '+(n+1));
   }
   for(const [n,model] of [[1,'1541'],[2,'1571'],[3,'1581']]){
-   await s.enter('diskpart '+n,'8:>');
+   await s.enter('cd \\@'+n,'8:>');
    await s.enter('cls','8:>');
    const report=await s.enter('chkdsk','8:>');
    assert(report.includes('CMD HD ('+model+')'),report);
    console.log('PASS CHKDSK CMD HD ('+model+')');
   }
   await s.enter('cls','8:>');
-  const listing=await s.enter('diskpart','8:>');
-  assert(listing.includes('Capacity') && listing.includes('* 3') && listing.includes('175,104') && listing.includes('350,208') && listing.includes('819,200') && listing.includes('65,536'),listing);
+  const listing=await s.enter('dir \\ /b','8:>');
+  assert(listing.includes('NATIVE') && listing.includes('PART13') && listing.includes('TARGET81'),listing);
   console.log('PASS 20 repeated SYSINFO scans with only CMD HD on device 8');
  }finally{await s.stop();}
 }

@@ -46,6 +46,22 @@ needs a build but no emulator. The other groups need the tools indicated below.
 
 ## Selecting coverage
 
+The standalone disk-wide 1581 CHKDSK experiment uses full D81 fixtures and
+normal-speed VICE timing (PAL, true drive emulation, warp off):
+
+```powershell
+node tests/chkdsk-benchmark.js --realistic --repeat
+node tests/chkdsk-benchmark.js --dense-four
+node tests/chkdsk-benchmark.js --image=build/user-d81test.d81
+```
+
+Both generated profiles have 22 partitions and at most four directory levels.
+`--realistic` scatters 184 text files across every directory; `--dense-four`
+instead fills the same hierarchy with 2,748 one-sector files. Each fixture has
+zero free blocks and an independent physical-sector audit. Use a disposable
+copy with `--image`; the benchmark verifies its hash remains unchanged. Timing
+JSON, monitor logs, images and the measured cartridges are saved under `build`.
+
 ```powershell
 node tests/run.js --list
 node tests/run.js shell --list
@@ -136,6 +152,20 @@ Formatting is optional for running tests.
 `cmd-sysinfo` repeats SYSINFO twenty times with only a CMD HD at device 8,
 then checks CHKDSK model names for all three emulation formats.
 
-`cmd-overview` checks the 40-column partition table, allocated capacities for all
-three emulation formats and Native mode, unchanged capacity after file allocation, and preservation
-of the selected partition. `cmd-capacity` checks maximum-width rows and the metadata-only listing path.
+`cmd-overview` checks virtual-root listings, partition-name navigation,
+numeric aliases and preservation of the selected location.
+
+## Directory integration
+
+`node tests/run.js directories` exercises stock 1581 ROM and CMD HD DOS
+against disposable images, including nested paths, fixed-size allocation,
+buffered copying, virtual-root protection, recursive removal, redirection,
+and saved-location recovery. It requires the same private CMD ROM and
+utilities as the optional `cmd` group. `node tests/directories.js --native`
+runs the CMD portion without the slower 1581 partition-format setup.
+
+`dos-directories` checks DOS-style dot entries and totals, recursive file
+paths, compact CD/CHDIR syntax, CD /D, and uppercase $P versus drive-only $I.
+
+The `partition-channels` probe documents the 1581 WRITE FILE OPEN restriction.
+The production transfer closes readers and writers between buffered chunks.

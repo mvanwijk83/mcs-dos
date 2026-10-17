@@ -35,19 +35,23 @@ async function start(image,disk,crt=false,hdOnly=false) {
         await command('bank cpu');return monitor.rows(bytes).join('\n');
     }
     async function wait(expected,timeout=expected===copyComplete ? 1800000 : 45000){
+        const legacyPrompt=expected.endsWith(':>'), prompt=/^[0-9A-W]+:.*>$/.test(expected);
+        const device=legacyPrompt ? expected.slice(0,-1) : '';
         const until=Date.now()+timeout;let s='';
-        while(Date.now()<until){await command('x');await delay(expected===copyComplete ? 10000 : 500);s=await screen();
-            if(expected===copyComplete)console.log(s.split('\n').filter(row=>row.includes('track') || row.includes('complete')).slice(-1).join(''));
+        while(Date.now()<until){
+            await command('x');await delay(expected===copyComplete ? 10000 : 500);s=await screen();
             if(expected===copyComplete && s.includes(messages.SYSOUT_DISK_COPY_NOT_COMPLETED.trim()))
                 assert.fail(s);
-            if(expected.endsWith(':>')||expected==='ready.') { if(s.trimEnd().endsWith(expected))return s; }
-            else if(s.includes(expected))return s;
+            const last=s.trimEnd().split('\n').pop();
+            if(legacyPrompt ? last.startsWith(device)&&last.endsWith('>') :
+               prompt||expected==='ready.' ? s.trimEnd().endsWith(expected) : s.includes(expected))return s;
         }
+        fs.writeFileSync(image+'.timeout.txt',(await command('r'))+'\n'+(await command('m de00 de02')));
         assert.fail('Waiting for '+expected+'\n'+s);
     }
     async function keys(text){await command('keybuf '+text);await command('x');await delay(200);}
     async function enter(text,expected='9:>'){
-        await keys(text+'\\x0d');return wait(expected);
+        await keys(text.replaceAll('\\','\\x5c')+'\\x0d');return wait(expected);
     }
     async function check(text,expected){await enter('cls');const s=await enter(text,expected);console.log('PASS '+text+' => '+expected);return s;}
     async function stop(){socket?.destroy();if(child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),delay(3000)]);}fs.writeFileSync(image+'.vice.log',log);}
@@ -92,13 +96,13 @@ async function seed(){
 }
 
 /** Embed independent c1541 floppy images in a documented CMD partition table. */
-async function fixture(file){
+async function fixture(file,nativeSectors=256){
     const b=Buffer.alloc(33554432);(await seed()).copy(b);
     const table=384*512+65536;
     const specs=[[1,2,'1541'],[2,3,'1571'],[3,4,'1581'],[4,1,'NATIVE'],[5,2,'TARGET41'],[6,3,'TARGET71'],[7,4,'TARGET81'],[13,2,'PART13']];
     let lba=384+144;
     const parts=specs.map(([number,type,name])=>{
-        const sectors=type===2?684:type===3?1368:type===4?3200:256,entry=table+number*32;
+        const sectors=type===2?684:type===3?1368:type===4?3200:nativeSectors,entry=table+number*32;
         b[entry+2]=type;b.fill(160,entry+5,entry+21);b.write(name,entry+5,'ascii');
         b.writeUIntBE(lba,entry+21,3);b.writeUInt16BE(sectors/2,entry+30);
         if(type>1){const ext=type===2?'d64':type===3?'d71':'d81',p='build/cmd-part-'+number+'.'+ext;
@@ -110,7 +114,8 @@ async function fixture(file){
             b[o+256]=1;b[o+257]=34;b[o+258]=72;
             b.fill(160,o+260,o+276);b.write('native',o+260,'ascii');
             b.write('ct',o+278,'ascii');b[o+280]=160;b[o+281]=49;b[o+282]=72;b[o+283]=b[o+284]=160;
-            b[o+512+2]=72;b[o+512+3]=183;b.write('ct',o+516,'ascii');b[o+518]=192;b[o+512+8]=1;
+            b[o+256+32]=1;b[o+256+33]=1;
+            b[o+512+2]=72;b[o+512+3]=183;b.write('ct',o+516,'ascii');b[o+518]=192;b[o+512+8]=sectors/256;
             b.fill(255,o+512+40,o+512+64);
             b[o+34*256+1]=255;
         }

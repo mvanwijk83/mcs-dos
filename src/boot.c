@@ -336,6 +336,8 @@ invalid:
  * Validate and stage a .CPI font before replacing the active RAM charset.
  *
  * device: Startup device from which to load the configured charset. */
+#pragma code(storage_code)
+#pragma data(storage_data)
 __noinline void bank_startupcharset(unsigned char device)
 {
     char *v = envget("CHARSET");
@@ -359,6 +361,8 @@ __noinline void bank_startupcharset(unsigned char device)
     name[address] = 0;
     filename(name, name);
     strcat(name, ".cpi");
+    if (!location_file(device, startupdir))
+        goto failed;
     eof[2] = 0;
     snprintf(diskcmd, sizeof(fmtbuf), "%s,s,r", name);
     if (channel_open(2, device, 2, diskcmd))
@@ -373,11 +377,11 @@ __noinline void bank_startupcharset(unsigned char device)
         if (readio(2, io, 9) != 9)
             goto failed;
         code = io[0];
-        if ((i && code <= previous) || !(code <= 27 || code == 29 || (code >= 32 && code <= 63) ||
+        if ((i && code <= previous) || !(code <= 29 || (code >= 32 && code <= 63) ||
                                          (code >= 65 && code <= 90) || code == 96))
             goto failed;
         previous = code;
-        address = 0xf000 + (unsigned int)code * 8;
+        address = 0xf000 + (unsigned int)(code == 96 ? 28 : code) * 8;
         sum += code;
         for (j = 0; j < 8; ++j) {
             sum += io[j + 1];
@@ -397,6 +401,9 @@ failed:
     snprintf(fmtbuf, sizeof(fmtbuf), SYSOUT_CANNOT_LOAD, name);
     error(fmtbuf);
 }
+
+#pragma code(boot_code)
+#pragma data(boot_data)
 
 /* Use the ROM font for the artwork; interactive SPLASH restores the shell.
  *
@@ -578,7 +585,7 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
     envused = histcount = histnext = cachevalid = count = cmdslot = 0;
     environment[0] = line[0] = draft[0] = 0;
     memset(keybindings, 0, sizeof(keybindings));
-    strcpy(prompttext, "$p$c$g");
+    strcpy(prompttext, "$p$g");
     batchpos = batchlen = 0;
     memset(eof, 0, sizeof(eof));
     echoon = 1;
@@ -606,10 +613,15 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
         startdrive = drive = 0;
         for (bi = 0; bi < bn; ++bi) {
             p1.dev = bootdevs[bi];
+            p1.dir[0] = 0;
             filename("AUTOEXEC.BAT", p1.name);
             if (p1.dev && !statuschannel(p1.dev))
                 continue;
+            if (!startup_path(&p1))
+                continue;
             if (findfile(&p1) >= 0) {
+                strcpy(working[location_index(p1.dev)], p1.dir);
+                strcpy(startupdir, p1.dir);
                 startdrive = drive = p1.dev;
                 runbatch();
                 break;
@@ -629,6 +641,17 @@ __noinline unsigned char bank_tokenize(char *s)
     unsigned char quote;
     argc = 0;
     memset(rawparse, 0, sizeof(rawparse));
+    /* DOS accepts CD\\ and CD.. without spending a byte on a separator. */
+    while (*r == ' ')
+        ++r;
+    quote = !strnicmp(r, "CHDIR", 5) ? 5 : !strnicmp(r, "CD", 2) ? 2 : 0;
+    if (quote && (r[quote] == 0x5c || r[quote] == '.')) {
+        args[argc] = w;
+        argquoted[argc++] = 0;
+        while (quote--)
+            *w++ = *r++;
+        *w++ = 0;
+    }
     while (*r) {
         while (*r == ' ')
             ++r;

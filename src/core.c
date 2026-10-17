@@ -5,6 +5,7 @@
 Entry directory_entries[MAXFILES];
 unsigned int count;
 unsigned char cachedev, cachevalid, drive;
+char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
 unsigned int freeblocks;
 char volume[17], diskid[3];
 unsigned char ox, oy, fg = 15, bg = 0, bd = 0, quit, reboot, echoon = 1, batching;
@@ -46,7 +47,7 @@ unsigned char argc;
 unsigned char argquoted[MAXARGS];
 Path p1, p2;
 Path outputpath;
-unsigned char redirected, outputfailed, outputused, outputcol;
+unsigned char redirected, outputfailed, outputused, outputcol, outputmode, outputstarted;
 unsigned char outputbuf[128];
 /* Loader parameters consumed before the shell is overwritten. */
 char launchname[17];
@@ -60,7 +61,7 @@ const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "DISKPART"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -92,8 +93,8 @@ void newline(void)
     gotoxy(ox, oy);
 }
 
-/* Screen-only compatibility: external byte 96 is an ordinary space.
- * PETSCII $a0 (Shift-SPACE) selects the new backslash at screen slot 96.
+/* Screen-only compatibility: external byte 96 remains an ordinary space.
+ * PETSCII $5c (the pound key) displays backslash at screen slot 28.
  *
  * Display one file character, treating byte 96 as a space for font compatibility.
  *
@@ -172,7 +173,7 @@ void error(const char *s)
 void outputflush(void)
 {
     if (outputused && !outputfailed) {
-        if (channel_write(5, outputbuf, outputused) != outputused) {
+        if (!output_append()) {
             outputfailed = aborted = 1;
             error(SYSOUT_WRITE_FAULT_ERR);
         }
@@ -462,7 +463,9 @@ const char *drivename(unsigned char dev)
 }
 
 /* Expand the configured dollar codes and display the command prompt. */
-void showprompt(void)
+#pragma code(boot_code)
+#pragma data(boot_data)
+__noinline void bank_showprompt(void)
 {
     const char *s = prompttext;
     unsigned char c;
@@ -485,13 +488,24 @@ void showprompt(void)
                 c = '>';
                 break;
             case 'H':
-                c = 0xa0;
-                break; /* Backslash at screen slot 96 */
+                c = 0x5c;
+                break; /* Pound-key screen slot 28 */
             case 'N':
                 print(SYSOUT_DRIVE_NUMBER, drive);
                 ++s;
                 continue;
             case 'P':
+                outs(drivename(drive));
+                outc(':');
+                outc(0x5c);
+                {
+                    const char *path = working[location_index(drive)];
+                    while (*path)
+                        outc(toupper(*path++));
+                }
+                ++s;
+                continue;
+            case 'I':
                 outs(drivename(drive));
                 ++s;
                 continue;
@@ -520,6 +534,8 @@ void showprompt(void)
         outc(c);
     }
 }
+#pragma code(code)
+#pragma data(data)
 
 /* A 12-character stem leaves room for .CPI in a native 16-byte filename.
  *
@@ -536,46 +552,6 @@ unsigned char charsetname(const char *s)
         ++n;
     }
     return n != 0;
-}
-
-/* Parse a device prefix and native filename; report invalid input and return zero on failure.
- *
- * s: Path text; no prefix uses the current drive.
- * p: Output device and terminated filename. */
-unsigned char path(const char *s, Path *p)
-{
-    unsigned int d = 0;
-    unsigned char letter = 0;
-    const char *q = s;
-    p->dev = drive;
-    if (toupper(s[0]) >= 'A' && toupper(s[0]) <= 'W' && s[1] == ':') {
-        p->dev = toupper(s[0]) - 'A' + 8;
-        s += 2;
-        q = s;
-        letter = 1;
-    }
-    while (isdigit(*q)) {
-        d = d * 10 + *q - '0';
-        ++q;
-    }
-    if (!letter && q > s && *q == ':') {
-        if (d != 0 && (d < 8 || d > 30)) {
-            error(SYSOUT_INVALID_DRIVE_SPEC);
-            return 0;
-        }
-        p->dev = d;
-        s = q + 1;
-    }
-    if (strlen(s) > 16) {
-        error(SYSOUT_FILE_NAME_TOO_LONG);
-        return 0;
-    }
-    if (strchr(s, ':') || strchr(s, ',') || strchr(s, '"')) {
-        error(SYSOUT_INVALID_FILE_NAME);
-        return 0;
-    }
-    filename(s, p->name);
-    return 1;
 }
 
 /* Closing a 1541 command channel also closes its data channels. Keep two
@@ -656,6 +632,10 @@ int readio(unsigned char lfn, void *buf, unsigned int size)
     /* KERNAL has one status byte for all channels; this array preserves each file EOF independently. */
     if (eof[lfn])
         return 0;
+    if (!rawreading && lfn >= 2 && lfn <= 3 && (rawreadmask & (1 << lfn)))
+        return raw_reader_read(lfn, buf, size);
+    if (!rawreading && redirected && (lfn == 2 || lfn == 3) && !location_select(p1.dev, p1.dir))
+        return -1;
     POKE(144, 0);
     n = channel_read(lfn, buf, size);
     st = PEEK(144);
@@ -732,6 +712,10 @@ const char *typename(unsigned char t)
         return SYSOUT_TYPE_USR;
     case CBM_T_REL:
         return SYSOUT_TYPE_REL;
+    case CBM_T_DIR:
+        return SYSOUT_TYPE_DIR;
+    case CBM_T_CBM:
+        return SYSOUT_TYPE_CBM;
     default:
         return SYSOUT_TYPE_UNKNOWN;
     }
@@ -888,7 +872,7 @@ void executecommand(char *s)
     }
     if (!argc)
         return;
-    if (argc == 1 && strchr(args[0], ':')) {
+    if (argc == 1 && strchr(args[0], ':') == args[0] + strlen(args[0]) - 1) {
         if (!path(args[0], &p1))
             return;
         if (!p1.name[0]) {
@@ -909,7 +893,9 @@ void executecommand(char *s)
         }
     switch (id) {
     case 33:
-        diskpartcmd();
+    case 34:
+    case 35:
+        navcmd(id - 33);
         break;
     case 32:
         keycmd("");

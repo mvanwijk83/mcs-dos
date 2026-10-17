@@ -83,7 +83,7 @@ for (const generation of [2, 3, 4]) {
     }
 }
 assert.deepEqual(
-    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage']);
+    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer']);
 for (const b of layout.commandBanks) {
     assert(b.used > 0 && b.used <= 8192);
     assert.equal(b.used + b.free, 8192);
@@ -105,13 +105,13 @@ assert.deepEqual(
 assert.equal(layout.filesystemVersion, 3);
 assert.equal(layout.residentBytes, layout.bssEnd - 0x801);
 assert.equal(layout.freeRam, layout.freeRanges.reduce((n, [a, b]) => n + b - a, 0));
-// SYSINFO adds a small resident command entry; keep a 9.5 KiB RAM floor.
-assert(layout.freeRam >= 9728, 'banked shell must retain at least 9.5 KiB free RAM');
+// SYSINFO adds a small resident command entry; retain a 3.5 KiB RAM floor after directory state.
+assert(layout.freeRam >= 3584, 'banked shell must retain at least 4 KiB free RAM');
 assert(layout.bssEnd <= 0xa000);
 assert.deepEqual(layout.romWindow, {start: 0xa000, end: 0xc000});
 assert(layout.wedge > 0 && layout.wedge <= 0x1e0, 'wedge must not overlap resume token');
 assert.deepEqual(layout.sessionBanks, [48, 55]);
-assert.equal(layout.sessionBytes, 3605);
+assert.equal(layout.sessionBytes, 7377);
 assert.deepEqual(layout.freeRanges[1], [0xc300, 0xc700]);
 for (let bank = 48; bank <= 55; bank++)
     for (const address of [0x8000, 0xa000]) {

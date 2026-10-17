@@ -6,6 +6,8 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+static unsigned char rawreadmask;
+#define raw_reader_clone() ((void)0)
 #include <ctype.h>
 static unsigned char io[256], ox, aborted, pagelines, redirected = 1;
 static int argc = 3, p1, pos, length, written, errors, opens, closed, chunk = 256, failread;

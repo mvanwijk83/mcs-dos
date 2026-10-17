@@ -18,16 +18,16 @@ async function main(){
     }
     async function attach(){await s.command('attach "'+monitorPath(image)+'" 9');}
     async function flush(){await s.command('detach 9');}
-    async function select(n){await s.check('diskpart '+n,'Partition '+n+' selected');}
+    async function select(n){await s.check('cd \\@'+n,'9:\\@'+n+'>');}
     try{
-        let out=await s.check('sysinfo','CMD HD Storage Device');assert(out.includes('Drive 9:'),out);
-        out=await s.check('diskpart','8 partition(s)');
+        let out=await s.check('sysinfo','CMD HD Mass Storage Drive');assert(out.includes('Drive 9:'),out);
+        out=await s.check('dir \\ /b','PART13');
         for(const p of parts)assert(out.includes(p.name),out);
-        assert(out.includes('* 1') && out.includes('175,104') && out.includes('819,200'),out);
-        await s.check('diskpart 8:',messages.SYSOUT_NO_PARTITIONS);
-        await s.check('diskpart 255','Syntax: DISKPART');
-        await s.check('diskpart 8',messages.SYSOUT_PARTITION_NOT_FOUND);
-        await s.check('diskpart 13','Partition 13 selected');
+
+
+        await s.check('cd \\@255',messages.SYSOUT_PARTITION_NOT_FOUND);
+        await s.check('cd \\@8',messages.SYSOUT_PARTITION_NOT_FOUND);
+        await s.check('cd \\@13','9:\\@13>');
         await s.check('echo thirteen > sentinel','9:>');
         await s.check('type sentinel','thirteen');
         await select(1);await s.check('type sentinel',messages.SYSOUT_FILE_NOT_FOUND);
@@ -76,6 +76,7 @@ async function main(){
             await s.keys('y');await s.wait(messages.SYSOUT_FORMAT_LABEL_PROMPT.trim());
             await s.enter('formatted',messages.SYSOUT_DISK_ID_PROMPT.trim());
             await s.enter('fm',messages.SYSOUT_FORMAT_COMPLETE);
+            await select(n);
             await s.check('vol','Disk ID is FM');
             await flush();after=snapshots();unchangedExcept(before,after,n);await attach();
             console.log('PASS FORMAT '+model+' confined to selected partition');

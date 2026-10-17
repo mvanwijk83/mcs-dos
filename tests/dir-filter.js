@@ -4,6 +4,7 @@ const {functions} = require('./source');
 const harness = `
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 #define CBM_T_DEL 0
 #define CBM_T_SEQ 16
@@ -16,10 +17,9 @@ const harness = `
 #define SYSOUT_DIR_ENTRY "entry%s"
 #define SYSOUT_DIR_BLOCKS "blocks%s"
 #define SYSOUT_DIR_TOTAL "total"
-#define SYSOUT_DIR_BLOCKS_LINE "blockline%s"
 #define SYSOUT_DIR_FREE "free"
 struct Entry {char name[17]; unsigned char type; unsigned int blocks;};
-struct Path {unsigned char dev; char name[17];};
+struct Path {unsigned char dev; char name[17]; char dir[128];};
 static struct Entry files[5] = {{"del",CBM_T_DEL,1},{"seq",CBM_T_SEQ,2},{"prg",CBM_T_PRG,3},{"usr",CBM_T_USR,4},{"rel",CBM_T_REL,5}};
 static struct Path p1;
 static unsigned char drive, envready, pagelines, redirected, outputcol, ox, aborted;
@@ -28,6 +28,7 @@ static int argc, errors, seen, selected;
 static unsigned char model, entries, blockreports, freereports;
 static const char *args[5];
 static char *envget(const char *s) {return 0;}
+static char io[256];
 static int path(const char *s, struct Path *p) {strcpy(p->name,s);return 1;}
 static int directory(unsigned char d) {return 1;}
 static unsigned char drivemodel(unsigned char d,unsigned char r) {return model;}
@@ -36,7 +37,7 @@ static void volumeheader(unsigned char d) {}
 static const char *drivename(unsigned char d) {return "0";}
 static void print(const char *fmt, ...) {
     if(!strcmp(fmt,SYSOUT_DIR_ENTRY))++entries;
-    if(!strcmp(fmt,SYSOUT_DIR_BLOCKS) || !strcmp(fmt,SYSOUT_DIR_BLOCKS_LINE))++blockreports;
+    if(!strcmp(fmt,SYSOUT_DIR_BLOCKS))++blockreports;
     if(!strcmp(fmt,SYSOUT_DIR_FREE))++freereports;
 }
 static void say(const char *s) {++seen; selected |= 1 << (s[0]=='d'?0:s[0]=='s'?1:s[0]=='p'?2:s[0]=='u'?3:4);}
@@ -73,7 +74,7 @@ int main(void) {
     argc=1;model=DRIVE_SD2IEC;p1.name[0]=0;entries=blockreports=freereports=0;
     dircmd();if(entries!=5 || blockreports || freereports)return 11;
     model=DRIVE_1541;entries=blockreports=freereports=0;
-    dircmd();if(entries!=5 || !blockreports || freereports!=1)return 12;
+    dircmd();if(entries!=5 || blockreports!=5 || freereports!=1)return 12;
     return 0;
 }
 `;

@@ -419,7 +419,7 @@ __noinline unsigned char bank_controlkey(void)
     return c;
 }
 
-/* One-row horizontal viewport, with an 64-character command behind it.
+/* One-row horizontal viewport, with a 127-character command behind it.
  *
  * Read an editable command line with completion and optional history; return zero on
  * cancellation.
@@ -434,7 +434,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
     unsigned char h = histcount, dirty = 1, comp = 0;
     unsigned int ci = 0;
     static char token[LINE];
-    char prefix[17], shown[40], lead[5];
+    char prefix[17], shown[40], lead[PATHSIZE];
     unsigned char mod, quoted;
     Path cp;
     clock_t blink;
@@ -523,15 +523,19 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                 }
                 strcpy(prefix, cp.name);
                 lead[0] = 0;
-                if (strchr(token, ':'))
-                    snprintf(lead, sizeof(lead), "%s:", drivename(cp.dev));
+                for (i = 0; token[i]; ++i)
+                    if (token[i] == 0x5c || token[i] == ':') {
+                        memcpy(lead, token, i + 1);
+                        lead[i + 1] = 0;
+                    }
                 ci = 0;
-                if (!cachevalid || cachedev != cp.dev) {
+                if (!cachevalid || cachedev != cp.dev || strcmp(cachedir, cp.dir)) {
                     caret_hide();
                     /* Successful directory reads are silent: keep this row. */
                     ox = 0;
                     oy = y;
-                    if (!directory(cp.dev)) {
+                    if (!location_list(cp.dev, cp.dir)) {
+                        nav_finish();
                         showprompt();
                         if (ox == 39)
                             newline();
@@ -541,6 +545,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                         dirty = 1;
                         continue;
                     }
+                    nav_finish();
                     dirty = 1;
                 }
                 comp = 1;
@@ -696,6 +701,12 @@ __noinline int bank_commandid(const char *s)
     unsigned char i;
     if (!stricmp(s, "DELETE") || !stricmp(s, "ERASE"))
         return 4;
+    if (!stricmp(s, "CHDIR"))
+        return 33;
+    if (!stricmp(s, "MKDIR"))
+        return 34;
+    if (!stricmp(s, "RMDIR"))
+        return 35;
     if (!stricmp(s, "RENAME"))
         return 18;
     if (!stricmp(s, "VERSION"))
@@ -813,7 +824,7 @@ __noinline void bank_execute(char *s)
         error(SYSOUT_INVALID_DEST);
         return;
     }
-    if ((id == 20 || id == 28) && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
+    if ((id == 20 || id == 28) && sameplace(&p1, &outputpath) && !strcmp(p1.name, outputpath.name)) {
         error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
         return;
     }
@@ -832,23 +843,33 @@ __noinline void bank_execute(char *s)
         error(SYSOUT_DRIVE_NOT_READY);
         return;
     }
-    snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, append && i >= 0 ? 'a' : 'w');
-    if (channel_open(5, outputpath.dev, 5, diskcmd) != 0) {
-        channel_close(5);
-        error(SYSOUT_WRITE_FAULT_ERR);
+    if (!location_file(outputpath.dev, outputpath.dir))
         return;
-    }
-    if (diskstatus(outputpath.dev, 1) >= 20) {
-        channel_close(5);
-        return;
+    outputmode = append && i >= 0 ? 'a' : 'w';
+    outputstarted = 0;
+    /* Disk writers open only when their first output chunk is ready. Closing
+     * an empty SEQ writer first would insert DOS's implicit CR before data. */
+    if (!outputpath.dev) {
+        snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, outputmode);
+        if (channel_open(5, outputpath.dev, 5, diskcmd) || diskstatus(outputpath.dev, 1) >= 20) {
+            channel_close(5);
+            error(SYSOUT_WRITE_FAULT_ERR);
+            return;
+        }
     }
     outputused = outputfailed = outputcol = 0;
     redirected = 1;
     executecommand(s);
     /* Command handlers may return early; this outer path still flushes and closes their output. */
     outputflush();
+    if (outputpath.dev && !outputstarted && !outputfailed && !output_append())
+        outputfailed = aborted = 1;
     redirected = 0;
-    channel_close(5);
+    if (!outputpath.dev) {
+        if (outputfailed)
+            channel_abort(5);
+        channel_close(5);
+    }
     cachevalid = 0;
     diskstatus(outputpath.dev, 1);
 }

@@ -314,7 +314,7 @@ __noinline unsigned char bank_copyrel(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline unsigned char copyrel(void)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    unsigned char previous = bank_enter(BANK_TRANSFER);
     unsigned char result = bank_copyrel();
     bank_leave(previous);
     return result;
@@ -418,7 +418,7 @@ __noinline void bank_startupcharset(unsigned char device);
  * device: Startup device from which to load the configured charset. */
 __noinline void startupcharset(unsigned char device)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    unsigned char previous = bank_enter(BANK_STORAGE);
     bank_startupcharset(device);
     bank_leave(previous);
 }
@@ -627,6 +627,14 @@ __noinline unsigned char dirdefaults(const char *s, unsigned char *flags)
     return result;
 }
 
+__noinline void bank_showprompt(void);
+__noinline void showprompt(void)
+{
+    unsigned char previous = bank_enter(BANK_BOOT);
+    bank_showprompt();
+    bank_leave(previous);
+}
+
 __noinline unsigned char bank_tokenize(char *s);
 
 /* Parse arguments in the boot bank and restore the caller's mapping. */
@@ -699,11 +707,191 @@ __noinline unsigned char drivemode(unsigned char dev, unsigned char doublesided)
     return result;
 }
 
-__noinline void bank_diskpartcmd(void);
-/* List or select CMD partitions while restoring the caller's bank. */
-__noinline void diskpartcmd(void)
+
+/* Location services live in separate ROM banks. Typed resident gates keep
+ * the caller's ROM visible until its arguments have been copied to RAM. */
+__noinline unsigned char bank_path(const char *s, Path *p);
+__noinline unsigned char path(const char *s, Path *p)
+{
+    char text[PATHSIZE];
+    unsigned char previous, result;
+    if (strlen(s) >= PATHSIZE) {
+        error(SYSOUT_PATH_TOO_LONG);
+        return 0;
+    }
+    /* Preserve completed native bytes before leaving the tokenizer's bank. */
+    filename(s, text);
+    previous = bank_enter(BANK_NAV);
+    result = bank_path(text, p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline void bank_location_select(unsigned char dev, const char *dir);
+extern volatile unsigned char location_success;
+__noinline unsigned char location_select(unsigned char dev, const char *dir)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    bank_location_select(dev, dir);
+    bank_leave(previous);
+    return location_success;
+}
+
+__noinline unsigned char bank_location_file(unsigned char dev, const char *dir);
+__noinline unsigned char location_file(unsigned char dev, const char *dir)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    unsigned char result = bank_location_file(dev, dir);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_location_root(unsigned char dev, const char *dir);
+__noinline unsigned char location_root(unsigned char dev, const char *dir)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    unsigned char result = bank_location_root(dev, dir);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_location_list(unsigned char dev, const char *dir);
+__noinline unsigned char location_list(unsigned char dev, const char *dir)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    unsigned char result = bank_location_list(dev, dir);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_path_directory(Path *p);
+__noinline unsigned char path_directory(Path *p)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    unsigned char result = bank_path_directory(p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_path_join(Path *p);
+__noinline unsigned char path_join(Path *p)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    unsigned char result = bank_path_join(p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline void bank_navcmd(unsigned char operation);
+__noinline void navcmd(unsigned char operation)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    bank_navcmd(operation);
+    bank_leave(previous);
+
+}
+
+__noinline void bank_nav_finish(void);
+__noinline void nav_finish(void)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    bank_nav_finish();
+    bank_leave(previous);
+
+}
+
+__noinline unsigned char cmd_root(unsigned char dev);
+__noinline unsigned char partition_root(unsigned char dev)
 {
     unsigned char previous = bank_enter(BANK_STORAGE);
-    bank_diskpartcmd();
+    unsigned char result = cmd_root(dev);
     bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char cmd_lookup(unsigned char dev, const char *name, PartitionInfo *info);
+__noinline unsigned char partition_lookup(unsigned char dev, const char *name, PartitionInfo *info)
+{
+    unsigned char previous = bank_enter(BANK_STORAGE);
+    unsigned char result = cmd_lookup(dev, name, info);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_copyfile(unsigned char moving);
+__noinline void bank_dirwalk(unsigned char flags, unsigned char filter);
+__noinline void dirwalk(unsigned char flags, unsigned char filter)
+{
+    unsigned char previous = bank_enter(BANK_TRANSFER);
+    bank_dirwalk(flags, filter);
+    bank_leave(previous);
+}
+
+__noinline unsigned char copyfile(unsigned char moving)
+{
+    unsigned char previous = bank_enter(BANK_TRANSFER);
+    unsigned char result = bank_copyfile(moving);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_fileentry(const Path *p);
+__noinline unsigned char fileentry(const Path *p)
+{
+    unsigned char previous = bank_enter(BANK_TRANSFER);
+    unsigned char result = bank_fileentry(p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_deletable(const Path *p);
+__noinline unsigned char deletable(const Path *p)
+{
+    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    unsigned char result = bank_deletable(p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_output_append(void);
+__noinline unsigned char output_append(void)
+{
+    unsigned char previous = bank_enter(BANK_TRANSFER);
+    unsigned char result = bank_output_append();
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char cmd_partition(unsigned char dev, unsigned char number, PartitionInfo *info);
+__noinline unsigned char partition_info(unsigned char dev, unsigned char number, PartitionInfo *info)
+{
+    unsigned char previous = bank_enter(BANK_STORAGE);
+    unsigned char result = cmd_partition(dev, number, info);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_startup_path(Path *p);
+__noinline unsigned char startup_path(Path *p)
+{
+    unsigned char previous = bank_enter(BANK_NAV), result = bank_startup_path(p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_raw_reader_open(const Path *p, unsigned char lfn);
+__noinline unsigned char raw_reader_open(const Path *p, unsigned char lfn)
+{
+    unsigned char previous = bank_enter(BANK_TRANSFER);
+    unsigned char result = bank_raw_reader_open(p, lfn);
+    bank_leave(previous);
+    return result;
+}
+__noinline int bank_raw_reader_read(unsigned char lfn, void *buffer, unsigned int size);
+__noinline int raw_reader_read(unsigned char lfn, void *buffer, unsigned int size)
+{
+    unsigned char previous = bank_enter(BANK_TRANSFER);
+    int result = bank_raw_reader_read(lfn, buffer, size);
+    bank_leave(previous);
+    return result;
 }

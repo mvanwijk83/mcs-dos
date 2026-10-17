@@ -5,6 +5,7 @@ const harness=`
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 #include <time.h>
 #define VERSION "test"
@@ -20,7 +21,7 @@ static char parsebuf[98], line[65];
 #define rawget(a,b) 0
 static unsigned char argquoted[33];
 static char output[100];
-static struct {unsigned char dev;char name[17];} p1;
+static struct {unsigned char dev; char name[17]; char dir[128];} p1;
 static int stop(void) {return 0;}
 static int path(const char *s,void *p) {
     const char *q=strchr(s,':');p1.dev=0;
@@ -53,7 +54,6 @@ static int commandid(const char *s) {return !stricmp(s,"CLS")?2:!stricmp(s,"RUN"
 #define keycmd(s) ((void)0)
 #define findcmd() ((void)0)
 #define diskinitcmd() ((void)0)
-#define diskpartcmd() ((void)0)
 #define tapecopycmd() ((void)0)
 #define attribcmd() ((void)0)
 #define bootsplash(n) ((void)0)

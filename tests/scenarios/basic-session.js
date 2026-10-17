@@ -37,12 +37,12 @@ function journal(file, replace) {
     return bytes;
 }
 function record(bytes, slot) {
-    const b = bytes.subarray(slot * 4096, (slot + 1) * 4096);
-    assert.equal(b.subarray(0, 4).toString('hex'), '4d535302');
+    const b = bytes.subarray(slot * 8192, (slot + 1) * 8192);
+    assert.equal(b.subarray(0, 4).toString('hex'), '4d535303');
     assert.equal(b[15], 0xa5);
-    assert.equal(b.readUInt16LE(6), 3605);
+    assert.equal(b.readUInt16LE(6), 7377);
     let crc = 65535;
-    for (const v of b.subarray(16, 16 + 3605)) {
+    for (const v of b.subarray(16, 16 + 7377)) {
         crc ^= v << 8;
         for (let i = 0; i < 8; i++)
             crc = ((crc << 1) ^ ((crc & 32768) ? 0x1021 : 0)) & 65535;
@@ -88,13 +88,13 @@ module.exports =
         await command('> de02 04');
         await command('> 01 37');
     }
-    async function resume(expected = 'A:>', text = 'shell') {
+    async function resume(expected = 'A:\\>', text = 'shell') {
         return settled(await keys(text + '\\x0d', 3500), s => s.endsWith(expected));
     }
     // External startup resources will be removed before restoration.
     const bat = root + '/build/easyflash/session-autoexec.bat';
     fs.writeFileSync(bat,
-        Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\rSET COLOR=2,6,7\rSET PROMPT=$P$C$G$S\r'));
+        Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\rSET COLOR=2,6,7\rSET PROMPT=$P$G$S\r'));
     execFileSync(tool('vice', 'c1541'),
         ['-attach', disk, '-delete', 'autoexec.bat', '-write', bat, 'autoexec.bat,s'],
         {stdio: 'pipe', windowsHide: true});
@@ -107,8 +107,8 @@ module.exports =
              'key /f1:help /f4:dir/w /f7:"my program"', 'echo off'])
         await enter(cmd);
     const fields = [
-        ['environment', 512, 16], ['history', 650, 528], ['rawhistory', 90, 1178],
-        ['prompttext', 33, 1268], ['keybindings', 256, 1301]
+        ['environment', 512, 16], ['history', 1280, 528], ['rawhistory', 160, 1808],
+        ['prompttext', 33, 1968], ['keybindings', 256, 2001], ['working', 3072, 2257]
     ];
     await basic();
     assert.equal((await memory(0xd018))[0] & 0xfe, 0x14, 'uppercase ROM font');
@@ -134,7 +134,7 @@ module.exports =
     assert(s.includes('?syntax  error in 20') && s.endsWith('ready.'), s);
     await keys('poke 53280,1:poke 53281,0\\x0d');
     await command('detach 8');
-    await resume('A:>', '  shell  ');
+    await resume('A:\\>', '  shell  ');
     for (const [name, n, offset] of fields)
         assert.deepEqual(
             await variable(name, n), saved.subarray(16 + offset, 16 + offset + n), name);
@@ -151,9 +151,9 @@ module.exports =
     // No writes on restoration; fill all slots to exercise real sector rotation.
     bytes = await detach();
     assert.deepEqual(bytes, first, 'return must not rewrite/erase snapshot');
-    for (let i = 1; i < 32; i++) {
-        saved.copy(bytes, i * 4096);
-        bytes.writeUInt16LE(i + 1, i * 4096 + 4);
+    for (let i = 1; i < 16; i++) {
+        saved.copy(bytes, i * 8192);
+        bytes.writeUInt16LE(i + 1, i * 8192 + 4);
     }
     journal(crt, bytes);
     await attach();
@@ -164,8 +164,8 @@ module.exports =
     await basic();
     const rotated = await detach();
     const newest = record(rotated, 0);
-    assert.equal(newest.readUInt16LE(4), 33);
-    assert(rotated.subarray(4096, 65536).every(b => b === 255), 'only reused sector erased');
+    assert.equal(newest.readUInt16LE(4), 17);
+    assert(rotated.subarray(8192, 65536).every(b => b === 255), 'only reused sector erased');
     assert.deepEqual(rotated.subarray(65536), bytes.subarray(65536), 'other journal sector intact');
     const files = require('../easyflash-image').readImage(crt).files;
     for (const name of ['CGA.CPI', 'MANUAL.TXT'])
@@ -198,11 +198,11 @@ module.exports =
         return result;
     }
     s = await failedSave('n');
-    assert(s.endsWith('A:>'), s);
+    assert(s.endsWith('A:\\>'), s);
     await check('set', 'TEST=preserved');
     s = await failedSave('y');
     assert(s.includes('type \'shell\' to return to mcs-dos'), s);
-    s = await resume('0:>');
+    s = await resume('0:\\>');
     assert(s.includes('Using defaults.'), s);
     assert.equal((await variable('envused', 2)).readUInt16LE(), 0);
     await defaultFont();
@@ -214,10 +214,10 @@ module.exports =
     const token = await memory(0xc1e2, 0xc1e6);
     bytes = await detach();
     record(bytes, token[0]);
-    bytes[token[0] * 4096 + 16 + 16] ^= 1;
+    bytes[token[0] * 8192 + 16 + 16] ^= 1;
     journal(crt, bytes);
     await attach();
-    s = await resume('0:>');
+    s = await resume('0:\\>');
     assert(s.includes('Using defaults.'), s);
     assert.equal((await variable('envused', 2)).readUInt16LE(), 0);
     console.log('PASS corrupted payload rejected before restoration');

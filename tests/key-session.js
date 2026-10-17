@@ -28,11 +28,11 @@ require('./shell')('key-session', async ({disk, command, keys, enter, screen, me
     assert(/  F4  DIR\/W/i.test(text) && !/  F1  HELP/i.test(text), text);
     await keys('discard');
     text = await keys('\\x85');
-    assert(/8:>HELP$/i.test(text), text);
+    assert(/8:\\>HELP$/i.test(text), text);
     assert.equal((await keys('\\x86')).split('\n').at(-1),text.split('\n').at(-1),'unbound F3 keeps input');
     await keys('\\x03');
     text = await keys('\\x8a');
-    assert(/8:>DIR\/W$/i.test(text),text);
+    assert(/8:\\>DIR\/W$/i.test(text),text);
     await keys('\\x03');
     // VICE's monitor strips leading whitespace from keybuf arguments. Keep the
     // space after ECHO in the first chunk rather than at the start of the second.
@@ -42,7 +42,7 @@ require('./shell')('key-session', async ({disk, command, keys, enter, screen, me
     await enter('');
     for(const [code,name] of [['89','TWO'],['86','THREE'],['87','FIVE'],['8b','SIX']]) {
         text = await keys('\\x'+code);
-        assert(new RegExp('8:>ECHO '+name+'$','i').test(text),text);
+        assert(new RegExp('8:\\>ECHO '+name+'$','i').test(text),text);
         await keys('\\x03');
     }
     console.log('PASS KEY lists, queries and seven function-key recalls');
@@ -88,13 +88,13 @@ require('./shell')('key-session', async ({disk, command, keys, enter, screen, me
         conn.write('x\n');
         await delay(500);
     } finally {conn.destroy();}
-    text = await until(s => s.endsWith('8:>'));
+    text = await until(s => s.endsWith('8:\\>'));
     assert(/\nCTRL-MARK\n/i.test(text),'CTRL function key executes without Enter: '+text);
     console.log('PASS KEY literal redirections and CTRL execution');
     const saved = await bindings();
     await command('> c2f0 00');
     text = await keys('\\x88');
-    assert(/8:>"MY PROGRAM"$/i.test(text),text);
+    assert(/8:\\>"MY PROGRAM"$/i.test(text),text);
     await enter('');
     assert.equal((await memory(0xc2f0))[0],0x41,'function-key program executes');
     assert.deepEqual(await bindings(),saved,'bindings survive native return');
@@ -102,12 +102,12 @@ require('./shell')('key-session', async ({disk, command, keys, enter, screen, me
     await keys('basic\\x0d',3500);
     await until(s=>s.endsWith('ready.'));
     await keys('shell\\x0d',3500);
-    await until(s=>s.endsWith('8:>'));
+    await until(s=>s.endsWith('8:\\>'));
     assert.deepEqual(await bindings(),saved,'bindings survive BASIC/SHELL');
     console.log('PASS KEY BASIC/SHELL return');
     await enter('key /clear:4');
     text = await keys('\\x8a');
-    assert(text.endsWith('8:>'),'cleared F4 leaves prompt unchanged: '+text);
+    assert(text.endsWith('8:\\>'),'cleared F4 leaves prompt unchanged: '+text);
     await enter('key /clear');
     assert((await bindings()).every(v=>v===0));
     await enter('key /f1:help');

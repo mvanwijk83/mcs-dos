@@ -78,12 +78,12 @@ async function keys(s, ms = 550) {
 async function enter(s, ms) {
     let out = await keys(s + '\\x0d', ms);
     if (!/^edit\b/.test(s)) {
-        for (let i = 0; i < 60 && !/(?:^|\n)(?:[0-9A-W]+:>|ready\.)$/.test(out); i++) {
+        for (let i = 0; i < 60 && !/(?:^|\n)(?:[0-9A-W]+:\\>|ready\.)$/.test(out); i++) {
             await command('x');
             await delay(500);
             out = await screen();
         }
-        assert(/(?:^|\n)(?:[0-9A-W]+:>|ready\.)$/.test(out),
+        assert(/(?:^|\n)(?:[0-9A-W]+:\\>|ready\.)$/.test(out),
             'Command did not finish: ' + s + '\n' + out);
     }
     snapshots.push({completed: s, out});
@@ -254,13 +254,13 @@ function diskFile(file, name) {
             !s.includes('Unknown device') && !s.includes('Drive 10:') && !s.includes('Drive 11:'),
             s);
     }
-    for (let i = 0; i < 20 && !s.includes('0:>'); i++) {
+    for (let i = 0; i < 20 && !s.includes('0:\\>'); i++) {
         await command('x');
         await delay(500);
         s = await screen();
     }
     console.log('BOOT', s);
-    assert(s.includes('0:>'), s);
+    assert(s.includes('0:\\>'), s);
     if (process.argv.includes('--boot-info')) {
         assert(!s.includes('AUTOEXEC-RAN'), s);
         assert(s.includes('64 KB RAM') && s.includes('Starting MCS-DOS...'), s);
@@ -299,7 +299,7 @@ function diskFile(file, name) {
     await defaultFont();
     if (process.argv.includes('--boot-info')) {
         s = await enter('reboot');
-        assert(s.includes('0:>') && !s.includes('KB RAM') && !s.includes('Starting MCS-DOS...'), s);
+        assert(s.includes('0:\\>') && !s.includes('KB RAM') && !s.includes('Starting MCS-DOS...'), s);
         await defaultFont();
         console.log(
             'PASS five-second splash and centered gray countdown, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');
@@ -514,12 +514,12 @@ function diskFile(file, name) {
     });
 async function runAndReturn(cmd) {
     let s = await keys(cmd + '\\x0d', 3500);
-    for (let i = 0; i < 40 && !s.endsWith('0:>'); i++) {
+    for (let i = 0; i < 40 && !s.endsWith('0:\\>'); i++) {
         await command('x');
         await delay(500);
         s = await screen();
     }
-    assert(s.endsWith('0:>'), s);
+    assert(s.endsWith('0:\\>'), s);
 }
 async function recoverWrite(crt) {
     // Keep the remote connection alive so a breakpoint stays in the remote
@@ -594,12 +594,12 @@ async function defaultFont(patch) {
                                 require('./environment').viceData('C64', 'chargen-901225-01.bin'));
     const expected = Buffer.from(rom.subarray(2048, 4096));
     for (let row = 0; row < 8; row++) {
-        expected[96 * 8 + row] = rom[77 * 8 + row];
-        expected[224 * 8 + row] = rom[77 * 8 + row] ^ 255;
+        expected[28 * 8 + row] = rom[77 * 8 + row];
+        expected[156 * 8 + row] = rom[77 * 8 + row] ^ 255;
     }
     if (patch)
         for (let i = 0; i < patch[5]; i++) {
-            const at = 6 + i * 9, code = patch[at];
+            const at = 6 + i * 9, code = patch[at] === 96 ? 28 : patch[at];
             for (let row = 0; row < 8; row++) {
                 expected[code * 8 + row] = patch[at + 1 + row];
                 expected[(code + 128) * 8 + row] = patch[at + 1 + row] ^ 255;

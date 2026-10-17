@@ -295,7 +295,7 @@ case-insensitive, and treats spaces
 before switches as optional. For
 example, DIR/W and DIR /W both work.
 The maximum full length of a command,
-including parameters, is 64 characters.
+including parameters, is 127 characters.
 
 You can use CRSR LEFT/RIGHT to move
 within the command text. Typing inserts.
@@ -398,6 +398,67 @@ data (SEQ) files of up to 44 kb can be
 transferred, assuming no custom loader
 is used on the source tape.
 
+  Directories and paths
+Use the pound key to type a backslash.
+Paths and commands allow 127 characters
+plus their terminating byte. Each name
+component allows 16 native characters.
+
+FILE uses the current directory.
+TOOLS\FILE is relative to it.
+\TOOLS\FILE starts at the device root.
+A:FILE uses A's remembered directory.
+A:\TOOLS\FILE is absolute on A.
+A: selects A and its remembered location.
+CD A:path changes A's remembered location
+without selecting A. CD .. moves up one
+level; CD \ reaches the device root.
+
+CD\DIR1 and CD.. accept paths without
+a space after CD or CHDIR. CD /D also
+selects the target drive after changing
+its directory. Without /D, CD changes
+the remembered directory on that drive
+while leaving the selected drive alone.
+
+DIR shows . and .. in subdirectories.
+DIR /S recursively lists only files,
+using their full paths, without headings
+or totals. Patterns and file-type
+filters also apply within subdirectories.
+
+1581 subdirectories are fixed-size
+partitions. MD name /SIZE:400 reserves
+400 sectors, including directory space.
+Sizes must be multiples of 40, at least
+120. Omit /SIZE for an interactive size
+prompt; batch files require /SIZE.
+The shell finds free aligned space and
+protects the parent's directory track.
+
+CMD device roots list existing top-level
+partitions. Enter one by name or by its
+reserved @number alias (such as @13).
+Stored paths use the numeric alias.
+Cannot create or move files into this
+virtual root, or manage its partitions.
+Use CMD's dedicated tools for that.
+Native CMD directories need no /SIZE.
+
+RD removes empty directories. RD /S
+removes their contents too; /P suppresses
+confirmation. DEL always leaves directory
+entries alone. Cannot remove a working
+directory or any of its ancestors.
+
+Temporary file operations preserve the
+selected drive and working directories.
+After external execution the shell tries
+to restore its saved location. If that
+fails, it uses the device root (including
+the CMD virtual root), then cartridge 0
+if the device cannot be reached.
+
   Redirection and piping
 Command output redirection to file is
 supported (see chapter 9). Input
@@ -418,7 +479,7 @@ MCS-DOS features familiar commands from
 classic MS-DOS, as well as a few of
 its own. A list of supported commands
 can be viewed from within the shell by
-entering the HELP command. 
+entering the HELP command.
 
 Help on a specific command can be
 viewed by typing "HELP command" or
@@ -475,8 +536,6 @@ DISKINIT [drive:]
   Resets disk drive state and forces a
   reread of the directory.
 
-DISKPART [drive:] [n]
-  Lists or selects CMD partitions.
 
 ECHO [ON | OFF]
 ECHO [message]
@@ -658,8 +717,9 @@ PROMPT
     $G  > (greater-than sign)
     $H  \ (backslash)
     $N  Drive number
-    $P  Drive identifier according to
+    $I  Drive identifier according to
         the DRIVEIDS variable
+    $P  Current drive and full path
     $Q  = (equal sign)
     $R  Line break (RETURN)
     $S  Space
@@ -672,9 +732,10 @@ PROMPT
     READY.
     A:\>
 
-  The default setting is $P$C$G, which
-  yields A:> or 8:>, depending on
-  DRIVEIDS. The format codes are case-
+  The default setting is $P$G, which
+  yields A:\> or 8:\> at root, depending
+  on DRIVEIDS. Paths display in upper
+  case. The format codes are case-
   insensitive.
 
 
@@ -771,7 +832,7 @@ present on device 0 (or a device chosen
 by CONFIG.SYS), it runs at startup.
 Pressing RESTORE on the boot screen will
 run MCS-DOS in "safe mode"; it skips
-execution of AUTOEXEC.BAT. 
+execution of AUTOEXEC.BAT.
 
 
   B. Version history

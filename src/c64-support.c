@@ -179,7 +179,7 @@ unsigned char directory_open(char f, char d)
  * e: Output entry; return 0 for an item, 2 for free blocks, or 1 on error. */
 unsigned char directory_read(char f, struct DirectoryEntry *e)
 {
-    unsigned char h[4], c, n = 0, quoted = 0, seen = 0, t = 0;
+    unsigned char h[4], c, n = 0, quoted = 0, seen = 0, t = 0, second = 0;
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f])
         return cart_directory(f, 0, e);
     if (channel_read(f, h, 4) != 4)
@@ -199,8 +199,12 @@ unsigned char directory_read(char f, struct DirectoryEntry *e)
                 e->name[n++] = c;
         } else if (seen && c == '<')
             e->access = CBM_A_RO;
-        else if (seen && !t && c != ' ' && c != '*')
-            t = c;
+        else if (seen && c != ' ' && c != '*') {
+            if (!t)
+                t = c;
+            else if (!second)
+                second = c;
+        }
     } while (c);
     e->name[n] = 0;
     while (n && e->name[n - 1] == ' ')
@@ -208,7 +212,9 @@ unsigned char directory_read(char f, struct DirectoryEntry *e)
     if (!seen)
         return 2;
     if (t == 0x44)
-        e->type = CBM_T_DEL;
+        e->type = second == 0x49 ? CBM_T_DIR : CBM_T_DEL;
+    else if (t == 0x43)
+        e->type = CBM_T_CBM;
     else if (t == 0x50)
         e->type = CBM_T_PRG;
     else if (t == 0x53)

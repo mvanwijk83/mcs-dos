@@ -5,6 +5,7 @@ const {functions, commands, header} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <stdio.h>
 #include <ctype.h>
 #define MAXARGS      ${header.match(/^#define MAXARGS (\d+)/m)[1]}
@@ -15,8 +16,7 @@ static const char *const commands[] = {${commands.map(name => JSON.stringify(nam
 #define CBM_T_USR 18
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 static Path p1, outputpath;
@@ -28,6 +28,7 @@ static struct {
     unsigned char type;
 } files[1] = {{CBM_T_SEQ}};
 
+static unsigned char outputmode, outputstarted;
 static int errors, opened, deleted, executed;
 static const char *message;
 
@@ -108,6 +109,7 @@ static int channel_open(int l, int dev, int sa, const char *s)
 /* Provide the close hook; fixtures observe resource cleanup without using KERNAL channels.
  *
  * l: Logical channel identifier. */
+static void channel_abort(int l) {}
 static void channel_close(int l)
 {
 }
@@ -124,6 +126,10 @@ static int diskstatus(int dev, int report)
 /* Provide the flush hook without performing actual disk output. */
 static void outputflush(void)
 {
+}
+static int output_append(void) {
+    outputstarted=1;snprintf(diskcmd,sizeof(diskcmd),"0:%s,s,%c",outputpath.name,outputmode);
+    return !channel_open(5,outputpath.dev,5,diskcmd);
 }
 
 /* Count accepted dispatches without invoking unrelated command handlers.

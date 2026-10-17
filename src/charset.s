@@ -32,17 +32,17 @@ _charset_prepare:
     .endrepeat
     inx
     bne @font
-    ; Slot 96 replaces the duplicate space. Use the graphics-ROM backslash
+    ; Slot 28 replaces the pound sign. Use the graphics-ROM backslash
     ; (slot 77); regular mixed-case M remains untouched. Also stage the
     ; fallback for older external fonts that omit the new slot.
     ldx #7
 @backslash:
     lda $d268,x
-    sta $eb00,x
-    sta $f300,x
+    sta $e8e0,x
+    sta $f0e0,x
     eor #$ff
-    sta $ef00,x
-    sta $f700,x
+    sta $ece0,x
+    sta $f4e0,x
     dex
     bpl @backslash
     pla

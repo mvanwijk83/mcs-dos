@@ -1,5 +1,5 @@
 /* Private append-only journal: banks 48..55, both 64K flash chips.
- * 32 slots of 4096 bytes. Header first, CRC verified, commit byte last.
+ * 16 slots of 8192 bytes. Header first, CRC verified, commit byte last.
  * Only an exact wedge token may be restored; no search for fallback state. */
 #include "../session-format.h"
 static unsigned char ss_slot, ss_failed;
@@ -9,14 +9,14 @@ static unsigned int ss_gen, ss_pos, ss_crc;
  * same polynomial and initial value, so a second byte-update routine is unnecessary. */
 /* Read a byte in a private session slot.
  *
- * slot: Session slot, 0-31.
- * offset: Byte offset within its 4096-byte slot. */
+ * slot: Session slot, 0-15.
+ * offset: Byte offset within its 8192-byte slot. */
 static unsigned char ss_get(unsigned char slot, unsigned int offset)
 {
-    unsigned int at = (unsigned int)(slot & 15) * 4096 + offset;
+    unsigned int at = (unsigned int)(slot & 7) * 8192 + offset;
     H[0] = 48 + (at >> 13);
     H[1] = at;
-    H[2] = (slot < 16 ? 0x80 : 0xa0) + ((at >> 8) & 31);
+    H[2] = (slot < 8 ? 0x80 : 0xa0) + ((at >> 8) & 31);
     hal(0);
     return H[3];
 }
@@ -27,12 +27,12 @@ static unsigned char ss_get(unsigned char slot, unsigned int offset)
  * value: Byte to program. */
 static void ss_put(unsigned int offset, unsigned char value)
 {
-    unsigned int at = (unsigned int)(ss_slot & 15) * 4096 + offset;
+    unsigned int at = (unsigned int)(ss_slot & 7) * 8192 + offset;
     if (ss_failed)
         return;
     H[0] = 48 + (at >> 13);
     H[1] = at;
-    H[2] = (ss_slot < 16 ? 0x80 : 0xa0) + ((at >> 8) & 31);
+    H[2] = (ss_slot < 8 ? 0x80 : 0xa0) + ((at >> 8) & 31);
     H[3] = value;
     hal(1);
     if (H[4])
@@ -78,7 +78,7 @@ static void session_store(unsigned char op)
     if (op == CART_SESSION_BEGIN) {
         ss_gen = 0;
         ss_failed = 0;
-        for (i = 0; i < 32; ++i) {
+        for (i = 0; i < 16; ++i) {
             blank = 1;
             for (j = 0; j < 16; ++j)
                 if (ss_get(i, j) != 255)
@@ -97,7 +97,7 @@ static void session_store(unsigned char op)
         ++ss_gen;
         /* Erase the opposite chip, keeping the most recently committed session available. */
         if (empty == 255) {
-            empty = last < 16 ? 16 : 0;
+            empty = last < 8 ? 8 : 0;
             H[0] = 48;
             H[2] = empty ? 0xa0 : 0x80;
             hal(2);
@@ -145,7 +145,7 @@ static void session_store(unsigned char op)
         ss_gen = CART_MAILBOX[6] | ((unsigned int)(CART_MAILBOX[7]) << 8);
         crc = CART_MAILBOX[8] | ((unsigned int)(CART_MAILBOX[9]) << 8);
         /* Accept only the exact wedge token; never silently substitute an older session. */
-        ss_failed = ss_slot >= 32;
+        ss_failed = ss_slot >= 16;
         if (!ss_failed && (!ss_header(ss_slot) || ss_word(ss_slot, 4) != ss_gen ||
                            ss_word(ss_slot, 8) != crc || ss_check() != crc))
             ss_failed = 1;

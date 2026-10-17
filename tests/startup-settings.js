@@ -178,7 +178,7 @@ int main(void)
 fs.writeFileSync('build/test-startup-settings.c', code);
 require('./simulator')('build/test-startup-settings.c');
 
-assert(header.includes('#define LINE 65'));
+assert(header.includes('#define LINE 128'));
 assert(header.includes('#define MAXARGS 33'));
 console.log(
     'PASS startup colors/prompt, atomic invalid colors, 8/32 limits exact 512-byte capacity, aligned usage statistics deferred DRIVEIDS and exact screen recoloring');

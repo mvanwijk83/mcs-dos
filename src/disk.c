@@ -130,122 +130,6 @@ __noinline unsigned char bank_bam(unsigned char dev)
  * editbuf is idle during COPY and holds one complete binary record.
  *
  * Copy a REL file record by record from p1 to p2, letting DOS create destination side sectors. */
-__noinline unsigned char bank_copyrel(void)
-{
-    static unsigned char tr, se, r, len, next, sector, ok, code, lfn, tracks, dirtrack;
-    static unsigned int off, n, pos, record, guard;
-    static char name[17], position[5];
-    len = pos = guard = 0;
-    ok = record = 1;
-    if (!bank_bam(p1.dev) || !bank_rawopen(p1.dev))
-        return 0;
-    tr = io[0];
-    se = io[1];
-    tracks = disktracks;
-    dirtrack = headertrack;
-    while (tr && !len && ++guard <= bank_tracksectors(dirtrack, tracks)) {
-        if (tr != dirtrack || se >= bank_tracksectors(tr, tracks))
-            break;
-        if (!bank_blockio(p1.dev, tr, se, 0))
-            break;
-        tr = io[0];
-        se = io[1];
-        for (off = 0; off < 256; off += 32) {
-            if ((io[off + 2] & 0x87) != 0x84)
-                continue;
-            memcpy(name, io + off + 5, 16);
-            name[16] = 0;
-            for (r = 16; r && (unsigned char)name[r - 1] == 160; --r)
-                name[r - 1] = 0;
-            if (strcmp(name, p1.name))
-                continue;
-            len = io[off + 23];
-            tr = io[off + 3];
-            se = io[off + 4];
-            break;
-        }
-    }
-    channel_close(2);
-    if (!len || len == 255 || !tr) {
-        error(SYSOUT_INVALID_REL_FILE);
-        return 0;
-    }
-    if (!preparewrite(&p2) || !bank_rawopen(p1.dev))
-        return 0;
-    snprintf(diskcmd, sizeof(diskcmd), "0:%s,l,%c", p2.name, len);
-    if (channel_open(3, p2.dev, 3, diskcmd) != 0) {
-        channel_close(3);
-        channel_close(2);
-        return 0;
-    }
-    if (diskstatus(p2.dev, 1) >= 20)
-        ok = 0;
-    lfn = statuschannel(p2.dev);
-    guard = 0;
-    uppername(p1.name, statusbuf);
-    outs(statusbuf);
-    while (ok && tr) {
-        if (tr > tracks || se >= bank_tracksectors(tr, tracks) ||
-            ++guard > (tracks == 80   ? 3200
-                       : tracks == 70 ? 1366
-                                      : 683) ||
-            !bank_blockio(p1.dev, tr, se, 0)) {
-            ok = 0;
-            break;
-        }
-        next = io[0];
-        sector = io[1];
-        n = next ? 256 : (unsigned int)sector + 1;
-        if (n < 2) {
-            ok = 0;
-            break;
-        }
-        for (off = 2; ok && off < n; ++off) {
-            editbuf[pos++] = io[off];
-            if (pos != len)
-                continue;
-            position[0] = 'p';
-            position[1] = 96 + 3;
-            position[2] = record;
-            position[3] = record >> 8;
-            position[4] = 1;
-            POKE(144, 0);
-            if (channel_write(lfn, position, 5) != 5) {
-                ok = 0;
-                break;
-            }
-            code = diskstatus(p2.dev, 0);
-            /* Positioning beyond EOF is how DOS extends a REL file. */
-            if (code >= 20 && code != 50) {
-                error(statusbuf);
-                ok = 0;
-                break;
-            }
-            POKE(144, 0);
-            if (channel_write(3, editbuf, len) != len || diskstatus(p2.dev, 1) >= 20) {
-                ok = 0;
-                break;
-            }
-            pos = 0;
-            ++record;
-            if (stop()) {
-                ok = 0;
-                break;
-            }
-        }
-        tr = next;
-        se = sector;
-    }
-    if (pos)
-        ok = 0;
-    channel_close(3);
-    channel_close(2);
-    newline();
-    if (diskstatus(p2.dev, 1) >= 20)
-        ok = 0;
-    return ok;
-}
-
 /* The preceding space statistics already end with a blank line.
  *
  * Report the detected drive model and its supported disk capacity.
@@ -282,17 +166,129 @@ __noinline void bank_driveinfo(unsigned char dev)
 /* Display volume information, optionally including CHKDSK allocation checks.
  *
  * stats: Nonzero selects CHKDSK; zero selects VOL. */
+typedef struct DiskWide1581 {
+    unsigned int blocks, files, free, directories, directoryblocks;
+    unsigned char id[2];
+} DiskWide1581;
+
+/* Allocation-report prototype: absolute 1581 sector addresses let us visit
+ * sub-partition headers directly, without repeatedly replaying DOS paths.
+ * The pending extents and visited-header bitmap use EDIT's idle workspace.
+ * Each child BAM excludes its descendants; summing free counts is disjoint. */
+static unsigned char diskwide1581(unsigned char dev, DiskWide1581 *result)
+{
+    unsigned char *pending = (unsigned char *)workspace;
+    unsigned char *seen = (unsigned char *)workspace + 160;
+    unsigned char top = 1, header, first, last, track, sector, nexttrack, nextsector;
+    unsigned char bam, tr, off, start, end, type, n;
+    unsigned int entry, blocks, guard = 0;
+    memset(result, 0, sizeof(*result));
+    memset(seen, 0, 10);
+    pending[0] = 40; pending[1] = 80;
+    seen[39 >> 3] |= 1 << (39 & 7);
+    if (!bank_rawopen(dev))
+        return 0;
+    while (top) {
+        --top;
+        header = pending[top * 2]; last = pending[top * 2 + 1];
+        first = header == 40 ? 1 : header;
+        if (stop() || !bank_blockio(dev, header, 0, 0))
+            goto failed;
+        if (io[2] != 0x44 || io[0] != header || io[1] < 3 || io[1] >= 40) {
+            if (header != 40)
+                continue; /* An unformatted CBM area remains reserved space. */
+            goto damaged;
+        }
+        track = io[0]; sector = io[1];
+        if (header != 40) {
+            ++result->directories;
+            result->directoryblocks += 3; /* Header and two BAM sectors. */
+        }
+        if (header == 40) {
+            for (n = 0; n < 16 && (unsigned char)io[4 + n] != 160; ++n)
+                volume[n] = io[4 + n];
+            volume[n] = 0;
+            result->id[0] = io[22]; result->id[1] = io[23];
+        }
+        /* No child can cross root's track 40, so only one BAM half is
+         * relevant for a child; root itself needs both BAM sectors. */
+        for (bam = first <= 40 ? 1 : 2; bam <= (last <= 40 ? 1 : 2); ++bam) {
+            if (!bank_blockio(dev, header, bam, 0))
+                goto failed;
+            if (io[2] != 0x44 || (unsigned char)io[3] != 0xbb)
+                goto damaged;
+            start = first > (bam == 1 ? 1 : 41) ? first : (bam == 1 ? 1 : 41);
+            end = last < (bam == 1 ? 40 : 80) ? last : (bam == 1 ? 40 : 80);
+            for (tr = start; tr <= end; ++tr)
+                /* DOS excludes root's entire directory track from capacity,
+                 * although its BAM retains unused directory-sector bits.
+                 * Child headers share their track with ordinary file data. */
+                if (header != 40 || tr != 40)
+                    result->free += (unsigned char)io[16 + ((tr - 1) % 40) * 6];
+        }
+        while (track) {
+            if (track < first || track > last || sector >= 40 || ++guard > 3200)
+                goto damaged;
+            if (stop() || !bank_blockio(dev, track, sector, 0))
+                goto failed;
+            if (header != 40)
+                ++result->directoryblocks;
+            nexttrack = io[0]; nextsector = io[1];
+            for (entry = 0; entry < 256; entry += 32) {
+                type = io[entry + 2] & 7;
+                blocks = (unsigned char)io[entry + 30] | ((unsigned int)(unsigned char)io[entry + 31] << 8);
+                if (type >= 1 && type <= 4) {
+                    ++result->files;
+                    result->blocks += blocks;
+                } else if (type == 5 && blocks >= 120 && !(blocks % 40) && !io[entry + 4]) {
+                    start = io[entry + 3];
+                    if (start < first || start > last || start == header ||
+                        blocks / 40 > last - start + 1 || (start <= 40 && start + blocks / 40 > 40))
+                        goto damaged;
+                    off = start - 1;
+                    if (top == 80 || (seen[off >> 3] & (1 << (off & 7))))
+                        goto damaged;
+                    seen[off >> 3] |= 1 << (off & 7);
+                    pending[top * 2] = start;
+                    pending[top * 2 + 1] = start + blocks / 40 - 1;
+                    ++top;
+                }
+            }
+            track = nexttrack; sector = nextsector;
+        }
+    }
+    if (result->blocks + result->free + result->directoryblocks > 3160)
+        goto damaged;
+    channel_close(2);
+    return 1;
+damaged:
+    error(SYSOUT_INVALID_PARTITION_ALLOCATION);
+failed:
+    channel_close(2);
+    return 0;
+}
+
 __noinline void bank_volcmd(unsigned char stats)
 {
     unsigned int i;
-    unsigned int used, filecount;
+    unsigned int used = 0, filecount = 0, total = 0, reserved = 0;
+    unsigned char whole1581;
+    DiskWide1581 report;
     char shown[17];
     int compacted;
-    p1.dev = drive;
+    if (!path("", &p1))
+        return;
     if (stats) {
         if (!reportoptions(1))
             return;
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
+        return;
+    whole1581 = stats && p1.dev && drivemodel(p1.dev, 0) == DRIVE_1581;
+    if (whole1581) {
+        p1.dir[0] = 0;
+        if (!location_select(p1.dev, p1.dir))
+            return;
+    } else if (p1.dev && !disk_location(&p1))
         return;
     if (stats && validate == 2 && p1.dev) {
         error(SYSOUT_COMPACT_CRT_ONLY);
@@ -333,25 +329,42 @@ __noinline void bank_volcmd(unsigned char stats)
         }
         say(SYSOUT_DISK_VALIDATION_COMPLETE);
     }
-    if (!directory(p1.dev))
+    if (!whole1581 && !directory(p1.dev))
         return;
     if (stats) {
+        if (whole1581) {
+            if (!diskwide1581(p1.dev, &report))
+                return;
+            used = report.blocks; filecount = report.files; freeblocks = report.free;
+            total = 3160;
+            reserved = total - used - freeblocks - report.directoryblocks;
+        }
         uppername(volume, shown);
         print(SYSOUT_DISK_VOL, shown);
-        if (!bank_bam(p1.dev))
-            return;
-        print(SYSOUT_DISK_ID_SPACED, toupper(io[idoff]), toupper(io[idoff + 1]));
-        used = 0;
-        for (i = 0; i < count; ++i)
-            used += directory_entries[i].blocks;
-        print(SYSOUT_DISK_TOTAL_SPACE, decimal(((unsigned long)used + freeblocks) * 256));
-        print(SYSOUT_DISK_ALLOCATED, allocated(used), count);
+        if (whole1581)
+            print(SYSOUT_DISK_ID_SPACED, toupper(report.id[0]), toupper(report.id[1]));
+        else {
+            if (!bank_bam(p1.dev))
+                return;
+            print(SYSOUT_DISK_ID_SPACED, toupper(io[idoff]), toupper(io[idoff + 1]));
+            used = 0;
+            for (i = 0; i < count; ++i)
+                used += directory_entries[i].blocks;
+            filecount = count;
+            total = used + freeblocks;
+        }
+        print(SYSOUT_DISK_TOTAL_SPACE, decimal((unsigned long)total * 256));
+        print(SYSOUT_DISK_ALLOCATED, allocated(used), filecount);
+        if (whole1581 && report.directories)
+            print(SYSOUT_DISK_DIRECTORIES, allocated(report.directoryblocks), report.directories);
+        if (reserved)
+            print(SYSOUT_DISK_RESERVED, allocated(reserved));
         print(SYSOUT_DISK_AVAILABLE, allocated(freeblocks));
         /* Exactly 40 columns: outc already advances to the next row. */
         outs(SYSOUT_DISK_BLOCK_SIZE);
         if (redirected)
             newline();
-        print(SYSOUT_DISK_TOTAL_BLOCKS, decimal((unsigned long)used + freeblocks));
+        print(SYSOUT_DISK_TOTAL_BLOCKS, decimal(total));
         print(SYSOUT_DISK_FREE_BLOCKS, decimal(freeblocks));
         if (!validate)
             bank_driveinfo(p1.dev);
@@ -374,6 +387,8 @@ __noinline void bank_labelcmd(void)
         }
         ++a;
     }
+    if (!disk_location(&p1))
+        return;
     if (argc > a + 1) {
         error(SYSOUT_SYNTAX_LABEL);
         return;
@@ -418,6 +433,8 @@ __noinline void bank_formatcmd(void)
         error(SYSOUT_SYNTAX_FORMAT);
         return;
     }
+    if (!disk_location(&p1))
+        return;
     type = drivetype(p1.dev, 1);
     if (!type)
         return;
@@ -454,8 +471,11 @@ __noinline void bank_formatcmd(void)
     if (type == 2 && !drivemode(p1.dev, 1))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s", name, id);
-    if (command(p1.dev, diskcmd))
+    if (command(p1.dev, diskcmd)) {
+        working[location_index(p1.dev)][0] = 0;
+        nav_invalidate();
         say(SYSOUT_FORMAT_COMPLETE);
+    }
 }
 
 /* Execute DISKINIT to initialize a disk through its command channel. */
@@ -479,6 +499,8 @@ __noinline void bank_diskinitcmd(void)
         return;
     }
     command(p1.dev, "i0");
+    working[location_index(p1.dev)][0] = 0;
+    nav_invalidate();
 }
 
 /* Read or change the two-byte disk ID after validating the disk header. */
@@ -563,6 +585,8 @@ __noinline void bank_diskcopycmd(void)
         return;
     }
     type = drivetype(p1.dev, 1);
+    if (!disk_location(&p2))
+        return;
     other = drivetype(p2.dev, 1);
     if (!type || !other)
         return;

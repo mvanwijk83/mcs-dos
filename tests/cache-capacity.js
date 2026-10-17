@@ -9,11 +9,11 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #define MAXFILES ${capacity}
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 struct DirectoryEntry {
@@ -109,6 +109,7 @@ ${code}
 int main(void)
 {
     Path p;
+    p.dir[0]=0;
     unsigned int n, i;
     const unsigned int sizes[] = {1, 255, 256, MAXFILES - 1, MAXFILES};
     p.dev = 8;

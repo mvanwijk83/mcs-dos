@@ -77,7 +77,7 @@ module.exports = async function withShell(name, test, prepare) {
             await keys(text.slice(i, i + 40));
         await keys('\\x0d');
         // Device-selection commands may finish at a different default prompt.
-        return until(s => /(?:^|\n)[0-9A-W]+:>$/.test(s));
+        return until(s => /(?:^|\n)[0-9A-W]+:\\>$/.test(s));
     }
     try {
         for (let i = 0; i < 300; i++) {
@@ -102,9 +102,9 @@ module.exports = async function withShell(name, test, prepare) {
         socket.on('error', () => {});
         await command('x');
         await delay(2000);
-        await until(s => s.endsWith('0:>'));
+        await until(s => s.endsWith('0:\\>'));
         await keys('8:\\x0d');
-        await until(s => s.endsWith('8:>'));
+        await until(s => s.endsWith('8:\\>'));
         await test({disk, crt, command, memory, screen, keys, enter, until, monitorPort: port});
     } finally {
         socket?.destroy();

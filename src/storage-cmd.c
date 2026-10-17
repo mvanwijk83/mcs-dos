@@ -103,53 +103,108 @@ unsigned char cmd_nextpartition(unsigned int *number)
     return 0;
 }
 
-/* Read the partition numbers into EDIT's idle workspace, then close the
- * directory before G-P, keeping directory reads and command responses separate. */
-void cmd_list(unsigned char dev)
+/* Read the partition directory's own end marker, rather than treating it as
+ * the ordinary free-block footer. Keep partition names and numbers together. */
+__noinline unsigned char cmd_root(unsigned char dev)
 {
     struct DirectoryEntry ent;
-    PartitionInfo info;
-    unsigned char address[2], active, r;
-    unsigned int listed = 0, n, number;
-    char shown[17];
-    static const char *const types[] = {"----", "CMD", "1541", "1571", "1581",
-                                       "CP/M", "PRNT", "FRGN"};
-    if (!cmd_partition(dev, 255, &info))
-        return;
-    active = info.number;
+    unsigned char address[2], h[2], c, quoted, n, done = 0;
+    unsigned int number, i, j;
+    count = 0;
+    cachevalid = 0;
     if (channel_open(2, dev, 0, "$=p") || channel_read(2, address, 2) != 2 ||
-        directory_read(2, &ent)) {
-        channel_close(2);
-        error(SYSOUT_ERR_READING_BANK_DIR);
-        return;
-    }
-    while (!(r = cmd_nextpartition(&number))) {
+        directory_read(2, &ent))
+        goto failed;
+    strcpy(volume, SYSOUT_PARTITIONS_VOLUME);
+    while (!done) {
+        if (channel_read(2, h, 2) != 2)
+            goto failed;
+        if (!h[0] && !h[1])
+            break;
+        if (channel_read(2, h, 2) != 2)
+            goto failed;
+        number = h[0] | ((unsigned int)h[1] << 8);
+        quoted = n = 0;
+        ent.name[0] = 0;
+        do {
+            if (channel_read(2, &c, 1) != 1)
+                goto failed;
+            if (c == '"')
+                quoted = !quoted;
+            else if (quoted && n < 16)
+                ent.name[n++] = c;
+        } while (c);
+        while (n && (ent.name[n - 1] == ' ' || (unsigned char)ent.name[n - 1] == 160))
+            --n;
+        ent.name[n] = 0;
         if (!number || number > 254)
             continue;
-        if (listed == 254) {
-            r = 1;
-            break;
-        }
-        editbuf[listed++] = (unsigned char)number;
+        if (count == MAXFILES)
+            goto failed;
+        strcpy(directory_entries[count].name, ent.name);
+        directory_entries[count].blocks = number;
+        directory_entries[count++].type = CBM_T_DIR;
     }
     channel_close(2);
-    if (r != 2) {
-        error(SYSOUT_ERR_READING_BANK_DIR);
-        return;
+    /* Unsafe or ambiguous names remain accessible through their numeric alias. */
+    for (i = 0; i < count; ++i) {
+        unsigned char alias = !directory_entries[i].name[0] ||
+            strpbrk(directory_entries[i].name, "\\:,\"*?/@") ||
+            !strcmp(directory_entries[i].name, ".") || !strcmp(directory_entries[i].name, "..");
+        for (j = 0; j < count; ++j)
+            if (i != j && !strcmp(directory_entries[i].name, directory_entries[j].name)) {
+                alias = 1;
+                snprintf(directory_entries[j].name, 17, "@%u", directory_entries[j].blocks);
+            }
+        if (alias)
+            snprintf(directory_entries[i].name, 17, "@%u", directory_entries[i].blocks);
     }
-    print(SYSOUT_PARTITION_HEADER, dev);
-    pagelines = 4;
-    for (n = 0; n < listed; ++n) {
-        if (!cmd_partition(dev, (unsigned char)editbuf[n], &info))
-            return;
-        uppername(info.name, shown);
-        /* 39 columns: never wrap a row or emit a second newline at column 40. */
-        print("%c %-3u %-16s %-4s %11s\n", info.number == active ? '*' : ' ',
-              info.number, shown, info.type < 8 ? types[info.type] : "????", decimal(info.bytes));
-        if (!page())
-            return;
+    freeblocks = 0;
+    cachedev = dev;
+    cachedir[0] = 0;
+    cachevalid = 1;
+    return 1;
+failed:
+    channel_close(2);
+    error(SYSOUT_ERR_READING_BANK_DIR);
+    return 0;
+}
+
+/* Resolve a displayed partition name or reserved @number alias. Partition zero
+ * remains system storage and is never addressable through the virtual root. */
+__noinline unsigned char cmd_lookup(unsigned char dev, const char *name, PartitionInfo *info)
+{
+    unsigned int i, number = 0;
+    const char *q;
+    if (name[0] == '@') {
+        q = name + 1;
+        if (!*q)
+            goto absent;
+        while (isdigit(*q)) {
+            number = number * 10 + *q++ - '0';
+            if (number > 254)
+                goto absent;
+        }
+        if (*q || !number)
+            goto absent;
+    } else {
+        if (!cmd_root(dev))
+            return 0;
+        for (i = 0; i < count; ++i)
+            if (!strcmp(directory_entries[i].name, name)) {
+                number = directory_entries[i].blocks;
+                break;
+            }
+        if (!number)
+            goto absent;
     }
-    print(SYSOUT_PARTITION_COUNT, listed);
+    if (!cmd_partition(dev, number, info))
+        return 0;
+    if (info->type && info->type != 255)
+        return 1;
+absent:
+    error(SYSOUT_PARTITION_NOT_FOUND);
+    return 0;
 }
 
 #pragma code(code)

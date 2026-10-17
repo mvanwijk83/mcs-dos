@@ -10,10 +10,18 @@
   specifying their file name, as in
   classic DOS. The RUN command is
   retained for backwards compatibility.
-* Implemented partial CMD-FD/HD drive
-  support (emulated 1541/1571/1581
-  partitions only). Added the DISKPART
-  command to list or select partitions.
+* Added DOS paths and CD/CHDIR, MD/MKDIR
+  and RD/RMDIR for 1581 sub-partitions
+  and CMD native directories. CMD roots
+  list existing top-level partitions.
+* Replaced DISKPART with directory-based
+  partition selection. CMD partition
+  management remains in external tools.
+* Expanded command and path buffers to
+  128 bytes including their terminator.
+  The pound key now displays backslash.
+* Preserved working directories across
+  temporary operations and shell returns.
 * Added KEY command to bind command text
   to function keys.
 * Added a /T switch to DIR to filter on

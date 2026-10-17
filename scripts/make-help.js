@@ -7,7 +7,7 @@ assert.deepEqual(Object.keys(help).sort(),[...commands].sort(),'Each shell comma
 assert(commands.length<256);
 const petscii=s=>Buffer.from([...s].map(c=>{
  const n=c.charCodeAt(0);assert(n===10 || n>=32&&n<=126,'Help must contain printable ASCII or newlines');
- return n===124?0xdd:n===92?0xa0:n>=97&&n<=122?n-32:n>=65&&n<=90?n+128:n;
+ return n===124?0xdd:n===92?0x5c:n>=97&&n<=122?n-32:n>=65&&n<=90?n+128:n;
 }));
 const parts=[Buffer.from([77,67,72,1,commands.length])];
 for(const name of commands){assert.equal(typeof help[name],'string');assert(help[name].length);parts.push(petscii(help[name]),Buffer.from([0]));}

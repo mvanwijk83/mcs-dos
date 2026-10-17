@@ -29,7 +29,7 @@ async function enter(s, ms = 500) {
 async function check(cmd, text, ms = 500) {
     await enter('cls');
     let out = await enter(cmd, ms);
-    const matches = () => text === '8:>' ? out.trimEnd().endsWith(text) : out.includes(text);
+    const matches = () => text === '8:\\>' ? out.trimEnd().endsWith(text) : out.includes(text);
     for (let i = 0; i < 80 && !matches(); i++) {
         await command('x');
         await delay(1000);
@@ -98,7 +98,7 @@ async function start(type, source, target, other = type) {
     await command('reset 1');
     await command('x');
     await delay(6500);
-    await check('8:', '8:>');
+    await check('8:', '8:\\>');
 }
 function stop() {
     socket?.destroy();
@@ -184,7 +184,7 @@ async function run() {
                 await check('dir f00* /o', '10 File(s)');
                 await check('chkdsk', '296 files');
                 await check('copy f000* 9:', messages.SYSOUT_ONE_FILE_COPIED.trim(), 3000);
-                await check('dir /b /o >9:listing', '8:>', 5000);
+                await check('dir /b /o >9:listing', '8:\\>', 5000);
                 assert(
                     (await memory(0xc800, 0xc8ff)).every(b => b === 0xa5), '256-byte stack margin');
                 await command('detach 9');
@@ -235,16 +235,16 @@ async function run() {
             }
             if (!process.argv.includes('--single')) {
                 await check('vol', 'Disk ID is CT');
-                await check('echo sample > sample', '8:>');
+                await check('echo sample > sample', '8:\\>');
                 await check('type sample', 'sample');
                 await check('copy sample 9:sample', messages.SYSOUT_ONE_FILE_COPIED.trim());
                 await check('type 9:sample', 'sample');
                 await check('label renamed', messages.SYSOUT_VOL_LABEL_CHANGED.trim());
                 await check('diskid xy', messages.SYSOUT_DISK_ID_CHANGED.trim());
                 await check('vol', 'Disk ID is XY');
-                await check('attrib +l sample', '8:>');
+                await check('attrib +l sample', '8:\\>');
                 await check('attrib sample', 'L    SAMPLE');
-                await check('attrib -l sample', '8:>');
+                await check('attrib -l sample', '8:\\>');
                 await check('chkdsk /v', messages.SYSOUT_DISK_VALIDATION_COMPLETE.trim(), 5000);
             }
             await check('diskcopy 8: 9:', messages.SYSOUT_DISKCOPY_PROCEED.trim());

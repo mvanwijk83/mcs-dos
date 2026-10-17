@@ -4,11 +4,11 @@ const {functions} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 static Path p1;

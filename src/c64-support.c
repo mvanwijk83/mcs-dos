@@ -8,6 +8,22 @@
 typedef const char *StringPtr;
 static unsigned char reverse_mask;
 
+/* Only host directory channels opt in. Buffers belong to an open stream and
+ * are discarded on close/reopen; no directory entries survive a command. */
+typedef struct ChannelReadBuffer {
+    unsigned char data[128], position, used, active, ended;
+} ChannelReadBuffer;
+static ChannelReadBuffer readbuffers[2];
+
+void channel_buffer(char f, unsigned char active)
+{
+    ChannelReadBuffer *b;
+    if (f != 4 && f != 6) return;
+    b = &readbuffers[f == 6];
+    b->active = active;
+    b->position = b->used = b->ended = 0;
+}
+
 /* Find the first character belonging to a set; return its address, or null if absent.
  *
  * s: String to search.
@@ -113,6 +129,7 @@ void screen_clear(unsigned char n)
  * n: Terminated native open request. */
 unsigned char channel_open(char f, char d, char s, const char *n)
 {
+    channel_buffer(f, 0);
     if (!d)
         return cart_open(f, s, n);
     if (f >= 0 && f < CART_CHANNEL_COUNT)
@@ -128,8 +145,28 @@ unsigned char channel_open(char f, char d, char s, const char *n)
  * n: Maximum byte count; return bytes read or a negative error. */
 int channel_read(char f, void *p, unsigned int n)
 {
+    ChannelReadBuffer *b;
+    unsigned char *out = p;
+    unsigned int copied = 0;
+    int got;
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f])
         return cart_read(f, p, n);
+    if ((f == 4 || f == 6) && readbuffers[f == 6].active) {
+        b = &readbuffers[f == 6];
+        while (copied < n) {
+            if (b->position == b->used) {
+                if (b->ended) return copied;
+                krnio_pstatus[f] = KRNIO_OK;
+                got = krnio_read(f, (char *)b->data, sizeof(b->data));
+                if (got < 0) return copied ? copied : -1;
+                b->position = 0; b->used = got;
+                b->ended = krnio_pstatus[f] == KRNIO_EOF;
+                if (!got) return copied;
+            }
+            out[copied++] = b->data[b->position++];
+        }
+        return copied;
+    }
     /* The shell owns EOF state and resets it after a U1 block command. */
     krnio_pstatus[f] = KRNIO_OK;
     return krnio_read(f, (char *)p, n);
@@ -185,6 +222,7 @@ unsigned char directory_read(char f, struct DirectoryEntry *e)
     if (channel_read(f, h, 4) != 4)
         return 1;
     e->size = h[2] | ((unsigned int)h[3] << 8);
+    e->remainder = h[0];
     e->name[0] = 0;
     e->type = CBM_T_OTHER;
     e->access = CBM_A_RW;

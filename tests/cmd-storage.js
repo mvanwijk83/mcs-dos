@@ -9,6 +9,7 @@ static unsigned char cachevalid, errors, active=1, type=2, requested, bad, short
 static unsigned char physical=DRIVE_CMD_HD, writes, cbmcalls;
 static unsigned char wrongnumber, badtrailer, ignoreselect;
 static unsigned int ultimatebase;
+static unsigned char softiec_target(void){return 1;}
 #define PEEK(a) ((unsigned char)((a)==ultimatebase+1?0xc9:11))
 static char diskcmd[160], sent[16];
 static unsigned char signature[2]={'h','d'};

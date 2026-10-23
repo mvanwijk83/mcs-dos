@@ -3,6 +3,7 @@ require('./setup');
 const fs = require('fs'), {functions} = require('./source');
 const harness = `
 static unsigned int ultimatebase;
+static unsigned char softiec_target(void){return 1;}
 #define PEEK(a) 0
 #define POKE(a,b) ((void)0)
 static const char *reply;

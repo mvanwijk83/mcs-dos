@@ -14,6 +14,8 @@ const harness = `
 static char prompttext[33], output[1024];
 static unsigned char drive, aborted, dos;
 static int used, helpid;
+static char io[256];
+static void uppername(const char *s,char *d) {while(*s)*d++=toupper(*s++);*d=0;}
 
 /* Provide the character-output hook, separately from redirected byte output.
  *

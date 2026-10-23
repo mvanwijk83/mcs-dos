@@ -12,12 +12,12 @@ async function main(){
     execFileSync(tool('vice','c1541'),['-format','before,ct','d81',disk],{stdio:'pipe',windowsHide:true});
     const s=await start(hd,disk,true);
     try{
-        await s.enter('cd \\@4','9:\\@4>');
-        await s.enter('md child','9:\\@4>');
-        await s.enter('cd child','9:\\@4\\CHILD>');
+        await s.enter('cd \\@4','9:\\NATIVE>');
+        await s.enter('md child','9:\\NATIVE>');
+        await s.enter('cd child','9:\\NATIVE\\CHILD>');
         const before=hash(hd);
-        await s.enter('cls','9:\\@4\\CHILD>');
-        let out=await s.enter('format 9: /v:denied /id:xx','9:\\@4\\CHILD>');
+        await s.enter('cls','9:\\NATIVE\\CHILD>');
+        let out=await s.enter('format 9: /v:denied /id:xx','9:\\NATIVE\\CHILD>');
         assert(out.includes(messages.SYSOUT_FORMAT_CMD_HD_UNSUPPORTED),out);
         assert(!out.includes(messages.SYSOUT_PROCEED_WITH_FORMAT),out);
         assert.equal(hash(hd),before,'HD rejection leaves all disk bytes unchanged');

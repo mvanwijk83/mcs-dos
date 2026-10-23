@@ -35,7 +35,7 @@ async function main() {
         await s.enter('9:');
         const report = await s.check('sysinfo', 'CMD HD Mass Storage Drive');
         assert(!report.includes('Unknown device') && !report.includes('Drive 10:'), report);
-        await s.check('cd \\@13', '9:\\@13>');
+        await s.check('cd \\@13', '9:\\PART13>');
         const listing = await s.check('dir \\ /b', 'PART13');
         assert(listing.includes('PART13'), listing);
         for (const n of formats) {

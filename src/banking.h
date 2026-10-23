@@ -10,6 +10,8 @@
 #define BANK_NAV 13
 #define BANK_TRANSFER 14
 #define BANK_VOLUME 15
+#define BANK_HOST 16
+#define BANK_HOSTDIR 17
 #define BANK_NONE 255
 /* Shared with the low-RAM filesystem bridge. Hardware bank registers cannot
  * be read back. This byte describes the caller's mapping, even during I/O. */

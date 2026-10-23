@@ -11,6 +11,7 @@ static char selecteddir[2][PATHSIZE];
 static unsigned char selecteddev[2], selectedfs[2], selectedfirst[2], selectedlast[2], selectedheader[2], nextslot;
 /* Publish selection results in resident state across nested bank transitions. */
 volatile unsigned char location_success;
+static volatile unsigned char listing_success;
 __noinline void bank_location_select(unsigned char dev, const char *dir);
 #define select_ok(d,p) (bank_location_select(d,p), location_success)
 static Path navpath;
@@ -34,7 +35,7 @@ static unsigned char canonical(unsigned char dev, char *dir)
     char replacement[PATHSIZE], *slash;
     unsigned int n;
     unsigned char model = modelof(dev);
-    if (!*dir || (model != DRIVE_CMD_HD && model != DRIVE_CMD_FD))
+    if (!*dir || (model != DRIVE_CMD_HD && model != DRIVE_CMD_FD && model != DRIVE_SD2IEC))
         return 1;
     slash = strchr(dir, 0x5c);
     n = slash ? slash - dir : strlen(dir);
@@ -42,7 +43,7 @@ static unsigned char canonical(unsigned char dev, char *dir)
         return 0;
     memcpy(component, dir, n);
     component[n] = 0;
-    if (!partition_lookup(dev, component, &info))
+    if (!(model == DRIVE_SD2IEC ? host_partfind(dev, component, &info) : partition_lookup(dev, component, &info)))
         return 0;
     snprintf(replacement, sizeof(replacement), "@%u%s", info.number, slash ? slash : "");
     if (strlen(replacement) + 1 >= PATHSIZE) {
@@ -51,6 +52,38 @@ static unsigned char canonical(unsigned char dev, char *dir)
     }
     strcpy(dir, replacement);
     return 1;
+}
+
+/* Keep numeric partition identities internally, but present their current names.
+ * An unreadable, unsafe or overlong name retains the usable numeric alias. */
+__noinline void bank_displaypath(unsigned char dev, const char *dir, char *dst)
+{
+    PartitionInfo info;
+    unsigned int number = 0, size;
+    unsigned char quiet = optionalheader, model;
+    char *q;
+    strcpy(dst, dir);
+    if (*dst == '@') {
+        q = dst + 1;
+        while (isdigit(*q) && number < 255)
+            number = number * 10 + *q++ - '0';
+        model = modelof(dev);
+        if (number && number < 255 && (!*q || *q == 0x5c) &&
+            (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+            optionalheader = 1;
+            if (partition_info(dev, number, &info) && info.type && info.type != 255 &&
+                info.name[0] && !strpbrk(info.name, "\\:,\"*?/@") &&
+                strcmp(info.name, ".") && strcmp(info.name, "..")) {
+                size = strlen(info.name);
+                if (size + strlen(q) < PATHSIZE) {
+                    memmove(dst + size, q, strlen(q) + 1);
+                    memcpy(dst, info.name, size);
+                }
+            }
+            optionalheader = quiet;
+        }
+    }
+    uppername(dst, dst);
 }
 
 /* Append one normalized component. Dot and parent syntax never reaches DOS. */
@@ -147,6 +180,10 @@ __noinline unsigned char bank_path(const char *s, Path *p)
         error(SYSOUT_PATH_TOO_LONG);
         return 0;
     }
+    if (modelof(p->dev) >= DRIVE_SOFTIEC && (strchr(p->name, '/') || strchr(p->dir, '/'))) {
+        error(SYSOUT_INVALID_FILE_NAME);
+        return 0;
+    }
     return canonical(p->dev, p->dir);
 }
 
@@ -163,7 +200,7 @@ __noinline unsigned char bank_path_join(Path *p)
 __noinline unsigned char bank_location_root(unsigned char dev, const char *dir)
 {
     unsigned char model = modelof(dev);
-    return !*dir && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD);
+    return !*dir && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD || model >= DRIVE_SOFTIEC);
 }
 
 /* Replay an absolute path from its physical root. Two device selections are
@@ -197,6 +234,12 @@ __noinline void bank_location_select(unsigned char dev, const char *dir)
     firsttrack = 1;
     lasttrack = 80;
     directorytrack = 40;
+    if (model >= DRIVE_SOFTIEC) {
+        filesystem = FS_HOST;
+        if (!host_select(dev, dir, model))
+            goto failed;
+        goto selected;
+    }
     if (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD) {
         if (!*q) {
             if (!drivepresent(dev))
@@ -283,17 +326,26 @@ __noinline unsigned char bank_location_file(unsigned char dev, const char *dir)
 /* Enumerate a specific directory, including the synthetic partition root. */
 __noinline unsigned char bank_location_list(unsigned char dev, const char *dir)
 {
+    /* Keep one exit: Oscar64 otherwise omits stack cleanup on failed reads. */
+    listing_success = 0;
+    if (modelof(dev) >= DRIVE_SOFTIEC) {
+        cachevalid = 0;
+        error(SYSOUT_UNSUPPORTED_DIRECTORY_OP);
+        goto finished;
+    }
     if (bank_location_root(dev, dir)) {
         if (!partition_root(dev))
-            return 0;
+            goto finished;
     } else {
         if (!select_ok(dev, dir) || !directory(dev))
-            return 0;
+            goto finished;
     }
     cachedev = dev;
     strcpy(cachedir, dir);
     cachevalid = 1;
-    return 1;
+    listing_success = 1;
+finished:
+    return listing_success;
 }
 
 /* Interpret an existing final directory component as a directory target.
@@ -305,6 +357,14 @@ __noinline unsigned char bank_path_directory(Path *p)
         return 1;
     if (strpbrk(p->name, "*?"))
         return 0;
+    if (modelof(p->dev) >= DRIVE_SOFTIEC) {
+        i = host_find(p);
+        if (i >= 0 && directory_entries[i].type == CBM_T_DIR)
+            return bank_path_join(p);
+        if (bank_location_root(p->dev, p->dir) && p->name[0] == '@')
+            return bank_path_join(p);
+        return 0;
+    }
     if (!bank_location_list(p->dev, p->dir))
         return 0;
     for (i = 0; i < count; ++i)
@@ -479,7 +539,7 @@ __noinline void bank_navcmd(unsigned char operation)
                     drive = navpath.dev;
                 return;
             }
-            uppername(working[location_index(navpath.dev)], full);
+            bank_displaypath(navpath.dev, working[location_index(navpath.dev)], full);
             print(SYSOUT_CURRENT_DIRECTORY, drivename(navpath.dev), 0x5c,
                   full);
             return;
@@ -517,7 +577,7 @@ __noinline void bank_navcmd(unsigned char operation)
             return;
         if (filesystem == 4)
             make1581(&navpath, sectors);
-        else if (filesystem == 1 && !sectors) {
+        else if ((filesystem == 1 || filesystem == FS_HOST) && !sectors) {
             snprintf(diskcmd, sizeof(diskcmd), "md:%s", navpath.name);
             command(navpath.dev, diskcmd);
         } else
@@ -545,6 +605,11 @@ __noinline void bank_navcmd(unsigned char operation)
     }
     if (recursive && !suppress && !yesno(SYSOUT_REMOVE_DIRECTORY_TREE))
         return;
+    if (filesystem == FS_HOST) {
+        host_remove(&navpath, recursive);
+        physicaldev = 255;
+        return;
+    }
     if (filesystem == 4) {
         if (!recursive) {
             if (!bank_location_list(navpath.dev, full))
@@ -642,12 +707,21 @@ unsigned char location_header(void) { return directorytrack; }
 
 /* Geometry-based disk commands retain their existing whole-volume scope.
  * Subdirectories and CMD native media require separate disk-command support. */
-unsigned char disk_location(const Path *p)
+#pragma code(nav_code)
+#pragma data(nav_data)
+__noinline unsigned char bank_disk_location(const Path *p)
 {
-    unsigned char model;
-    if (!location_file(p->dev, p->dir))
+    unsigned char model = drivemodel(p->dev, 0);
+    if (model >= DRIVE_SOFTIEC) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         return 0;
-    model = drivemodel(p->dev, 0);
+    }
+    if (!p->dir[0] && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+        error(SYSOUT_SELECT_EMULATION_PARTITION);
+        return 0;
+    }
+    if (!location_select(p->dev, p->dir))
+        return 0;
     if (p->name[0] || (p->dir[0] &&
         (model == DRIVE_1581 || strchr(p->dir, 0x5c))) || location_kind() == 1) {
         error(SYSOUT_UNSUPPORTED_DISK_FORMAT);

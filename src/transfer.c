@@ -56,8 +56,9 @@ __noinline void bank_dirwalk(unsigned char flags, unsigned char filter)
                     (filter != 255 && directory_entries[j].type != filter) ||
                     !match(pattern, directory_entries[j].name))
                     continue;
+                displaypath(p1.dev, p1.dir, diskcmd);
                 snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                         p1.dir, p1.dir[0] ? "\\" : "", directory_entries[j].name);
+                         diskcmd, p1.dir[0] ? "\\" : "", directory_entries[j].name);
                 if (!(flags & 2))
                     uppername(io, io);
                 say(io);
@@ -145,7 +146,7 @@ static unsigned char switchedcopy(unsigned char type)
 __noinline unsigned char bank_copyfile(unsigned char moving)
 {
     int n = -1, i;
-    unsigned char type, ok = 1;
+    unsigned char type, ok = 1, sourcehost = host_device(p1.dev), targethost = host_device(p2.dev);
     if (!p2.name[0])
         strcpy(p2.name, p1.name);
     if (sameplace(&p1, &p2) && !strcmp(p1.name, p2.name)) {
@@ -159,6 +160,10 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
         return 0;
     }
     type = directory_entries[i].type;
+    if (type == CBM_T_REL && (sourcehost || targethost)) {
+        error(SYSOUT_UNSUPPORTED_FILE_TYPE);
+        return 0;
+    }
     if (moving && !deletable(&p1))
         return 0;
     if (type == CBM_T_REL) {
@@ -174,7 +179,7 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
         if (p1.dev && sameplace(&p1, &p2)) {
             snprintf(diskcmd, sizeof(diskcmd), "c0:%s=0:%s", p2.name, p1.name);
             ok = command(p1.dev, diskcmd);
-        } else if (p1.dev && p1.dev == p2.dev) {
+        } else if (p1.dev && p1.dev == p2.dev && !sourcehost) {
             ok = switchedcopy(type);
         } else {
             if (!openreadtype(&p1, 2, type))
@@ -186,14 +191,14 @@ __noinline unsigned char bank_copyfile(unsigned char moving)
             uppername(p1.name, statusbuf);
             outs(statusbuf);
             for (;;) {
-                if (!location_select(p1.dev, p1.dir)) {
+                if (!sourcehost && !location_select(p1.dev, p1.dir)) {
                     ok = 0;
                     break;
                 }
                 n = readio(2, io, sizeof(io));
                 if (n <= 0)
                     break;
-                if (!location_select(p2.dev, p2.dir) || channel_write(3, io, n) != n || stop()) {
+                if ((!targethost && !location_select(p2.dev, p2.dir)) || channel_write(3, io, n) != n || stop()) {
                     ok = 0;
                     break;
                 }

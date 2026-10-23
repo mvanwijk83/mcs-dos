@@ -199,10 +199,10 @@ __noinline void bank_sysinfo(unsigned char probe14)
                                          "1581",
                                          "1541-II",
                                          "1570",
-                                         "CMD HD Mass Storage Drive",
-                                         "CMD FD Floppy Drive",
-                                         "SoftIEC Drive",
-                                         "SD2IEC Drive"};
+                                         "CMD HD Hard Disk Drive",
+                                         "CMD FD Floppy Disk Drive",
+                                         "Software IEC Interface",
+                                         "SD2IEC Mass Storage Device"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
     unsigned char dev, model, pal = 0, raster, previous, vic = 2;
     const char *kernal, *board = bank_ultimate();
@@ -270,7 +270,7 @@ __noinline void bank_sysinfo(unsigned char probe14)
         }
         print("Drive %s: %s%s%s\n", drivename(dev),
               dosdrives() || dev < 10 ? " " : "", models[model],
-              model < DRIVE_CMD_HD ? " Floppy Drive" : "");
+              model < DRIVE_CMD_HD ? " Floppy Disk Drive" : "");
         if (model >= DRIVE_CMD_HD)
             continue;
         say(model == 3   ? "          3.5\" 800K DS/DD"

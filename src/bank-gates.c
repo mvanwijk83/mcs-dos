@@ -2,6 +2,130 @@
  * Oscar64 allocates a shared call stack and registers for these direct calls.
  * Each returning gate restores the caller's mapping, including nested calls. */
 #include "core.h"
+__noinline unsigned char bank_disk_location(const Path *p);
+__noinline unsigned char disk_location(const Path *p)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    unsigned char result = bank_disk_location(p);
+    bank_leave(previous);
+    return result;
+}
+__noinline void bank_executecommand(char *s);
+__noinline void executecommand(char *s)
+{
+    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    bank_executecommand(s);
+    bank_leave(previous);
+}
+__noinline void bank_host_volume(const Path *p);
+__noinline void host_volume(const Path *p)
+{
+    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    bank_host_volume(p);
+    bank_leave(previous);
+}
+__noinline unsigned char bank_host_select(unsigned char dev, const char *dir, unsigned char model);
+__noinline unsigned char host_select(unsigned char dev, const char *dir, unsigned char model)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char result = bank_host_select(dev, dir, model);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_host_partfind(unsigned char dev, const char *name, PartitionInfo *info);
+__noinline unsigned char host_partfind(unsigned char dev, const char *name, PartitionInfo *info)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char result = bank_host_partfind(dev, name, info);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_host_open(const Path *p, HostCursor *cursor, unsigned char lfn, unsigned char hidden);
+__noinline unsigned char host_open(const Path *p, HostCursor *cursor, unsigned char lfn, unsigned char hidden)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char result = bank_host_open(p, cursor, lfn, hidden);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_host_next(HostCursor *cursor, struct DirectoryEntry *entry);
+__noinline unsigned char host_next(HostCursor *cursor, struct DirectoryEntry *entry)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char result = bank_host_next(cursor, entry);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline int bank_host_find(const Path *p);
+__noinline int host_find(const Path *p)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    int result = bank_host_find(p);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_host_complete(const Path *p, const char *prefix, unsigned int *index);
+__noinline unsigned char host_complete(const Path *p, const char *prefix, unsigned int *index)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char result = bank_host_complete(p, prefix, index);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline void bank_host_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
+__noinline void host_dir(unsigned char flags, unsigned char filter, unsigned char recursive)
+{
+    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    bank_host_dir(flags, filter, recursive);
+    bank_leave(previous);
+}
+
+__noinline void bank_host_wildcopy(void);
+__noinline void host_wildcopy(void)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    bank_host_wildcopy();
+    bank_leave(previous);
+}
+
+__noinline void bank_host_delete(unsigned char suppress);
+__noinline void host_delete(unsigned char suppress)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    bank_host_delete(suppress);
+    bank_leave(previous);
+}
+
+__noinline unsigned char bank_host_remove(Path *p, unsigned char recursive);
+__noinline unsigned char host_remove(Path *p, unsigned char recursive)
+{
+    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    unsigned char result = bank_host_remove(p, recursive);
+    bank_leave(previous);
+    return result;
+}
+
+__noinline unsigned char bank_softiec_target(void);
+__noinline void bank_softiec_rename(void);
+__noinline void softiec_rename(void)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    bank_softiec_rename();
+    bank_leave(previous);
+}
+__noinline unsigned char softiec_target(void)
+{
+    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char result = bank_softiec_target();
+    bank_leave(previous);
+    return result;
+}
 __noinline void bank_tapecopycmd(void);
 __noinline void bank_tapecopy_report(void);
 
@@ -796,6 +920,14 @@ __noinline unsigned char path_join(Path *p)
     unsigned char result = bank_path_join(p);
     bank_leave(previous);
     return result;
+}
+
+__noinline void bank_displaypath(unsigned char dev, const char *dir, char *dst);
+__noinline void displaypath(unsigned char dev, const char *dir, char *dst)
+{
+    unsigned char previous = bank_enter(BANK_NAV);
+    bank_displaypath(dev, dir, dst);
+    bank_leave(previous);
 }
 
 __noinline void bank_navcmd(unsigned char operation);

@@ -25,11 +25,12 @@ const code = `
 #include <ctype.h>
 #include "../src/storage.h"
 #define PATHSIZE 128
+#define host_partfind(d,n,p) 0
 typedef struct Path {unsigned char dev;char name[17];char dir[128];} Path;
-static unsigned char drive=8, errors;
+static unsigned char drive=8, errors, hostpaths;
 static char working[24][128], component[17];
 static void error(const char *s) {++errors;}
-static unsigned char modelof(unsigned char d) {return d==9?DRIVE_CMD_HD:DRIVE_1581;}
+static unsigned char modelof(unsigned char d) {return hostpaths?DRIVE_SOFTIEC:d==9?DRIVE_CMD_HD:DRIVE_1581;}
 unsigned char location_index(unsigned char d) {return d?d-7:0;}
 unsigned char partition_lookup(unsigned char d,const char *s,PartitionInfo *p) {
     if(strcmp(s,"work")&&strcmp(s,"@13"))return 0;
@@ -51,6 +52,8 @@ int main(void) {
     strcat(text,"8");
     if(path(text,&p))return 33;
     if(!path("9:\\\\work\\\\docs\\\\file",&p)||!path("9:\\\\@13\\\\docs\\\\file",&other)||!sameplace(&p,&other))return 34;
+    hostpaths=1;
+    if(path("bad/name",&p)||path("bad/name\\\\file",&p)||!path("good\\\\file",&p))return 35;
     return 0;
 }
 `;

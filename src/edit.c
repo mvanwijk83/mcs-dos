@@ -529,7 +529,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                         lead[i + 1] = 0;
                     }
                 ci = 0;
-                if (!cachevalid || cachedev != cp.dev || strcmp(cachedir, cp.dir)) {
+                if (!host_device(cp.dev) && (!cachevalid || cachedev != cp.dev || strcmp(cachedir, cp.dir))) {
                     caret_hide();
                     /* Successful directory reads are silent: keep this row. */
                     ox = 0;
@@ -549,6 +549,18 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                     dirty = 1;
                 }
                 comp = 1;
+            }
+            if (host_device(cp.dev)) {
+                caret_hide();
+                if (host_complete(&cp, prefix, &ci) &&
+                    start + strlen(directory_entries[0].name) + strlen(lead) + 2 < max) {
+                    snprintf(buf + start, max - start, "\"%s%s\"", lead, directory_entries[0].name);
+                    for (i = start; i < LINE; ++i) rawset(rawline, i, 0);
+                    for (i = start + 1 + strlen(lead); i < strlen(buf) - 1; ++i) rawset(rawline, i, 1);
+                    pos = strlen(buf);
+                }
+                nav_finish(); dirty = 1;
+                continue;
             }
             for (i = 0; i < count; ++i) {
                 n = ci++;

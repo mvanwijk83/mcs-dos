@@ -91,6 +91,10 @@ __noinline void bank_dircmd(void)
     path_directory(&p1);
     if (!p1.name[0])
         strcpy(p1.name, "*");
+    if (host_device(p1.dev)) {
+        host_dir(flags, filter, recursive);
+        return;
+    }
     if (recursive) {
         dirwalk(flags, filter);
         return;
@@ -102,7 +106,7 @@ __noinline void bank_dircmd(void)
         if (!location_root(p1.dev, p1.dir))
             volumeheader(p1.dev);
         headerlines += partitionheader(p1.dev);
-        uppername(p1.dir, io);
+        displaypath(p1.dev, p1.dir, io);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
     }
     /* Sort an index rather than the shared entries, preserving lookup and completion order. */
@@ -228,6 +232,10 @@ __noinline void bank_copycmd(unsigned char moving)
     }
     path_directory(&p2);
     if (!moving && strpbrk(p1.name, "*?")) {
+        if (host_device(p1.dev)) {
+            host_wildcopy();
+            return;
+        }
         if (p2.name[0]) {
             error(SYSOUT_WILDCARDS_DEST_DRV);
             return;
@@ -335,6 +343,10 @@ __noinline void bank_delcmd(void)
         }
     }
     if (strpbrk(p1.name, "*?")) {
+        if (host_device(p1.dev)) {
+            host_delete(suppress);
+            return;
+        }
         strcpy(pattern, p1.name);
         if (!location_list(p1.dev, p1.dir))
             return;
@@ -381,6 +393,10 @@ __noinline void bank_attribcmd(void)
         return;
     if (!p1.name[0])
         strcpy(p1.name, "*");
+    if (host_device(p1.dev)) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        return;
+    }
     if (!p1.dev) {
         if (!bank_directory(0))
             return;
@@ -534,6 +550,10 @@ __noinline void bank_renamecmd(void)
         return;
     if (!location_file(p1.dev, p1.dir))
         return;
+    if (directory && drivemodel(p1.dev, 0) == DRIVE_SOFTIEC) {
+        softiec_rename();
+        return;
+    }
     snprintf(diskcmd, sizeof(diskcmd), "r0:%s=%s", p2.name, p1.name);
     if (command(p1.dev, diskcmd) && native_directory) {
         /* R updates the parent's entry; R-H updates the child's own header. */
@@ -599,6 +619,8 @@ __noinline unsigned char bank_directory(unsigned char dev)
 __noinline int bank_findfile(const Path *p)
 {
     unsigned int i;
+    if (host_device(p->dev))
+        return host_find(p);
     if (!cachevalid || cachedev != p->dev || strcmp(cachedir, p->dir))
         if (!location_list(p->dev, p->dir))
             return -2;

@@ -116,6 +116,7 @@
 #define SYSOUT_PATH_TOO_LONG "Path too long"
 #define SYSOUT_SUBDIRECTORIES_NOT_SUPPORTED "Subdirectories not supported"
 #define SYSOUT_VIRTUAL_ROOT_NO_FILES "Cannot store files in virtual root"
+#define SYSOUT_SELECT_EMULATION_PARTITION "Select an emulation partition first"
 #define SYSOUT_PARTITION_SIZE_BATCH "Specify /SIZE in batch files"
 #define SYSOUT_NO_ROOM_FOR_SUBDIRECTORY "No room for a subdirectory"
 #define SYSOUT_PARTITION_SIZE_PROMPT "Specify partition size (%u-%u):\nMust be multiple of 40: "
@@ -245,6 +246,13 @@
 #define SYSOUT_COMPACT_FAIL "File system compaction failed"
 #define SYSOUT_COMPACT_COMPLETE "Cartridge journal compacted."
 #define SYSOUT_ALREADY_COMPACT "Cartridge journal already compact."
+/* SD2IEC & Ultimate fs support */
+#define SYSOUT_AMBIGUOUS_PARTITION "Ambiguous partition name; use @number"
+#define SYSOUT_HOST_SIZE_UNKNOWN "???"
+#define SYSOUT_AMBIGUOUS_DIRECTORY "Ambiguous directory name"
+#define SYSOUT_ULTIMATE_DOS_FAILED "Ultimate DOS command failed"
+#define SYSOUT_ULTIMATE_DOS_RESTORE_FAILED "Unable to restore Ultimate DOS path"
+#define SYSOUT_PARTITION_FAT "FAT"
 #endif
 
 #define SYSOUT_KEY_TOO_LONG "KEY: command too long."

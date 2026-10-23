@@ -14,7 +14,8 @@ static Path p1;
 static struct Entry {char name[17];unsigned char type;unsigned int blocks;} files[8];
 static unsigned int count,workspace[8],calls;
 static unsigned char aborted,pagelines,cmd;
-static char io[256],output[2048];
+static char io[256],diskcmd[160],output[2048];
+#define displaypath(d,p,o) strcpy(o,p)
 static void add(const char *s,unsigned char t,unsigned int blocks){strcpy(files[count].name,s);files[count].type=t;files[count++].blocks=blocks;}
 static int location_list(unsigned char d,const char *p){
     if(++calls>30)return 0;

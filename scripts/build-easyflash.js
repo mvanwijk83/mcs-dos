@@ -47,7 +47,7 @@ const code=map.match(/^([\da-f]+) - ([\da-f]+) : DATA, code/m);
 // Filesystem calls temporarily expose ROML too; resident services must be
 // below $8000 even though persistent data may extend through $9FFF.
 if(!code||parseInt(code[2],16)>0x8000)throw Error('Resident code overlaps filesystem ROML');
-const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer','volume'].map((name,i)=>{
+const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer','volume','host','hostdir'].map((name,i)=>{
  const sections=[...map.matchAll(new RegExp(`^([\\da-f]+) - ([\\da-f]+) : DATA, ${name}_(?:code|data)$`,'gm'))]
   .map(m=>[parseInt(m[1],16),parseInt(m[2],16)]).filter(([a,b])=>b>a);
  if(!sections.length||sections.some(([a,b])=>a<0xa000||b>0xc000))throw Error('Command bank overflow: '+name);

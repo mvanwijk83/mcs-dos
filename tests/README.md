@@ -34,11 +34,30 @@ the compiled probe's bus access order.
 ASCII and PETSCII encoding, before ROM-emulation probes, and raw-operation
 rejection. `dir-filter` checks SD2IEC sizes without block/free-space fields.
 These fixtures do not constitute SD2IEC hardware validation.
+`softiec-target` tests the original UCI Target IDENTIFY command, busy-interface
+ownership, timeout cleanup and rejection of unavailable/malformed replies.
+`host-protocol` parses wire-format FAT and partition listings, tests uncached
+lookups/completion, SD2IEC partition selection and legacy SoftIEC colon paths,
+and checks that CD cannot mount a file implicitly. `host-directories` generates
+1,001 files without a directory array and exercises sorting, exact/estimated/
+saturated sizes, recursive paths and recursive removal including hidden files.
+The image checks also execute the linked SoftIEC IDENTIFY helper against
+destructive response/status FIFOs. This catches optimized-away MMIO reads that
+the C callback fixture cannot reproduce, for ASCII and binary success replies.
+`channel-buffer` checks temporary read-ahead, including partial/exact EOF,
+reopening, close, errors and independent directory/lookup channels. Its
+1,001 one-byte requests require eight underlying 128-byte reads.
+`softiec-rename` exercises the pre-3.15 DOS-target workaround for directory
+REN/MOVE: native long names and PETSCII escapes, ambiguous IEC aliases, errors,
+timeouts, and restoring the DOS path (including a renamed ancestor). The CMD
+protocol stand-in cannot emulate this UCI operation and skips SoftIEC directory
+renaming; its SD2IEC mode still exercises the ordinary IEC rename path.
 
 `cmd-storage` checks SoftIEC identification through a verified UCI bus ID,
 its IO1/IO2 mappings, and rejection of raw geometry operations. `sysinfo-pal`
-checks DRIVEIDS letters and numbers, plus DIR/DISKID behavior with a simulated
-SoftIEC identification over a real emulated IEC directory.
+checks DRIVEIDS letters and numbers, plus DISKID rejection with a simulated
+SoftIEC identification and a substituted target
+handshake. A stock emulated 1541 is not a SoftIEC filesystem backend.
 
 No build is needed for `unit`; most tests compile temporary C fixtures from
 production function bodies and execute them in Oscar64's 6502 simulator. `image`
@@ -194,3 +213,26 @@ both within one drive and from another drive, using independent byte decoding.
 CMD root partition types, and aligned file/free byte counts on 1581 and 1541
 media. The `dir-layout` unit fixture also checks the exact sample layout,
 maximum allocation counts, separator settings and four-digit entry counts.
+
+`host-session` substitutes the model detector and translates the legacy
+SoftIEC absolute-root spelling in a disposable cartridge, then runs the linked
+host backend against CMD DOS's compatible directory/file
+commands. It checks copying, renaming, removal, redirection and root protection
+with independent image decoding. It is a protocol stand-in, not an emulator of
+SD2IEC or legacy SoftIEC firmware; their actual behavior still needs hardware
+verification. Sorted or redirected host listings may reopen and rescan a
+directory rather than retain cached entries across mutations/context changes.
+Run `node tests/host-session.js --sd2iec` to exercise the SD2IEC partition path;
+that stand-in translates SD2IEC's hidden-entry filter for CMD DOS. Both modes
+also copy through cartridge storage and restore the remembered directory after
+an external CD in BASIC.
+Use `--listing` for a focused check of buffered ordinary/sorted listings,
+redirection and directory lookup.
+`cmd-navigation` exercises failed native DIR reads across initial boot, soft reset
+and hard reset, then verifies full listings and partition-name prompts on a
+formatted native filesystem. It uses disposable media. To reproduce against an
+existing image without modifying it, run
+`node tests/cmd-navigation.js --image=build/test-cmd-hd.dhd`; that image is copied
+before testing. `cmd-hd` likewise builds its own `test-cmd-storage-session.dhd`.
+`path-display` checks name resolution, numeric fallback and the path length limit
+without changing the internal numeric partition identities.

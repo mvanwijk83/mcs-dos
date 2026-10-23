@@ -8,6 +8,7 @@
 #include "banking.h"
 #include "session.h"
 #include "storage.h"
+#include "host.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>

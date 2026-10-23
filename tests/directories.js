@@ -77,9 +77,9 @@ async function main() {
         } else {
             await run('copy 8:binary native\\binary', '1 file(s) copied');
         }
-        await run('cd native', null, '9:\\@4>');
+        await run('cd native', null, '9:\\NATIVE>');
         await run('md docs');
-        await run('cd docs', null, '9:\\@4\\DOCS>');
+        await run('cd docs', null, '9:\\NATIVE\\DOCS>');
         await run('echo native > text');
         out = await run('dir');
         assert(out.includes('Volume in drive 9: is NATIVE') && out.includes('Partition type is NATIVE') && out.includes('Disk ID is CT'), out);
@@ -103,7 +103,7 @@ async function main() {
         await run('copy \\@4\\binary \\@13\\across', '1 file(s) copied');
         await run('cd \\', null, '9:\\>');
         await run('rd native /s /p', 'Cannot store files in virtual root');
-        await run('cd @4', null, '9:\\@4>');
+        await run('cd @4', null, '9:\\NATIVE>');
         await run('rd docs', 'Directory is not empty');
         await run('rd docs /s /p', 'Unsupported drive type');
         await run('del docs\\* /p');
@@ -120,7 +120,7 @@ async function main() {
         assert.deepEqual(require('./disk-image').files('build/directories-part13.d64').get('ACROSS').data,bytes,'binary copy across CMD partitions');
         await s.command('attach "' + monitorPath(hd) + '" 9');
         await run('md gone');
-        await run('cd gone', null, '9:\\@4\\GONE>');
+        await run('cd gone', null, '9:\\NATIVE\\GONE>');
         await s.enter('basic', 'ready.');
         await s.enter('open15,9,15,"cd//":print#15,"rd:gone":close15', 'ready.');
         await s.enter('shell', '9:\\>');

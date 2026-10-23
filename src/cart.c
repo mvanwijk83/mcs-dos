@@ -141,6 +141,7 @@ int cart_write(char f, const void *buffer, unsigned int size)
  * f: Logical file number; successful cartridge closes commit pending writes. */
 void channel_close(char f)
 {
+    channel_buffer(f, 0);
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f]) {
         call(CART_CLOSE, f);
         cart_channels[f] = 0;
@@ -153,6 +154,7 @@ void channel_close(char f)
  * f: Cartridge logical file number; other channels are left alone. */
 void channel_abort(char f)
 {
+    channel_buffer(f, 0);
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f]) {
         call(CART_ABORT, f);
         cart_channels[f] = 0;

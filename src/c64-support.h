@@ -33,6 +33,7 @@ struct DirectoryEntry {
     char name[17];
     unsigned int size;
     unsigned char type, access;
+    unsigned char remainder; /* Link low byte: optional exact host-file length. */
 };
 
 char *strpbrk(const char *s, const char *accept);
@@ -49,6 +50,8 @@ void screen_clear(unsigned char n);
  * Reads/writes return byte counts, or a negative value if selection fails. */
 unsigned char channel_open(char f, char d, char s, const char *n);
 int channel_read(char f, void *p, unsigned int n);
+/* Temporary 128-byte read-ahead for host directory channels 4 and 6. */
+void channel_buffer(char f, unsigned char active);
 int channel_write(char f, const void *p, unsigned int n);
 unsigned char directory_open(char f, char d);
 /* Directory reads return 0 for an entry, 1 for an error and 2 at the end. */

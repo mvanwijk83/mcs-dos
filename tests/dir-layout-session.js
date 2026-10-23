@@ -43,7 +43,7 @@ async function main(){
             assert.equal(line.length,40);assert(out.split('\n').includes(line),out);
         }
         assert(out.includes('  8 Dir(s)'),out);
-        await run('cd \\@1','9:\\@1>');out=await run('dir');footer(out,true);
+        await run('cd \\@1','9:\\1541>');out=await run('dir');footer(out,true);
         // A plain 1541 has no directory count; its free bytes retain their column.
         await s.command('resourceset "Drive8Type" "1541"');
         execFileSync(tool('vice','c1541'),['-format','flat,fl','d64','build/dir-layout.d64'],{stdio:'pipe',windowsHide:true});

@@ -469,11 +469,8 @@ __noinline void bank_showprompt(void)
                 outs(drivename(drive));
                 outc(':');
                 outc(0x5c);
-                {
-                    const char *path = working[location_index(drive)];
-                    while (*path)
-                        outc(toupper(*path++));
-                }
+                displaypath(drive, working[location_index(drive)], io);
+                outs(io);
                 ++s;
                 continue;
             case 'I':
@@ -768,7 +765,9 @@ void memcmd(void)
 /* Validate and dispatch one command using the shared argument and path workspaces.
  *
  * s: Writable command text, including any switches. */
-void executecommand(char *s)
+#pragma code(hostdir_code)
+#pragma data(hostdir_data)
+__noinline void bank_executecommand(char *s)
 {
     char *tail, *end;
     unsigned char i, c;
@@ -869,7 +868,8 @@ void executecommand(char *s)
         navcmd(id - 33);
         break;
     case 32:
-        keycmd("");
+        args[0][0] = 0;
+        keycmd(args[0]);
         break;
     case 0:
         ms = argc > 1 ? strtoul(args[1], &end, 10) : 200;
@@ -977,7 +977,8 @@ void executecommand(char *s)
             error(SYSOUT_INVALID_PARAM);
             break;
         }
-        setcmd(argc == 2 ? args[1] : "");
+        if (argc == 1) args[0][0] = 0;
+        setcmd(argc == 2 ? args[1] : args[0]);
         break;
     case 25:
         if (argc != 1) {

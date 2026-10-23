@@ -31,3 +31,10 @@
 #pragma section(volume_code, 0)
 #pragma section(volume_data, 0)
 #pragma region(volume_bank, 0xa000, 0xc000, , 15, {volume_code, volume_data})
+
+#pragma section(host_code, 0)
+#pragma section(host_data, 0)
+#pragma region(host_bank, 0xa000, 0xc000, , 16, {host_code, host_data})
+#pragma section(hostdir_code, 0)
+#pragma section(hostdir_data, 0)
+#pragma region(hostdir_bank, 0xa000, 0xc000, , 17, {hostdir_code, hostdir_data})

@@ -40,19 +40,19 @@ async function main(){
         for(const [number,type] of [[1,'1541'],[2,'1571'],[3,'1581'],[4,'NATIVE']]){
             out=await run('dir \\@'+number);assert(out.includes('Partition type is '+type),out);
         }
-        await run('cd \\@4',null,'9:\\@4>');await run('md parent');await run('cd parent',null,'9:\\@4\\PARENT>');
-        await run('md old');await run('cd old',null,'9:\\@4\\PARENT\\OLD>');await run('echo native > note');
+        await run('cd \\@4',null,'9:\\NATIVE>');await run('md parent');await run('cd parent',null,'9:\\NATIVE\\PARENT>');
+        await run('md old');await run('cd old',null,'9:\\NATIVE\\PARENT\\OLD>');await run('echo native > note');
         out=await run('dir');assert(out.includes('Volume in drive 9: is NATIVE')&&out.includes('Partition type is NATIVE')&&out.includes('Disk ID is CT'),out);
-        await run('cd ..',null,'9:\\@4\\PARENT>');await run('ren old new');
-        await run('cd new',null,'9:\\@4\\PARENT\\NEW>');await run('type note','native');
+        await run('cd ..',null,'9:\\NATIVE\\PARENT>');await run('ren old new');
+        await run('cd new',null,'9:\\NATIVE\\PARENT\\NEW>');await run('type note','native');
         out=await run('diskinit',messages.SYSOUT_UNSUPPORTED_DRIVE_TYPE);
-        await run('cd ..',null,'9:\\@4\\PARENT>');await run('rd new',messages.SYSOUT_DIRECTORY_NOT_EMPTY);
+        await run('cd ..',null,'9:\\NATIVE\\PARENT>');await run('rd new',messages.SYSOUT_DIRECTORY_NOT_EMPTY);
         await run('rd new /s /p',messages.SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         await run('md empty');await run('rd empty');
-        await run('cd \\@3',null,'9:\\@3>');await run('md slice /size:120');
-        await run('cd slice',null,'9:\\@3\\SLICE>');await run('echo emulated > data');
+        await run('cd \\@3',null,'9:\\1581>');await run('md slice /size:120');
+        await run('cd slice',null,'9:\\1581\\SLICE>');await run('echo emulated > data');
         out=await run('dir');assert(out.includes('Partition type is 1581')&&out.toUpperCase().includes('DISK ID IS CT'),out);
-        await run('cd \\@4\\parent\\new',null,'9:\\@4\\PARENT\\NEW>');
+        await run('cd \\@4\\parent\\new',null,'9:\\NATIVE\\PARENT\\NEW>');
         await s.command('detach 9');let image=fs.readFileSync(hd),repairs=[];
         for(const part of parts){
             const b=image.subarray(part.offset,part.offset+part.bytes);

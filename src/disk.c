@@ -285,6 +285,11 @@ __noinline void bank_volcmd(unsigned char stats)
         return;
     model = p1.dev ? drivemodel(p1.dev, 0) : 0;
     whole1581 = stats && model == DRIVE_1581;
+    if (model >= DRIVE_SOFTIEC) {
+        if (stats) error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        else host_volume(&p1);
+        return;
+    }
     if (stats && validate == 1 && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
         say(SYSOUT_CHECKING_AND_FIXING_DISK);
         if (!validate_disk(p1.dev))
@@ -619,7 +624,7 @@ __noinline void bank_diskinitcmd(void)
         return;
     }
     model = drivemodel(p1.dev, 0);
-    if (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD) {
+    if (model >= DRIVE_CMD_HD) {
         error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         return;
     }

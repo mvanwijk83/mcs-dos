@@ -15,6 +15,7 @@ const rows = cases.map(([file, model, family]) => {
     return '{' + [...bytes, model, family].join(',') + '}';
 });
 const harness = `
+#define softiec_target() 1
 
 #include <string.h>
 #define POKE(a, b) ((void)0)

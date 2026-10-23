@@ -52,7 +52,8 @@ module.exports = async ({command, memory, enter, check, kernalName, root}) => {
     assert(!s.includes('Drive 8:'), s);
     await enter('set driveids=c64');
     // A read-only UCI bus ID is used only after the UCI transport was verified.
-    // Inject that verified base to exercise SoftIEC reporting over a real IEC DIR.
+    // Substitute the target handshake to exercise disk-command rejection. A stock 1541 ROM
+    // cannot execute SoftIEC directory commands; those have separate fixtures.
     const fs = require('fs');
     const image = root + '/build/easyflash/softiec-report.d64';
     require('child_process').execFileSync(require('../setup').tool('vice', 'c1541'),
@@ -66,16 +67,15 @@ module.exports = async ({command, memory, enter, check, kernalName, root}) => {
     const address = parseInt(labels.match(/al ([0-9a-f]+) \.ultimatebase/i)[1], 16);
     const savedBase = await memory(address, address + 1);
     const savedIo = await memory(0xdf1b, 0xdf1d);
+    const identify = parseInt(labels.match(/al ([0-9a-f]+) \.softiec_target\b/i)[1], 16);
+    const savedIdentify = await memory(identify, identify + 4);
+    await command('> ' + identify.toString(16) + ' a9 01 85 1b 60');
     await command('> ' + address.toString(16) + ' 1c df');
     await command('> df1b 08 00 c9');
     await enter('cls');
-    s = await check('dir 8:', 'APPROX');
-    assert(/APPROX\s+PRG\s+256/.test(s) && /1 File\(s\)\s+256 bytes/.test(s), s);
-    assert(!s.includes('Unsupported drive type') && !s.includes('Disk ID') &&
-           !/blocks|bytes free/i.test(s), s);
-    await enter('cls');
     s = await check('diskid 8:', 'Unsupported drive type');
     assert(!s.includes('New disk ID'), s);
+    await command('> ' + identify.toString(16) + ' ' + savedIdentify.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await command('> ' + address.toString(16) + ' ' + savedBase.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await command('> df1b ' + savedIo.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await enter('cls');

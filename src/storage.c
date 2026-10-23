@@ -60,7 +60,7 @@ __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report
     }
     /* UCI's read-only SoftIEC bus ID identifies the virtual filesystem drive.
      * EasyFlash relocates UCI to IO1; never write either window to identify it. */
-    if (ultimatebase && PEEK(ultimatebase + 1) == 0xc9 && PEEK(ultimatebase - 1) == dev)
+    if (ultimatebase && PEEK(ultimatebase + 1) == 0xc9 && PEEK(ultimatebase - 1) == dev && softiec_target())
         return DRIVE_SOFTIEC;
     if (sd_model(dev))
         return DRIVE_SD2IEC;

@@ -7,7 +7,7 @@ function disk(file,type,label='source'){
     execFileSync(tool('vice','c1541'),['-format',label+',ct',type,file],{stdio:'pipe',windowsHide:true});
 }
 async function main(){
-    const image='build/test-cmd-hd.dhd',stock='build/cmd-stock.d64';
+    const image='build/test-cmd-storage-session.dhd',stock='build/cmd-stock.d64';
     const parts=await fixture(image);disk(stock,'d64');
     const s=await start(image,stock,true);
     const snapshots=()=>fs.readFileSync(image);
@@ -18,7 +18,7 @@ async function main(){
     }
     async function attach(){await s.command('attach "'+monitorPath(image)+'" 9');}
     async function flush(){await s.command('detach 9');}
-    async function select(n){await s.check('cd \\@'+n,'9:\\@'+n+'>');}
+    async function select(n){await s.check('cd \\@'+n,'9:\\'+part(n).name+'>');}
     try{
         let out=await s.check('sysinfo','CMD HD Mass Storage Drive');assert(out.includes('Drive 9:'),out);
         out=await s.check('dir \\ /b','PART13');
@@ -27,7 +27,7 @@ async function main(){
 
         await s.check('cd \\@255',messages.SYSOUT_PARTITION_NOT_FOUND);
         await s.check('cd \\@8',messages.SYSOUT_PARTITION_NOT_FOUND);
-        await s.check('cd \\@13','9:\\@13>');
+        await s.check('cd \\@13','9:\\PART13>');
         await s.check('echo thirteen > sentinel','9:>');
         await s.check('type sentinel','thirteen');
         await select(1);await s.check('type sentinel',messages.SYSOUT_FILE_NOT_FOUND);

@@ -53,6 +53,7 @@ unsigned char location_root(unsigned char dev, const char *dir);
 unsigned char location_list(unsigned char dev, const char *dir);
 unsigned char path_directory(struct Path *p);
 unsigned char path_join(struct Path *p);
+void displaypath(unsigned char dev, const char *dir, char *dst);
 unsigned char sameplace(const struct Path *a, const struct Path *b);
 unsigned char location_kind(void);
 unsigned char location_header(void);

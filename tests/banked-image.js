@@ -83,7 +83,7 @@ for (const generation of [2, 3, 4]) {
     }
 }
 assert.deepEqual(
-    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer', 'volume']);
+    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer', 'volume', 'host', 'hostdir']);
 for (const b of layout.commandBanks) {
     assert(b.used > 0 && b.used <= 8192);
     assert.equal(b.used + b.free, 8192);
@@ -93,6 +93,7 @@ for (const b of layout.commandBanks) {
         image.get(key).subarray(0, b.used), linked.get(key).subarray(0, b.used), b.name);
 }
 const prg = fs.readFileSync(base + 'shell.prg');
+require('./softiec-linked')(image, assembly, prg);
 assert.equal(prg.length, layout.payload + 2);
 assert.equal(
     layout.executableBytes, prg.length + layout.commandBanks.reduce((n, b) => n + b.used, 0));

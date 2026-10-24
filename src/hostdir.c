@@ -30,6 +30,19 @@ static void host_number(unsigned long bytes, unsigned char known, char *shown)
     else strcpy(shown, decimal(bytes));
 }
 
+static void host_info(const struct DirectoryEntry *entry, unsigned char model, HostInfo *info)
+{
+    unsigned char result;
+    info->bytes = host_bytes(entry, model, &info->known);
+    info->kind = entry->type == CBM_T_DIR ? 0 : imagekind(entry->name);
+    if (model == DRIVE_SOFTIEC && entry->type != CBM_T_DIR &&
+        (info->known == 2 || (strlen(entry->name) == 16 && !info->kind))) {
+        result = softiec_metadata(&p1, entry->name);
+        if (result) info->kind = softiec_file_kind;
+        if (result & 2) { info->bytes = softiec_file_size; info->known = 1; }
+    }
+}
+
 /* Root metadata comes from the filesystem's own listing, never a BAM probe. */
 __noinline void bank_host_volume(const Path *p)
 {
@@ -55,12 +68,13 @@ __noinline void bank_host_volume(const Path *p)
     say(shown);
 }
 
-static void host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
-                     unsigned char partitions, unsigned char *col)
+__noinline void bank_host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
+                     unsigned char partitions, unsigned char *col, const HostInfo *info)
 {
     char shown[17], amount[14], blocks[14];
     unsigned char known;
     unsigned long bytes;
+    const char *type;
     if (flags & 2) strcpy(shown, entry->name);
     else uppername(entry->name, shown);
     if (flags & 1) say(shown);
@@ -75,10 +89,11 @@ static void host_row(const struct DirectoryEntry *entry, unsigned char model, un
                 print(SYSOUT_DIR_PARTITION, amount);
             }
         } else {
-            bytes = host_bytes(entry, model, &known);
+            type = info->kind ? imageformat(info->kind) : typename(entry->type);
+            bytes = info->bytes; known = info->known;
             host_number(bytes, known, amount);
-            print(SYSOUT_DIR_ENTRY, shown, typename(entry->type), amount);
-            host_number((bytes + 255) / 256, known, blocks);
+            print(SYSOUT_DIR_ENTRY, shown, type, amount);
+            host_number(bytes / 256 + (bytes % 256 != 0), known, blocks);
             if (known != 2 && strlen(blocks) <= 6)
                 print(strlen(blocks) > 3 ? SYSOUT_DIR_BLOCKS_SHORT : SYSOUT_DIR_BLOCKS, blocks);
         }
@@ -86,17 +101,27 @@ static void host_row(const struct DirectoryEntry *entry, unsigned char model, un
     }
 }
 
+__noinline void bank_host_footer(unsigned int files, unsigned int dirs, unsigned long total, unsigned char summary)
+{
+    char amount[15];
+    host_number(total, summary == 2 ? 1 : summary, amount);
+    if (summary == 2) strcat(amount, SYSOUT_HOST_TOTAL_MORE);
+    print(SYSOUT_DIR_TOTAL, files, amount); newline();
+    print(SYSOUT_DIR_COUNT, dirs); newline();
+}
+
 static int host_compare(const struct DirectoryEntry *a, const struct DirectoryEntry *b,
                         unsigned char flags, unsigned char model)
 {
     int result = 0;
-    unsigned char ka, kb;
-    unsigned long sa, sb;
-    if (flags & 16) result = strcmp(typename(a->type), typename(b->type));
-    else if (flags & 32) {
-        sa = host_bytes(a, model, &ka); sb = host_bytes(b, model, &kb);
-        if ((ka == 2) != (kb == 2)) result = ka == 2 ? 1 : -1;
-        else if (sa != sb) result = sa < sb ? -1 : 1;
+    HostInfo first, second;
+    if (flags & (16 | 32)) {
+        host_info(a, model, &first); host_info(b, model, &second);
+        if (flags & 16)
+            result = strcmp(first.kind ? imageformat(first.kind) : typename(a->type),
+                            second.kind ? imageformat(second.kind) : typename(b->type));
+        else if ((first.known == 2) != (second.known == 2)) result = first.known == 2 ? 1 : -1;
+        else if (first.bytes != second.bytes) result = first.bytes < second.bytes ? -1 : 1;
     }
     if (!result) result = strcmp(a->name, b->name);
     return flags & 64 ? -result : result;
@@ -130,10 +155,11 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
 {
     HostCursor cursor;
     struct DirectoryEntry entry, previous;
+    HostInfo info;
     unsigned char r, known, summary = 1, have = 0, col = 0, first = 1;
     unsigned int files = 0, dirs = 0, ordinal = 0, skipped;
     unsigned long bytes, total = 0;
-    char amount[14];
+    if (drivemodel(p1.dev, 0) == DRIVE_SOFTIEC) return ultimate_dir(flags, filter, recursive);
     if (!recursive && !(flags & 1)) {
         if (!location_root(p1.dev, p1.dir)) bank_host_volume(&p1);
         uppername(p1.dir, io);
@@ -144,9 +170,9 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
     if (redirected) { channel_close(4); cursor.done = 1; }
     if (!recursive && p1.dir[0] && filter == 255) {
         strcpy(entry.name, "."); entry.type = CBM_T_DIR;
-        if (match(p1.name, entry.name)) { host_row(&entry, cursor.model, flags, 0, &col); ++dirs; }
+        if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
         strcpy(entry.name, "..");
-        if (match(p1.name, entry.name)) { host_row(&entry, cursor.model, flags, 0, &col); ++dirs; }
+        if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
     }
     if (flags & 4) { channel_close(4); cursor.done = 1; }
     for (;;) {
@@ -165,11 +191,14 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
         if ((filter != 255 && entry.type != filter) || !match(p1.name, entry.name)) continue;
         if (entry.type == CBM_T_DIR) ++dirs;
         else {
-            ++files; bytes = host_bytes(&entry, cursor.model, &known);
-            if (total > 4294967295UL - bytes) known = 2;
-            else total += bytes;
-            if (known == 2) summary = 2;
-            else if (!known && summary != 2) summary = 0;
+            ++files;
+            if (!recursive && !(flags & 1)) {
+                host_info(&entry, cursor.model, &info); bytes = info.bytes; known = info.known;
+                if (total > 4294967295UL - bytes) known = 2;
+                else total += bytes;
+                if (known == 2) summary = 2;
+                else if (!known && summary != 2) summary = 0;
+            }
         }
         if (recursive) {
             if (entry.type == CBM_T_DIR) continue;
@@ -177,7 +206,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
                      p1.dir, p1.dir[0] ? "\\" : "", entry.name);
             if (!(flags & 2)) uppername(io, io);
             say(io);
-        } else host_row(&entry, cursor.model, flags, cursor.partitions, &col);
+        } else bank_host_row(&entry, cursor.model, flags, cursor.partitions, &col, &info);
         if ((!col || recursive || (flags & 1)) && (!page() || stop())) {
             channel_close(4); return 0;
         }
@@ -186,8 +215,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
     if (r != 2) return 0;
     if (col) newline();
     if (!recursive && !(flags & 1)) {
-        host_number(total, summary, amount); print(SYSOUT_DIR_TOTAL, files, amount); newline();
-        print(SYSOUT_DIR_COUNT, dirs); newline();
+        bank_host_footer(files, dirs, total, summary);
     }
     return 1;
 }

@@ -24,7 +24,7 @@ __noinline void bank_direntry(unsigned int index, const char *shown, unsigned ch
         } else
             print(SYSOUT_DIR_SUBDIR_ENTRY, shown);
     } else {
-        print(SYSOUT_DIR_ENTRY, shown, typename(entry->type), allocated(entry->blocks));
+        print(SYSOUT_DIR_ENTRY, shown, imagetype(entry->name, entry->type), allocated(entry->blocks));
         if (!soft) {
             blocks = decimal(entry->blocks);
             print(strlen(blocks) > 3 ? SYSOUT_DIR_BLOCKS_SHORT : SYSOUT_DIR_BLOCKS, blocks);

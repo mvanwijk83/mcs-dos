@@ -38,3 +38,14 @@
 #pragma section(hostdir_code, 0)
 #pragma section(hostdir_data, 0)
 #pragma region(hostdir_bank, 0xa000, 0xc000, , 17, {hostdir_code, hostdir_data})
+
+#pragma section(mount_code, 0)
+#pragma section(mount_data, 0)
+#pragma region(mount_bank, 0xa000, 0xc000, , 18, {mount_code, mount_data})
+
+#pragma section(ultdir_code, 0)
+#pragma section(ultdir_data, 0)
+#pragma region(ultdir_bank, 0xa000, 0xc000, , 19, {ultdir_code, ultdir_data})
+#pragma section(softiec_code, 0)
+#pragma section(softiec_data, 0)
+#pragma region(softiec_bank, 0xa000, 0xc000, , 20, {softiec_code, softiec_data})

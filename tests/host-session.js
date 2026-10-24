@@ -14,6 +14,11 @@ async function main(){
     const table=384*512+65536+32;bytes[table+2]=1;bytes.writeUInt16BE(native.bytes/512,table+30);
     fs.writeFileSync(hd,bytes);
     execFileSync(tool('vice','c1541'),['-format','source,hs','d64',disk],{stdio:'pipe',windowsHide:true});
+    if(process.argv.includes('--overflow')){
+        const batch=base+'-many.bat';
+        fs.writeFileSync(batch,require('../scripts/petscii')(Array.from({length:90},(_,i)=>'@echo x > f'+String(i).padStart(3,'0')).join('\r')+'\r@echo overflow ready\r'));
+        execFileSync(tool('vice','c1541'),['-attach',disk,'-write',batch,'many.bat'],{stdio:'pipe',windowsHide:true});
+    }
     const s=await start(hd,disk,true);let prompt='9:\\>';
     async function run(line,expected,next=prompt){
         if(sd){line=line.replaceAll('\\usb1','\\@1\\usb1');if(expected)expected=expected.replaceAll('\\USB1','\\@1\\USB1');if(!next.includes('\\@1'))next=next.replaceAll('\\USB1','\\@1\\USB1');}
@@ -21,13 +26,18 @@ async function main(){
         console.log('PASS '+line);return out;
     }
     try{
-        await run('cd \\@1',null,'9:\\@1>');await run('md usb1');await run('0:',null,'0:\\>');
+        await run('cd \\@1',null,'9:\\1541>');await run('md usb1');await run('0:',null,'0:\\>');
         const crt=fs.readFileSync('build/easyflash/MCS-DOS.crt');
         const address=parseInt(fs.readFileSync('build/easyflash/shell.lbl','utf8').match(/^al ([\da-f]+) \.bank_drivemodel$/m)[1],16);
         let patched=false;
         for(let at=64;at<crt.length;at+=crt.readUInt32BE(at+4))
             if(crt.readUInt16BE(at+10)===12&&crt.readUInt16BE(at+12)===0xa000){
-                Buffer.from([0xa9,sd?9:8,0x85,0x1b,0x60]).copy(crt,at+16+address-0xa000);patched=true;
+                // Keep real device 8 a 1541 when it supplies the overflow BAT.
+                // The linked ABI's first byte argument is at SP+2 on entry.
+                const stub=process.argv.includes('--overflow')?
+                    [0xa0,2,0xb1,0x23,0xc9,8,0xd0,5,0xa9,1,0x85,0x1b,0x60,0xa9,8,0x85,0x1b,0x60]:
+                    [0xa9,sd?9:8,0x85,0x1b,0x60];
+                Buffer.from(stub).copy(crt,at+16+address-0xa000);patched=true;
             }
         assert(patched);
         if(sd){
@@ -45,6 +55,15 @@ async function main(){
         if(sd)await run('cd \\@1',null,'9:\\@1>');
         await run('cd usb1',null,'9:\\USB1>');await run('echo original > note');
         if(process.argv.includes('--listing')){
+            if(process.argv.includes('--overflow')){
+                await s.keys('8:many.bat\\x0d');
+                await s.wait('overflow ready',180000); await s.wait(prompt);
+                await run('dir /on /b > 0:overflow-list');
+                out=await run('type 0:overflow-list /t:8');
+                assert(out.includes('F089')&&out.includes('NOTE'),out);
+                console.log('PASS linked buffered listing overflow beyond 86 records');
+                return;
+            }
             out=await run('dir');assert(out.includes('NOTE')&&!out.includes('~'),out);
             out=await run('dir /on');assert(out.includes('NOTE'),out);
             await run('dir > 0:host-list');await run('type 0:host-list','NOTE');

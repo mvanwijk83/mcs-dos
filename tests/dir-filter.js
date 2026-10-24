@@ -5,6 +5,8 @@ const harness = `
 #include <stdio.h>
 #include <string.h>
 #include "../tests/location-fixture.h"
+#undef host_device
+#define host_device(d) (model>=DRIVE_SOFTIEC)
 #include <ctype.h>
 #define CBM_T_DEL 0
 #define CBM_T_SEQ 16
@@ -76,7 +78,7 @@ int main(void) {
     argc=2;errors=seen=0;dircmd();
     if(errors || seen!=5) return 10;
     argc=1;model=DRIVE_SD2IEC;p1.name[0]=0;entries=blockreports=freereports=0;
-    dircmd();if(entries!=5 || blockreports || freereports)return 11;
+    dircmd();if(entries || blockreports || freereports)return 11; /* Host listings use their own backend. */
     model=DRIVE_1541;entries=blockreports=freereports=0;
     dircmd();if(entries!=5 || blockreports!=5 || freereports!=1)return 12;
     return 0;

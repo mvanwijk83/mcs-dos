@@ -61,7 +61,7 @@ const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -866,6 +866,10 @@ __noinline void bank_executecommand(char *s)
     case 34:
     case 35:
         navcmd(id - 33);
+        break;
+    case 36:
+    case 37:
+        mountcmd(id - 36);
         break;
     case 32:
         args[0][0] = 0;

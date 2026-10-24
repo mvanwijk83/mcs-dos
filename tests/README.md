@@ -228,6 +228,35 @@ also copy through cartridge storage and restore the remembered directory after
 an external CD in BASIC.
 Use `--listing` for a focused check of buffered ordinary/sorted listings,
 redirection and directory lookup.
+
+`mount-lifecycle` exercises media ownership, replacement cancellation and
+rollback, image-root navigation, protected source files and session recovery
+against the production command handlers. `softiec-rename` also checks legacy
+UCI mount/unmount packets, powered drive selection and actual FAT-name lookup.
+The same fixture checks original FILE_STAT packets and exact 32-bit sizes,
+including recovery when metadata is unavailable. `host-directories` checks
+truncated D64 aliases, large DNP sizes and incomplete directory totals with +.
+`mount-session` runs the linked cartridge against a disposable CMD-HD image,
+translating SD2IEC image entry/exit to real CMD emulation partitions. It checks
+DIR image types, CHKDSK, replacement and BASIC return. This is a protocol
+stand-in; SD2IEC and Ultimate mounting still require hardware verification.
+Mount descriptors are included in version 4 of the shell session record.
+`session-encoding` checks every mount-state byte with nonzero test data using
+the optimized production encoder and decoder, including the font boundary.
+
+`ultimate-listing` exercises the Ultimate-only temporary DIR buffers with
+1,001 generated entries, overflow passes, every sort mode, duplicate aliases,
+redirection cursor ownership, selective metadata and cancellation/error cleanup.
+`softiec-rename` also checks that batch metadata resolves the parent once,
+scans aliases together, stats only capped sizes and restores the DOS path.
+`image-names` checks real ASCII FAT names and PETSCII shell extensions with
+both compiler character maps, including the truncated DUAL SID TEST.D6 alias.
+`node tests/host-session.js --listing --overflow` checks the linked cartridge
+with 91 real files, confirming that sorted output continues past the buffer.
+`ultimate-dir-benchmark` is an explicitly authorized live-hardware harness:
+its isolated cartridge copies disable pagination and expose jiffy timings in
+unused RAM. It does not inject executable code or alter the production build.
+
 `cmd-navigation` exercises failed native DIR reads across initial boot, soft reset
 and hard reset, then verifies full listings and partition-name prompts on a
 formatted native filesystem. It uses disposable media. To reproduce against an

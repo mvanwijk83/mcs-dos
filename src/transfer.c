@@ -369,6 +369,7 @@ unsigned char entrytrack, entrysector, entryoffset;
 __noinline unsigned char bank_output_append(void)
 {
     unsigned char ok;
+    if (!mount_guard(&outputpath)) return 0;
     if (!outputpath.dev)
         return channel_write(5, outputbuf, outputused) == outputused;
     if (!location_file(outputpath.dev, outputpath.dir))

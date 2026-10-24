@@ -3,7 +3,7 @@ const entry = (id, file = id, args = []) => ({id, file, args});
 const cartridge = (id, ...args) => entry(id, 'easyflash', args);
 const groups = {
     unit: [
-        'helpers', 'amount-switches', 'chkdsk-stats', 'disk-validation', 'root-metadata', 'channel-buffer', 'host-protocol', 'host-directories', 'softiec-target', 'softiec-rename', 'rename-dispatch', 'cache-capacity', 'concat-limits', 'delete-wildcards',
+        'helpers', 'session-encoding', 'mount-lifecycle', 'image-names', 'amount-switches', 'chkdsk-stats', 'disk-validation', 'root-metadata', 'channel-buffer', 'host-protocol', 'host-directories', 'ultimate-listing', 'softiec-target', 'softiec-rename', 'rename-dispatch', 'cache-capacity', 'concat-limits', 'delete-wildcards',
         'dir-sort', 'dir-filter', 'dir-layout', 'directory-walk', 'optional-diskid', 'diskinit', 'path-resolution', 'path-display', 'location-selection', 'raw-readers', 'transfer-failures', 'cmd-storage', 'cmd-part-directory', 'format-label', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
         'prompt', 'pause', 'run-command', 'key-bindings', 'key-input', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
     ].map(id => entry(id)),
@@ -44,7 +44,7 @@ const groups = {
 };
 groups.all = Object.values(groups).flat();
 // Private CMD ROM/utilities are optional and are never redistributed.
-groups.directories = [entry('directories'), entry('dos-directories'), entry('partition-channels'), entry('format-disk'), entry('disk-tree'), entry('dos-fileops'), entry('dir-layout-session'), entry('host-session')];
+groups.directories = [entry('directories'), entry('dos-directories'), entry('partition-channels'), entry('format-disk'), entry('disk-tree'), entry('dos-fileops'), entry('dir-layout-session'), entry('host-session'), entry('mount-session')];
 groups.cmd = [entry('cmd-hd'), entry('cmd-rel'), entry('cmd-sysinfo'), entry('cmd-overview'), entry('cmd-navigation'), entry('cmd-probe')];
 groups.smoke = ['banked-image', 'commands', 'basic-session', 'sysinfo-pal'].map(
     id => groups.all.find(test => test.id === id));

@@ -9,6 +9,7 @@
 #include "session.h"
 #include "storage.h"
 #include "host.h"
+#include "mount.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
@@ -91,7 +92,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators, validate;
-#define COMMANDCOUNT 36
+#define COMMANDCOUNT 38
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */

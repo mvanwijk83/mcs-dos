@@ -66,7 +66,11 @@ static unsigned char statebyte(unsigned int i)
         return prompttext[i - SESSION_PROMPT_OFFSET];
     if (i < SESSION_LOCATIONS_OFFSET)
         return keybindings[i - SESSION_KEYS_OFFSET];
-    return ((char *)working)[i - SESSION_LOCATIONS_OFFSET];
+    if (i < SESSION_MOUNTS_OFFSET)
+        return ((char *)working)[i - SESSION_LOCATIONS_OFFSET];
+    if (i < SESSION_MOUNTS_OFFSET + MOUNT_COUNT * MOUNT_RECORD_SIZE)
+        return ((char *)mounts)[i - SESSION_MOUNTS_OFFSET];
+    return mount_hostdir[i - SESSION_MOUNTS_OFFSET - MOUNT_COUNT * MOUNT_RECORD_SIZE];
 }
 
 /* Decode one serialized byte into shell state or the saved font RAM.
@@ -118,8 +122,12 @@ static void stateput(unsigned int i, unsigned char value)
         prompttext[i - SESSION_PROMPT_OFFSET] = value;
     else if (i < SESSION_LOCATIONS_OFFSET)
         keybindings[i - SESSION_KEYS_OFFSET] = value;
-    else if (i < SESSION_FONT_OFFSET)
+    else if (i < SESSION_MOUNTS_OFFSET)
         ((char *)working)[i - SESSION_LOCATIONS_OFFSET] = value;
+    else if (i < SESSION_MOUNTS_OFFSET + MOUNT_COUNT * MOUNT_RECORD_SIZE)
+        ((char *)mounts)[i - SESSION_MOUNTS_OFFSET] = value;
+    else if (i < SESSION_FONT_OFFSET)
+        mount_hostdir[i - SESSION_MOUNTS_OFFSET - MOUNT_COUNT * MOUNT_RECORD_SIZE] = value;
     else
         POKE(0xe800 + i - SESSION_FONT_OFFSET, value);
 }
@@ -200,6 +208,8 @@ __noinline unsigned char bank_session_restore(void)
     for (i = 0; i < LOCATIONCOUNT; ++i)
         working[i][PATHSIZE - 1] = 0;
     nav_invalidate();
+    mount_hostdir[127] = 0;
+    mount_restore();
     nav_finish();
     colors();
     clear();

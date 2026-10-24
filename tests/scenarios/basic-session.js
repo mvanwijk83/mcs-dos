@@ -38,11 +38,11 @@ function journal(file, replace) {
 }
 function record(bytes, slot) {
     const b = bytes.subarray(slot * 8192, (slot + 1) * 8192);
-    assert.equal(b.subarray(0, 4).toString('hex'), '4d535303');
+    assert.equal(b.subarray(0, 4).toString('hex'), '4d535304');
     assert.equal(b[15], 0xa5);
-    assert.equal(b.readUInt16LE(6), 7377);
+    assert.equal(b.readUInt16LE(6), 7952);
     let crc = 65535;
-    for (const v of b.subarray(16, 16 + 7377)) {
+    for (const v of b.subarray(16, 16 + 7952)) {
         crc ^= v << 8;
         for (let i = 0; i < 8; i++)
             crc = ((crc << 1) ^ ((crc & 32768) ? 0x1021 : 0)) & 65535;
@@ -108,7 +108,8 @@ module.exports =
         await enter(cmd);
     const fields = [
         ['environment', 512, 16], ['history', 1280, 528], ['rawhistory', 160, 1808],
-        ['prompttext', 33, 1968], ['keybindings', 256, 2001], ['working', 3072, 2257]
+        ['prompttext', 33, 1968], ['keybindings', 256, 2001], ['working', 3072, 2257],
+        ['mounts', 447, 5329], ['mount_hostdir', 128, 5776]
     ];
     await basic();
     assert.equal((await memory(0xd018))[0] & 0xfe, 0x14, 'uppercase ROM font');

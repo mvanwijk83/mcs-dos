@@ -2,6 +2,81 @@
  * Oscar64 allocates a shared call stack and registers for these direct calls.
  * Each returning gate restores the caller's mapping, including nested calls. */
 #include "core.h"
+__noinline unsigned char bank_ultimate_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
+__noinline unsigned char ultimate_dir(unsigned char flags, unsigned char filter, unsigned char recursive)
+{
+    unsigned char previous = bank_enter(BANK_ULTDIR);
+    unsigned char result = bank_ultimate_dir(flags, filter, recursive);
+    bank_leave(previous); return result;
+}
+__noinline unsigned char bank_softiec_list(const Path *p, HostRecord *records, unsigned char count, char *names);
+__noinline unsigned char softiec_list(const Path *p, HostRecord *records, unsigned char count, char *names)
+{
+    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    unsigned char result = bank_softiec_list(p, records, count, names);
+    bank_leave(previous); return result;
+}
+__noinline void bank_host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
+                             unsigned char partitions, unsigned char *col, const HostInfo *info);
+__noinline void host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
+                        unsigned char partitions, unsigned char *col, const HostInfo *info)
+{
+    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    bank_host_row(entry, model, flags, partitions, col, info); bank_leave(previous);
+}
+__noinline void bank_host_footer(unsigned int files, unsigned int dirs, unsigned long total, unsigned char summary);
+__noinline void host_footer(unsigned int files, unsigned int dirs, unsigned long total, unsigned char summary)
+{
+    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    bank_host_footer(files, dirs, total, summary); bank_leave(previous);
+}
+__noinline void bank_mountcmd(unsigned char unmount);
+__noinline void mountcmd(unsigned char unmount)
+{
+    unsigned char previous = bank_enter(BANK_MOUNT);
+    bank_mountcmd(unmount); bank_leave(previous);
+}
+__noinline unsigned char bank_mount_select(unsigned char dev, const char *dir);
+__noinline unsigned char mount_select(unsigned char dev, const char *dir)
+{
+    unsigned char previous = bank_enter(BANK_MOUNT);
+    unsigned char result = bank_mount_select(dev, dir);
+    bank_leave(previous); return result;
+}
+__noinline unsigned char bank_mount_guard(const Path *p);
+__noinline unsigned char mount_guard(const Path *p)
+{
+    unsigned char previous = bank_enter(BANK_MOUNT);
+    unsigned char result = bank_mount_guard(p);
+    bank_leave(previous); return result;
+}
+__noinline void bank_mount_restore(void);
+__noinline void mount_restore(void)
+{
+    unsigned char previous = bank_enter(BANK_MOUNT);
+    bank_mount_restore(); bank_leave(previous);
+}
+__noinline unsigned char bank_softiec_mount(const Path *p, unsigned char dev, unsigned char unmount);
+__noinline unsigned char softiec_mount(const Path *p, unsigned char dev, unsigned char unmount)
+{
+    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    unsigned char result = bank_softiec_mount(p, dev, unmount);
+    bank_leave(previous); return result;
+}
+__noinline unsigned char bank_ultimate_drive(unsigned char dev);
+__noinline unsigned char bank_softiec_metadata(const Path *p, const char *name);
+__noinline unsigned char softiec_metadata(const Path *p, const char *name)
+{
+    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    unsigned char result = bank_softiec_metadata(p, name);
+    bank_leave(previous); return result;
+}
+__noinline unsigned char ultimate_drive(unsigned char dev)
+{
+    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    unsigned char result = bank_ultimate_drive(dev);
+    bank_leave(previous); return result;
+}
 __noinline unsigned char bank_disk_location(const Path *p);
 __noinline unsigned char disk_location(const Path *p)
 {
@@ -115,7 +190,7 @@ __noinline unsigned char bank_softiec_target(void);
 __noinline void bank_softiec_rename(void);
 __noinline void softiec_rename(void)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    unsigned char previous = bank_enter(BANK_SOFTIEC);
     bank_softiec_rename();
     bank_leave(previous);
 }

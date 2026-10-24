@@ -103,7 +103,7 @@ __noinline unsigned char bank_host_open(const Path *p, HostCursor *cursor, unsig
 {
     cursor->dev = p->dev; cursor->lfn = lfn; cursor->done = 0;
     cursor->model = drivemodel(p->dev, 0);
-    cursor->partitions = cursor->model == DRIVE_SD2IEC && !p->dir[0];
+    cursor->partitions = cursor->model == DRIVE_SD2IEC && !mount_active(p->dev) && !p->dir[0];
     cachevalid = 0;
     if (!location_select(p->dev, p->dir) ||
         !host_begin(p->dev, lfn, cursor->partitions, hidden)) {
@@ -312,5 +312,5 @@ __noinline void bank_host_delete(unsigned char suppress)
 #pragma data(data)
 unsigned char host_device(unsigned char dev)
 {
-    return dev && drivemodel(dev, 0) >= DRIVE_SOFTIEC;
+    return dev && !mount_active(dev) && drivemodel(dev, 0) >= DRIVE_SOFTIEC;
 }

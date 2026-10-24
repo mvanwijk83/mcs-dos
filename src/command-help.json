@@ -34,5 +34,7 @@
   "KEY": "Binds command text to function keys.\n\nKEY [/Fn:[command] ...] [/CLEAR:[n]]\n\n  /Fn:command\n    Binds a command to a function key.\n    n is 1 to 7.\n  /Fn\n    Displays the current binding for\n    the specified function key.\n  /CLEAR:n\n    Clears the binding for one function\n    key.\n  /CLEAR\n    Clears all bindings.\n\nType KEY without parameters to display\nall current bindings.",
   "CD": "Changes or displays the current\ndirectory or partition.\n\nCD [drive:][path] [/D]\nCHDIR [drive:][path] [/D]\n\n  /D  Changes drive in addition to\n      changing directory on that drive.",
   "MD": "Creates a directory or partition.\n\nMD [drive:][path] [/SIZE:n]\nMKDIR [drive:][path] [/SIZE:n]\n\n  /SIZE:n  Specifies the partition size\n           for 1581 drives (minimum 120\n           sectors, multiple of 40).",
-  "RD": "Removes a directory or partition.\n\nRD [drive:][path] [/S [/P]]\nRMDIR [drive:][path]\n\n  /S  Removes all directories and files\n      in the specified directory as\n      well. Not supported on CMD native\n      directories.\n  /P  Suppresses confirmation prompt\n      with /S."
+  "RD": "Removes a directory or partition.\n\nRD [drive:][path] [/S [/P]]\nRMDIR [drive:][path]\n\n  /S  Removes all directories and files\n      in the specified directory as\n      well. Not supported on CMD native\n      directories.\n  /P  Suppresses confirmation prompt\n      with /S.",
+  "MOUNT": "Mounts a disk image.\n\nMOUNT image [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices.",
+  "UNMOUNT": "Unmount a disk image.\n\nUNMOUNT [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices."
 }

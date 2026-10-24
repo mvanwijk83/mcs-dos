@@ -80,6 +80,7 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
     unsigned char model = bank_drivemodel(dev, report == 128 ? 0 : report);
     if (report == 128 || !model)
         return model;
+    if (mount_geometry(dev)) return mount_geometry(dev);
     if (model >= DRIVE_SOFTIEC) {
         if (report)
             error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
@@ -94,6 +95,7 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
 /* A CMD emulation partition cannot be changed into another geometry by U0>M. */
 __noinline unsigned char bank_drivemode(unsigned char dev, unsigned char doublesided)
 {
+    if (mount_geometry(dev)) return 1;
     unsigned char geometry;
     unsigned char model = bank_drivemodel(dev, 1);
     if (!model)

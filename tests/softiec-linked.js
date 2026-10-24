@@ -22,7 +22,8 @@ module.exports = (image, assembly, prg) => {
         const entry = address(fixture.dos ? 'softiec_reply' : 'bank_softiec_target');
         const ram = new Uint8Array(65536), uci = 0xde1c;
         ram.set(prg.subarray(2), prg.readUInt16LE());
-        ram.set(image.get('16:40960'), 0xa000);
+        const bank = fixture.dos ? parseInt(dosProbe.match(/^([\da-f]{2}):[\da-f]{4} :/m)[1],16) : 16;
+        ram.set(image.get(bank+':40960'), 0xa000);
         ram[baseAddress] = uci & 255; ram[baseAddress + 1] = uci >> 8;
         ram[0x23] = 0; ram[0x24] = 0x7c;
         const reply = fixture.reply || [...Buffer.from('SOFTWARE IEC TARGET V1.0')];

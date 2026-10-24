@@ -35,7 +35,7 @@ static unsigned char canonical(unsigned char dev, char *dir)
     char replacement[PATHSIZE], *slash;
     unsigned int n;
     unsigned char model = modelof(dev);
-    if (!*dir || (model != DRIVE_CMD_HD && model != DRIVE_CMD_FD && model != DRIVE_SD2IEC))
+    if (!*dir || mount_active(dev) || (model != DRIVE_CMD_HD && model != DRIVE_CMD_FD && model != DRIVE_SD2IEC))
         return 1;
     slash = strchr(dir, 0x5c);
     n = slash ? slash - dir : strlen(dir);
@@ -200,7 +200,7 @@ __noinline unsigned char bank_path_join(Path *p)
 __noinline unsigned char bank_location_root(unsigned char dev, const char *dir)
 {
     unsigned char model = modelof(dev);
-    return !*dir && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD || model >= DRIVE_SOFTIEC);
+    return !*dir && !mount_active(dev) && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD || model >= DRIVE_SOFTIEC);
 }
 
 /* Replay an absolute path from its physical root. Two device selections are
@@ -234,6 +234,12 @@ __noinline void bank_location_select(unsigned char dev, const char *dir)
     firsttrack = 1;
     lasttrack = 80;
     directorytrack = 40;
+    if (mount_active(dev)) {
+        n = mount_geometry(dev);
+        filesystem = n ? n + 1 : 1;
+        if (!mount_select(dev, dir)) goto failed;
+        goto selected;
+    }
     if (model >= DRIVE_SOFTIEC) {
         filesystem = FS_HOST;
         if (!host_select(dev, dir, model))
@@ -328,7 +334,7 @@ __noinline unsigned char bank_location_list(unsigned char dev, const char *dir)
 {
     /* Keep one exit: Oscar64 otherwise omits stack cleanup on failed reads. */
     listing_success = 0;
-    if (modelof(dev) >= DRIVE_SOFTIEC) {
+    if (modelof(dev) >= DRIVE_SOFTIEC && !mount_active(dev)) {
         cachevalid = 0;
         error(SYSOUT_UNSUPPORTED_DIRECTORY_OP);
         goto finished;
@@ -532,6 +538,7 @@ __noinline void bank_navcmd(unsigned char operation)
         goto syntax;
     if (!path(target ? target : "", &navpath))
         return;
+    if (!mount_guard(&navpath)) return;
     if (!operation) {
         if (!target || !*target || target[strlen(target) - 1] == ':') {
             if (changedrive && target) {
@@ -683,6 +690,7 @@ unsigned char sameplace(const Path *a, const Path *b)
 /* External drive commands and program returns invalidate physical knowledge. */
 void nav_invalidate(void)
 {
+    mount_invalidate();
     physicaldev = 255;
     cachevalid = 0;
     memset(models, 0, sizeof(models));
@@ -693,6 +701,7 @@ void nav_invalidate(void)
 /* Cold/reboot initialization does not carry directories into a new session. */
 void nav_reset(void)
 {
+    mount_reset();
     memset(working, 0, sizeof(working));
     startupdir[0] = 0;
     rawreadmask = rawreading = 0;
@@ -712,7 +721,7 @@ unsigned char location_header(void) { return directorytrack; }
 __noinline unsigned char bank_disk_location(const Path *p)
 {
     unsigned char model = drivemodel(p->dev, 0);
-    if (model >= DRIVE_SOFTIEC) {
+    if (model >= DRIVE_SOFTIEC && !mount_geometry(p->dev)) {
         error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         return 0;
     }

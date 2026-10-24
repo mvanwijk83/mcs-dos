@@ -11,13 +11,17 @@ fs.writeFileSync('build/test-host-directories.c',`
 #define CBM_T_DIR 20
 #define CBM_T_SEQ 16
 #define CBM_T_PRG 17
+#define CBM_T_CBM 21
 #define CBM_A_RO 1
 #define CBM_A_RW 3
 typedef struct Path {unsigned char dev;char name[17],dir[128];} Path;
 struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access,remainder;};
 typedef struct HostCursor {unsigned char dev,lfn,model,partitions,done;} HostCursor;
+typedef struct HostInfo {unsigned long bytes;unsigned char known,kind;} HostInfo;
+static unsigned long softiec_file_size;
+static unsigned char softiec_file_kind,metadata_mode,metadata_calls;
 static Path p1={8,"*","@1"};
-static unsigned char mode,model=DRIVE_SD2IEC,hidden,redirected,outputcol,ox,pagelines,noseparators,errors;
+static unsigned char mode,model=DRIVE_SD2IEC,hidden,redirected,outputcol,ox,pagelines,noseparators,errors,optionalheader;
 static unsigned char present=63,folders[6];
 static unsigned int indices[6],opens,rows,used;
 static char output[4000],io[256];
@@ -34,8 +38,19 @@ static void say(const char *s){outs(s);newline();}
 static void print(const char *fmt,...){char text[300];va_list a;va_start(a,fmt);vsnprintf(text,sizeof(text),fmt,a);va_end(a);outs(text);if(!strcmp(fmt,SYSOUT_DIR_ENTRY))++rows;}
 static void error(const char *s){++errors;}
 static unsigned char location_root(unsigned char d,const char *p){return !*p;}
+/* Exercise the shared streaming implementation; Ultimate buffering has its
+ * own fixture, while cursor.model still exercises metadata/reporting here. */
+static unsigned char drivemodel(unsigned char d,unsigned char r){return DRIVE_SD2IEC;}
+#define ultimate_dir(a,b,c) 0
 static const char *drivename(unsigned char d){return "8";}
 static const char *typename(unsigned char t){return t==CBM_T_DIR?"<DIR>":"SEQ";}
+static unsigned char softiec_metadata(const Path *p,const char *name){
+    ++metadata_calls;
+    if(!metadata_mode)return 0;
+    softiec_file_kind=!strcmp(name,"TESTDISK.DNP")?4:1;
+    softiec_file_size=softiec_file_kind==4?7864320UL:174848UL;
+    return 3;
+}
 static void uppername(const char *s,char *p){while(*s)*p++=toupper(*s++);*p=0;}
 static unsigned char page(void){return 1;}
 static unsigned char stop(void){return 0;}
@@ -48,6 +63,11 @@ static unsigned char host_open(const Path *p,HostCursor *c,unsigned char lfn,uns
 static unsigned char host_next(HostCursor *c,struct DirectoryEntry *e){
     unsigned int n=indices[c->lfn]++;
     e->type=CBM_T_SEQ;e->access=CBM_A_RW;e->remainder=4;e->size=1;
+    if(mode==3){
+        if(n==3)return 2;
+        strcpy(e->name,n==0?"DUAL SID TEST.D6":n==1?"TESTDISK.DNP":"SMALL");
+        e->size=n==0?689:n==1?9999:2;e->remainder=n==2?48:1;return 0;
+    }
     if(!mode){if(n==1001)return 2;snprintf(e->name,17,"F%4u",n);return 0;}
     if(mode==2){if(n==3)return 2;strcpy(e->name,n==0?"B":n==1?"A":"C");e->size=n==0?3:n==1?1:2;e->remainder=2;return 0;}
     while(n<6 && (!(present&(1<<n))||parents[n]!=folders[c->lfn]||(!hidden&&n==4)))n=indices[c->lfn]++;
@@ -60,7 +80,7 @@ static unsigned char scratch(const Path *p){unsigned char i;for(i=0;i<6;++i)if(!
 static unsigned char command(unsigned char d,const char *s){unsigned char i;for(i=0;i<6;++i)if(!strcmp(s+3,names[i]))present&=~(1<<i);return 1;}
 static int host_find(const Path *p){unsigned char i;for(i=0;i<6;++i)if(!strcmp(p->name,names[i])&&(present&(1<<i)))return 0;return -1;}
 static void reset(void){used=ox=outputcol=rows=opens=errors=0;output[0]=0;}
-${functions('match','decimal','host_bytes','host_number','host_row','host_compare','host_ordered','host_flat','host_dir','host_remove')}
+${functions('imagekind','imageformat','imagetype','match','decimal','host_bytes','host_number','host_info','host_row','host_footer','host_compare','host_ordered','host_flat','host_dir','host_remove')}
 int main(void){
     struct DirectoryEntry e;unsigned char known;Path p={8,"A","@1"};
     e.type=CBM_T_SEQ;e.size=2;e.remainder=48;
@@ -80,8 +100,12 @@ int main(void){
     reset();if(host_remove(&p,0)||errors!=1||present!=63)return 12;
     strcpy(p.dir,"@1");strcpy(p.name,"A");reset();
     if(!host_remove(&p,1)||present!=2||errors||!hidden)return 13;
+    mode=3;model=DRIVE_SOFTIEC;metadata_mode=1;reset();
+    if(!host_flat(0,255,0)||!strstr(output,"DUAL SID TEST.D6 D64")||!strstr(output,"7,864,320")||!strstr(output,"8,039,468 bytes")||metadata_calls!=2){puts(output);printf("Metadata calls: %u\\n",metadata_calls);return 15;}
+    metadata_mode=0;metadata_calls=0;reset();
+    if(!host_flat(0,255,0)||!strstr(output,"175,306+ bytes")||!strstr(output,"???"))return 16;
     return 0;
 }
 `);
-require('./simulator')('build/test-host-directories.c');
-console.log('PASS 1001-entry uncached DIR, exact/estimated/clamped sizes, sorting, recursive paths and hidden-file recursive removal');
+require('./simulator')('build/test-host-directories.c',{mount:true});
+console.log('PASS uncached DIR, metadata image types/exact large sizes, partial totals, sorting, recursive paths and hidden-file removal');

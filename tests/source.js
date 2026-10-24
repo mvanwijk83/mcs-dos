@@ -1,6 +1,6 @@
 require('./setup');
 const fs = require('fs');
-const modules = ['c64-support', 'core', 'edit', 'fileutil', 'filemgmt', 'disk', 'storage', 'storage-cbm', 'storage-cmd', 'navigation', 'transfer', 'volume', 'host', 'hostdir', 'softiec', 'boot', 'mcsdos'];
+const modules = ['c64-support', 'core', 'edit', 'fileutil', 'filemgmt', 'disk', 'storage', 'storage-cbm', 'storage-cmd', 'navigation', 'transfer', 'volume', 'host', 'hostdir', 'ultdir', 'softiec', 'mount', 'session', 'boot', 'mcsdos'];
 const source = modules.map(name => fs.readFileSync('src/' + name + '.c', 'utf8'))
                    .join('\n')
                    .replaceAll('\r\n', '\n');

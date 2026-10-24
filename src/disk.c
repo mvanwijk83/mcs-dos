@@ -284,8 +284,8 @@ __noinline void bank_volcmd(unsigned char stats)
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;
     model = p1.dev ? drivemodel(p1.dev, 0) : 0;
-    whole1581 = stats && model == DRIVE_1581;
-    if (model >= DRIVE_SOFTIEC) {
+    whole1581 = stats && (model == DRIVE_1581 || mount_geometry(p1.dev) == 3);
+    if (model >= DRIVE_SOFTIEC && !mount_geometry(p1.dev)) {
         if (stats) error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         else host_volume(&p1);
         return;
@@ -566,7 +566,7 @@ __noinline void bank_formatcmd(void)
         return;
     }
     /* Establish physical root only after confirmation and value validation. */
-    if (model == DRIVE_1581 || model == DRIVE_CMD_FD) {
+    if (model == DRIVE_1581 || model == DRIVE_CMD_FD || mount_active(p1.dev)) {
         nav_invalidate();
         if (!location_select(p1.dev, p1.dir))
             return;

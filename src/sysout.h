@@ -1,6 +1,15 @@
 #ifndef MCS_SYSOUT_H
 #define MCS_SYSOUT_H
 /* System output text, including error messages, warnings, prompts, line fragments and format strings */
+#define SYSOUT_REPLACE_MOUNT "Mount this image? (Y/N)"
+#define SYSOUT_MOUNTED "%s mounted to drive %s\n"
+#define SYSOUT_CANNOT_MOUNT "Cannot mount %s\n"
+#define SYSOUT_CANNOT_UNMOUNT "Cannot unmount drive %s\n"
+#define SYSOUT_UNMOUNTED "Drive %s unmounted\n"
+#define SYSOUT_MOUNT_IN_USE "Disk image is mounted"
+#define SYSOUT_MOUNT_RESTORE_FAILED "Unable to restore mounted image"
+#define SYSOUT_SYNTAX_MOUNT "Syntax: MOUNT image [drive:]"
+#define SYSOUT_SYNTAX_UNMOUNT "Syntax: UNMOUNT [drive:]"
 #define SYSOUT_SHELL_RESTORE_FAILED "Unable to restore previous shell state.\nUsing defaults."
 #define SYSOUT_BATCH_CMD_TOO_LONG "Batch command too long"
 #define SYSOUT_SHELL_SAVE_WARNING_BASIC "Warning: write error saving shell state.\nProceed to BASIC"
@@ -249,6 +258,7 @@
 /* SD2IEC & Ultimate fs support */
 #define SYSOUT_AMBIGUOUS_PARTITION "Ambiguous partition name; use @number"
 #define SYSOUT_HOST_SIZE_UNKNOWN "???"
+#define SYSOUT_HOST_TOTAL_MORE "+"
 #define SYSOUT_AMBIGUOUS_DIRECTORY "Ambiguous directory name"
 #define SYSOUT_ULTIMATE_DOS_FAILED "Ultimate DOS command failed"
 #define SYSOUT_ULTIMATE_DOS_RESTORE_FAILED "Unable to restore Ultimate DOS path"

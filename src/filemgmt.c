@@ -32,7 +32,8 @@ __noinline int bank_dircompare(unsigned int a, unsigned int b, unsigned char fla
 {
     int result = 0;
     if (flags & 16)
-        result = strcmp(typename(directory_entries[a].type), typename(directory_entries[b].type));
+        result = strcmp(imagetype(directory_entries[a].name, directory_entries[a].type),
+                        imagetype(directory_entries[b].name, directory_entries[b].type));
     else if ((flags & 32) && directory_entries[a].blocks != directory_entries[b].blocks)
         result = directory_entries[a].blocks < directory_entries[b].blocks ? -1 : 1;
     if (!result)
@@ -88,6 +89,7 @@ __noinline void bank_dircmd(void)
     lower = flags & 2;
     sort = flags & 4;
     wide = flags & 8;
+    if (!mount_guard(&p1)) return;
     path_directory(&p1);
     if (!p1.name[0])
         strcpy(p1.name, "*");
@@ -101,7 +103,7 @@ __noinline void bank_dircmd(void)
     }
     if (!location_list(p1.dev, p1.dir))
         return;
-    soft = location_root(p1.dev, p1.dir) || drivemodel(p1.dev, 0) >= DRIVE_SOFTIEC;
+    soft = location_root(p1.dev, p1.dir) || host_device(p1.dev);
     if (!bare) {
         if (!location_root(p1.dev, p1.dir))
             volumeheader(p1.dev);
@@ -287,7 +289,7 @@ __noinline unsigned char bank_deletable(const Path *p)
 {
     struct DirectoryEntry ent;
     unsigned char r;
-    if (!location_file(p->dev, p->dir))
+    if (!mount_guard(p) || !location_file(p->dev, p->dir))
         return 0;
     if (directory_open(2, p->dev) != 0) {
         channel_close(2);
@@ -524,6 +526,7 @@ __noinline void bank_renamecmd(void)
         p2.dev = p1.dev;
         strcpy(p2.dir, p1.dir);
     }
+    if (!mount_guard(&p1) || !mount_guard(&p2)) return;
     if (!sameplace(&p1, &p2)) {
         say(SYSOUT_CANNOT_RENAME_ACROSS_DRIVES);
         return;
@@ -537,7 +540,7 @@ __noinline void bank_renamecmd(void)
         return;
     }
     directory = directory_entries[found].type == CBM_T_DIR || directory_entries[found].type == CBM_T_CBM;
-    native_directory = directory_entries[found].type == CBM_T_DIR && location_kind() == 1;
+    native_directory = directory_entries[found].type == CBM_T_DIR && location_kind() == 1 && !mount_active(p1.dev);
     if (directory) {
         found = findfile(&p2);
         if (found >= 0) {
@@ -636,6 +639,7 @@ __noinline int bank_findfile(const Path *p)
 __noinline unsigned char bank_preparewrite(const Path *p)
 {
     int i;
+    if (!mount_guard(p)) return 0;
     if (!p->name[0] || strchr(p->name, '*') || strchr(p->name, '?')) {
         error(SYSOUT_INVALID_DEST);
         return 0;
@@ -721,6 +725,7 @@ __noinline unsigned char bank_openread(const Path *p, unsigned char lfn)
 __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
 {
     char t = 's';
+    if (!mount_guard(p)) return 0;
     if (type == CBM_T_PRG)
         t = 'p';
     else if (type == CBM_T_USR)
@@ -745,6 +750,7 @@ __noinline unsigned char bank_openwrite(const Path *p, unsigned char type)
  * p: Path to scratch; return nonzero on success. */
 __noinline unsigned char bank_scratch(const Path *p)
 {
+    if (!mount_guard(p)) return 0;
     if (!location_file(p->dev, p->dir))
         return 0;
     snprintf(diskcmd, sizeof(diskcmd), "s0:%s", p->name);

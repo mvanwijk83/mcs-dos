@@ -18,6 +18,8 @@
 #pragma compile("host.c")
 #pragma compile("softiec.c")
 #pragma compile("hostdir.c")
+#pragma compile("ultdir.c")
+#pragma compile("mount.c")
 #pragma compile("boot.c")
 #pragma compile("session.c")
 #pragma compile("tape.c")

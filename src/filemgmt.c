@@ -440,12 +440,12 @@ __noinline void bank_delcmd(void)
 
 /* Native lock bit: preserve every other directory byte.
  *
- * Read or change cartridge file attributes for the selected names. */
+ * Display disk lock bits from directory metadata; mutations use raw entries. */
 __noinline void bank_attribcmd(void)
 {
-    unsigned char a = 1, mode = 0, track, sector, n, dirty, found = 0, visited[5];
+    unsigned char a = 1, mode = 0, n, found = 0;
     unsigned int offset;
-    char name[17], shown[17];
+    char shown[17];
     if (argc > 1 && (!stricmp(args[1], "+L") || !stricmp(args[1], "-L"))) {
         mode = args[1][0] == '+' ? 1 : 2;
         ++a;
@@ -492,7 +492,9 @@ __noinline void bank_attribcmd(void)
             return;
         limit = count;
         while (index < limit && !aborted) {
-            if (!location_list(p1.dev, p1.dir) || index >= count)
+            /* Display from one fresh directory snapshot, including its DOS
+             * lock bits. Only mutations need to refresh after a prior write. */
+            if (mode && (!location_list(p1.dev, p1.dir) || index >= count))
                 break;
             strcpy(p1.name, directory_entries[index].name);
             n = directory_entries[index++].type;
@@ -500,13 +502,13 @@ __noinline void bank_attribcmd(void)
                 !match(pattern, p1.name))
                 continue;
             found = 1;
-            if (!fileentry(&p1))
-                return;
-            locked = io[entryoffset + 2] & 64;
             if (!mode) {
+                locked = DIR_ACCESS(index - 1) == CBM_A_RO;
                 uppername(p1.name, shown);
                 print(SYSOUT_ATTR_ENTRY, locked ? 'L' : ' ', shown);
             } else {
+                if (!fileentry(&p1))
+                    return;
                 if (mode == 1)
                     io[entryoffset + 2] |= 64;
                 else

@@ -14,28 +14,24 @@ const fixtures = [
 ];
 let checks = '', n = 0;
 for (const mode of ['N', 'T', 'S'])
-    for (const reverse of [false, true])
-        for (const first of [false, true]) {
-            const sw = '/O' + (reverse ? '-' : '') + mode + (first ? 'F' : '');
-            const indices = fixtures.map((_, i) => i);
-            const head = first ? indices.shift() : null;
-            indices.sort((a, b) => {
-                let r = mode === 'T'   ? fixtures[a][1] - fixtures[b][1]
-                        : mode === 'S' ? fixtures[a][2] - fixtures[b][2]
-                                       : 0;
-                return (r || fixtures[a][0].localeCompare(fixtures[b][0])) * (reverse ? -1 : 1)
-            });
-            if (first)
-                indices.unshift(head);
-            checks += `flags=0;if(!dirdefaults("/B${sw}/L/W",&flags))return ${++n};sort=flags&4;${
-                sort}\n`;
-            for (let i = 0; i < indices.length; i++)
-                checks += `if(order[${i}]!=${indices[i]})return ${++n};\n`;
-        }
-for (const sw of ['/OX', '/O-', '/O-NFF', '/ONX', '/OSN', '/O--S'])
+    for (const reverse of [false, true]) {
+        const sw = '/O' + (reverse ? '-' : '') + mode;
+        const indices = fixtures.map((_, i) => i);
+        indices.sort((a, b) => {
+            let r = mode === 'T'   ? fixtures[a][1] - fixtures[b][1]
+                    : mode === 'S' ? fixtures[a][2] - fixtures[b][2]
+                                   : 0;
+            return (r || fixtures[a][0].localeCompare(fixtures[b][0])) * (reverse ? -1 : 1)
+        });
+        checks += `flags=0;if(!dirdefaults("/B${sw}/L/W",&flags))return ${++n};sort=flags&4;${
+            sort}\n`;
+        for (let i = 0; i < indices.length; i++)
+            checks += `if(order[${i}]!=${indices[i]})return ${++n};\n`;
+    }
+for (const sw of ['/OX', '/O-', '/O-NFF', '/ONX', '/OSN', '/O--S', '/OF', '/ONF', '/O-SF'])
     checks += `flags=0;if(diroption("${sw}",&flags))return ${++n};\n`;
 checks +=
-    'flags=0;if(!diroption("/O",&flags)||flags!=4)return 120; if(!dirdefaults("/O-SF/ON",&flags)||flags!=4)return 121;';
+    'flags=0;if(!diroption("/O",&flags)||flags!=4)return 120; if(!dirdefaults("/O-S/ON",&flags)||flags!=4)return 121;';
 checks +=
     'for(i=1;i<=40;++i){editnumber(0,i);if(cells[0]!=176+i/10 || cells[1]!=176+i%10)return 122;}';
 const code = `
@@ -75,4 +71,4 @@ int main(void)
 fs.writeFileSync('build/test-dir-sort.c', code);
 require('./simulator')('build/test-dir-sort.c');
 console.log(
-    'PASS all 12 sort modes, type/size ties, unsigned sizes, first entry, DIRCMD, invalid options');
+    'PASS all six sort modes, type/size ties, unsigned sizes, DIRCMD, invalid options');

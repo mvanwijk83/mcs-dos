@@ -15,6 +15,8 @@ const harness = `
 #define CBM_T_PRG 17
 #define CBM_T_USR 18
 #define CBM_T_REL 19
+#undef imagekind
+#define imagekind(n) (strstr(n,".D64") != 0)
 #define SYSOUT_INVALID_SWITCH "invalid"
 #define SYSOUT_DIR_HEADER "header"
 #define SYSOUT_DIR_WIDE_ENTRY "%s"
@@ -26,10 +28,10 @@ typedef struct Entry {char name[17]; unsigned char type; unsigned int blocks;} E
 typedef struct PartitionInfo {unsigned char type;} PartitionInfo;
 static unsigned char partition_info(unsigned char d,unsigned char n,PartitionInfo *p){return 0;}
 struct Path {unsigned char dev; char name[17]; char dir[128];};
-static struct Entry files[5] = {{"del",CBM_T_DEL,1},{"seq",CBM_T_SEQ,2},{"prg",CBM_T_PRG,3},{"usr",CBM_T_USR,4},{"rel",CBM_T_REL,5}};
+static struct Entry files[6] = {{"del",CBM_T_DEL,1},{"seq",CBM_T_SEQ,2},{"prg",CBM_T_PRG,3},{"usr",CBM_T_USR,4},{"rel",CBM_T_REL,5}};
 static struct Path p1,p2;
 static unsigned char drive, envready, pagelines, redirected, outputcol, ox, aborted;
-static unsigned int count=5, freeblocks, workspace[5];
+static unsigned int count=5, freeblocks, workspace[6];
 static int argc, errors, seen, selected;
 static unsigned char model, entries, blockreports, freereports;
 static unsigned char nativecalls,lastflags,lastfilter,lastmode;
@@ -97,6 +99,25 @@ int main(void) {
     argc=1;envready=1;defaults="/N /ON";dircmd();if(lastflags!=4||lastmode!=2)return 20;
     argc=2;args[1]="/L";dircmd();if(lastflags!=2||lastmode!=2)return 21;
     model=DRIVE_SD2IEC;argc=1;dircmd();if(lastflags!=4||lastmode!=0)return 22;
+    model=DRIVE_1541;envready=0;argc=3;args[1]="/B";
+    count=6;strcpy(files[5].name,"folder");files[5].type=CBM_T_DIR;
+    directory_locks[0]=(1<<2)|(1<<4);
+    args[2]="/AD";errors=seen=0;dircmd();if(errors||seen!=1)return 23;
+    args[2]="/A-D";errors=seen=0;dircmd();if(errors||seen!=5)return 24;
+    args[2]="/al";errors=seen=0;dircmd();if(errors||seen!=2)return 25;
+    args[2]="/a-l";errors=seen=0;dircmd();if(errors||seen!=4)return 26;
+    args[2]="/A";errors=seen=0;dircmd();if(errors||seen!=6)return 27;
+    args[2]="/A-";errors=seen=0;dircmd();if(errors!=1||seen)return 28;
+    args[2]="/ADX";errors=seen=0;dircmd();if(errors!=1||seen)return 29;
+    strcpy(files[2].name,"GAME.D64");strcpy(files[4].name,"DATA.D64");
+    strcpy(files[5].name,"DIR.D64");
+    args[2]="/TI";errors=seen=0;dircmd();if(errors||seen!=2)return 30;
+    args[3]="/AL";argc=4;errors=seen=0;dircmd();if(errors||seen!=2)return 31;
+    args[2]="/A-L";args[3]="/TI";errors=seen=0;dircmd();if(errors||seen)return 32;
+    args[2]="/TI";args[3]="/AD";errors=seen=0;dircmd();if(errors||seen)return 33;
+    args[2]="/AL";args[3]="/TP";errors=seen=0;dircmd();if(errors||seen!=1)return 34;
+    args[2]="/TP";args[3]="/AL";errors=seen=0;dircmd();if(errors||seen!=1)return 35;
+    args[2]="/OF";argc=3;errors=seen=0;dircmd();if(errors!=1||seen)return 36;
     return 0;
 }
 `;

@@ -143,6 +143,7 @@ __noinline unsigned char cmd_root(unsigned char dev)
             goto failed;
         strcpy(directory_entries[count].name, ent.name);
         directory_entries[count].blocks = number;
+        directory_locks[count >> 3] &= ~(1 << (count & 7));
         directory_entries[count++].type = CBM_T_DIR;
     }
     channel_close(2);

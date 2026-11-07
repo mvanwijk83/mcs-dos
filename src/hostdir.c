@@ -168,7 +168,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
     }
     if (!host_open(&p1, &cursor, 4, 0)) return 0;
     if (redirected) { channel_close(4); cursor.done = 1; }
-    if (!recursive && p1.dir[0] && filter == 255) {
+    if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         strcpy(entry.name, "."); entry.type = CBM_T_DIR;
         if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
         strcpy(entry.name, "..");
@@ -188,7 +188,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
         if ((flags & 128) && first) have = 0;
         else { previous = entry; have = 1; }
         first = 0;
-        if ((filter != 255 && entry.type != filter) || !match(p1.name, entry.name)) continue;
+        if (!DIR_MATCH(filter, entry.name, entry.type, entry.access) || !match(p1.name, entry.name)) continue;
         if (entry.type == CBM_T_DIR) ++dirs;
         else {
             ++files;
@@ -201,7 +201,8 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
             }
         }
         if (recursive) {
-            if (entry.type == CBM_T_DIR) continue;
+            if (entry.type == CBM_T_DIR &&
+                !DIR_RECURSE_DIR(filter)) continue;
             snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
                      p1.dir, p1.dir[0] ? "\\" : "", entry.name);
             if (!(flags & 2)) uppername(io, io);

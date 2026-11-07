@@ -12,6 +12,7 @@ fs.writeFileSync('build/test-image-names.c',`
 #include <string.h>
 static unsigned char softiec_files=1;
 #define CBM_T_DIR 20
+#define CBM_T_CBM 21
 #define CBM_T_SEQ 16
 #define CBM_T_PRG 17
 #define CBM_T_REL 19
@@ -23,6 +24,8 @@ int main(void){
     if(!softiec_matches((const unsigned char *)dual,strlen(dual),"DUAL SID TEST.D6"))return 1;
     if(imagekind(dual)!=1)return 2;
     ${fixtures.map((f,i)=>`if(imagekind(native${i})!=${f.kind})return ${i+3};`).join('\n')}
+    ${fixtures.map((f,i)=>`if(!!DIR_MATCH(DIR_IMAGES,native${i},CBM_T_SEQ,CBM_A_RW)!=${f.kind?1:0})return ${i+50};`).join('\n')}
+    if(DIR_MATCH(DIR_IMAGES,"folder.d64",CBM_T_DIR,CBM_A_RW))return 90;
     if(imagekind("IMAGE.D64")!=1||imagekind("image.dnp")!=4)return 40;
     if(!softiec_long_equal((const unsigned char *)dual,strlen(dual),"Dual SID Test.d64"))return 41;
     if(softiec_long_equal((const unsigned char *)dual,strlen(dual),"Dual SID Test.d6"))return 42;

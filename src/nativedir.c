@@ -10,7 +10,7 @@ static unsigned char softiec_files, softiec_drive_id;
 typedef struct NativeRow {
     char name[256];
     unsigned long bytes, ordinal;
-    unsigned char type, known;
+    unsigned char type, known, access;
 } NativeRow;
 typedef struct NativeWork {
     NativeRow rows[16], last, entry;
@@ -141,8 +141,9 @@ static void native_keep(NativeState *s, const NativeRow *r)
 static unsigned int native_selected(NativeState *s, NativeRow *r)
 {
     return strcmp(r->name, ".") && strcmp(r->name, "..") &&
-        (s->filter == 255 || r->type == s->filter) &&
-        (!s->recursive || r->type != CBM_T_DIR) && native_match(p2.dir, r->name);
+        DIR_MATCH(s->filter, r->name, r->type, r->access) &&
+        (!s->recursive || r->type != CBM_T_DIR ||
+         DIR_RECURSE_DIR(s->filter)) && native_match(p2.dir, r->name);
 }
 static unsigned int native_start(unsigned int *length, unsigned char *more)
 {
@@ -155,6 +156,7 @@ static void native_row(unsigned int length, unsigned long ordinal)
 {
     memcpy(NW->entry.name, io + 1, length - 1); NW->entry.name[length - 1] = 0;
     NW->entry.type = native_type(NW->entry.name, io[0]);
+    NW->entry.access = io[0] & 1 ? CBM_A_RO : CBM_A_RW;
     NW->entry.ordinal = ordinal; NW->entry.known = 0; NW->entry.bytes = 0;
 }
 static unsigned int native_write(const char *name, unsigned char flags, unsigned char upper)
@@ -406,7 +408,7 @@ __noinline void bank_native_dir(unsigned char flags, unsigned char filter, unsig
     }
     if (fast && !native_summary(&state)) goto finish;
     if (!native_begin(&saved)) goto finish;
-    if (!recursive && p1.dir[0] && filter == 255) {
+    if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         if (native_match(p2.dir, ".")) { outc('.'); if (!native_line()) goto finish; ++state.dirs; }
         if (native_match(p2.dir, "..")) { outc('.'); outc('.'); if (!native_line()) goto finish; ++state.dirs; }
     }

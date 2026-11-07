@@ -32,7 +32,7 @@ __noinline void bank_dirwalk(unsigned char flags, unsigned char filter)
                 for (i = 1; i < count; ++i) {
                     tmp = order[i];
                     j = i;
-                    while (j > ((flags & 128) ? 1 : 0)) {
+                    while (j > 0) {
                         next = order[j - 1];
                         result = 0;
                         if (flags & 16)
@@ -52,8 +52,12 @@ __noinline void bank_dirwalk(unsigned char flags, unsigned char filter)
                 }
             for (i = 0; i < count; ++i) {
                 j = order[i];
-                if (directory_entries[j].type == CBM_T_DIR || directory_entries[j].type == CBM_T_CBM ||
-                    (filter != 255 && directory_entries[j].type != filter) ||
+                if (!DIR_MATCH(filter, directory_entries[j].name, directory_entries[j].type,
+                               DIR_ACCESS(j)) ||
+                    !strcmp(directory_entries[j].name, ".") ||
+                    !strcmp(directory_entries[j].name, "..") ||
+                    ((directory_entries[j].type == CBM_T_DIR || directory_entries[j].type == CBM_T_CBM) &&
+                     !DIR_RECURSE_DIR(filter)) ||
                     !match(pattern, directory_entries[j].name))
                     continue;
                 displaypath(p1.dev, p1.dir, diskcmd);

@@ -49,14 +49,14 @@ static void reset(void) {
     inputs=commands=errors=modes=confirmations=selects=writes=statuses=invalidations=typecalls=0;
     accept=rootok=writeok=commandok=1;model=DRIVE_1581;geometry=3;
     strcpy(working[location_index(9)],"OLD");
-    args[0]="format";args[1]="9:";args[2]="/V:safe";args[3]="/ID:fm";argc=4;
+    args[0]="format";args[1]="9:";args[2]="/V:safe";args[3]="/I:fm";argc=4;
     answers[0]="prompted";answers[1]="pi";lastError=0;
 }
 int main(void) {
     unsigned char i;
     static const char *const formats[]={"81","DD8","HD8","ED8","DDN","HDN","EDN","S8","SN"};
     char option[8], expected[40];
-    static const char petsciiid[]={'/','I','D',':',218,'9',0};
+    static const char petsciiid[]={'/','I',':',218,'9',0};
     reset();formatcmd();
     if(errors||inputs||commands!=1||selects!=1||confirmations!=1||strcmp(diskcmd,"n0:safe,fm")||working[2][0])return 1;
     for(i=0;i<9;++i){
@@ -76,9 +76,9 @@ int main(void) {
     if(errors!=1||confirmations||commands||strcmp(lastError,SYSOUT_FORMAT_INVALID_LABEL))return 7;
     reset();args[2]="/V:12345678901234567";formatcmd();
     if(errors!=1||confirmations||commands)return 8;
-    reset();args[3]="/ID:a,";formatcmd();
+    reset();args[3]="/I:a,";formatcmd();
     if(errors!=1||confirmations||commands)return 9;
-    reset();args[3]="/ID:";formatcmd();if(errors!=1||commands)return 10;
+    reset();args[3]="/I:";formatcmd();if(errors!=1||commands)return 10;
     reset();args[4]="/V:again";argc=5;formatcmd();if(errors!=1||commands)return 11;
     reset();args[1]="9:DIR";formatcmd();if(errors!=1||commands)return 12;
     reset();argc=1;formatcmd();if(errors!=1||commands)return 13;
@@ -86,16 +86,30 @@ int main(void) {
     reset();accept=0;formatcmd();if(errors||inputs||selects||writes||commands||!working[2][0])return 15;
     reset();argc=2;formatcmd();if(errors||inputs!=2||strcmp(diskcmd,"n0:prompted,pi"))return 16;
     reset();argc=3;answers[0]="vi";formatcmd();if(errors||inputs!=1||strcmp(diskcmd,"n0:safe,vi"))return 17;
-    reset();args[2]="/ID:fm";argc=3;formatcmd();if(errors||inputs!=1||strcmp(diskcmd,"n0:prompted,fm"))return 18;
+    reset();args[2]="/I:fm";argc=3;formatcmd();if(errors||inputs!=1||strcmp(diskcmd,"n0:prompted,fm"))return 18;
     reset();args[2]="/V:";formatcmd();if(errors||inputs||strcmp(diskcmd,"n0:MCS-DOS,fm"))return 19;
     reset();rootok=0;formatcmd();if(commands||!working[2][0])return 20;
     reset();commandok=0;formatcmd();if(commands!=1||!working[2][0])return 21;
     reset();model=DRIVE_CMD_FD;args[4]="/F:hdn";argc=5;writeok=0;formatcmd();if(commands||errors!=1)return 22;
     reset();model=DRIVE_1571;geometry=2;formatcmd();if(errors||modes!=1||selects||commands!=1)return 23;
     reset();argc=2;answers[0]="bad,XX,HDN";formatcmd();if(errors!=1||commands||selects)return 24;
-    reset();args[1]="/id:fm";args[2]="/v:safe";args[3]="A:";formatcmd();
+    reset();args[1]="/i:fm";args[2]="/v:safe";args[3]="A:";formatcmd();
     if(errors||commands!=1||p1.dev!=8||strcmp(diskcmd,"n0:safe,fm"))return 25;
     reset();args[3]=petsciiid;formatcmd();if(errors||commands!=1||strcmp(diskcmd,"n0:safe,Z9"))return 26;
+    reset();args[4]="/Q";argc=5;formatcmd();
+    if(errors||inputs||commands!=1||strcmp(diskcmd,"n0:safe"))return 27;
+    reset();args[3]="/I:ignored,bad";args[4]="/q";argc=5;formatcmd();
+    if(errors||inputs||commands!=1||strcmp(diskcmd,"n0:safe"))return 28;
+    reset();args[2]="/Q";argc=3;formatcmd();
+    if(errors||inputs!=1||strcmp(diskcmd,"n0:prompted"))return 29;
+    reset();args[2]="/Q";argc=3;accept=0;formatcmd();
+    if(errors||inputs||commands||selects)return 30;
+    reset();model=DRIVE_CMD_FD;args[4]="/Q";argc=5;formatcmd();
+    if(errors!=1||commands||writes||confirmations||strcmp(lastError,SYSOUT_FORMAT_QUICK_UNSUPPORTED))return 31;
+    reset();model=DRIVE_CMD_HD;args[4]="/Q";argc=5;formatcmd();
+    if(errors!=1||commands||writes||confirmations)return 32;
+    reset();args[3]="/ID:fm";formatcmd();
+    if(errors!=1||commands||confirmations||strcmp(lastError,SYSOUT_INVALID_SWITCH))return 33;
     return 0;
 }
 `);

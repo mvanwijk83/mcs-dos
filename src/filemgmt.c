@@ -90,20 +90,46 @@ __noinline void bank_dircmd(void)
         if (args[i][0] == '/') {
             if (toupper(args[i][1]) == 'T' && args[i][2] && !args[i][3]) {
                 type = toupper(args[i][2]);
-                if (type == 'P')
-                    filter = CBM_T_PRG;
+                if (type == 'I')
+                    type = DIR_IMAGES;
+                else if (type == 'P')
+                    type = CBM_T_PRG;
                 else if (type == 'S')
-                    filter = CBM_T_SEQ;
+                    type = CBM_T_SEQ;
                 else if (type == 'U')
-                    filter = CBM_T_USR;
+                    type = CBM_T_USR;
                 else if (type == 'R')
-                    filter = CBM_T_REL;
+                    type = CBM_T_REL;
                 else if (type == 'D')
-                    filter = CBM_T_DEL;
+                    type = CBM_T_DEL;
                 else {
                     error(SYSOUT_INVALID_SWITCH);
                     return;
                 }
+
+                filter = (filter == 255 ? 0 : filter & 224) | type;
+            } else if (toupper(args[i][1]) == 'A') {
+                const char *attr = args[i] + 2;
+                unsigned char selection = 0;
+                if (*attr == '-') {
+                    selection = DIR_ATTR_NOT;
+                    ++attr;
+                }
+                if (toupper(*attr) == 'D')
+                    selection |= DIR_ATTR_D;
+                else if (toupper(*attr) == 'L')
+                    selection |= DIR_ATTR_L;
+                else if (*attr || selection) {
+                    error(SYSOUT_INVALID_SWITCH);
+                    return;
+                }
+                if (*attr && *++attr) {
+                    error(SYSOUT_INVALID_SWITCH);
+                    return;
+                }
+                filter = (filter & DIR_TYPE_MASK) | selection;
+                if (filter == DIR_TYPE_MASK)
+                    filter = 255;
             } else if (!stricmp(args[i], "/N"))
                 native = 1;
             else if (!stricmp(args[i], "/S"))
@@ -153,7 +179,7 @@ __noinline void bank_dircmd(void)
         for (i = 1; i < count; ++i) {
             tmp = order[i];
             j = i;
-            while (j > ((flags & 128) ? 1 : 0) && bank_dircompare(order[j - 1], tmp, flags) > 0) {
+            while (j > 0 && bank_dircompare(order[j - 1], tmp, flags) > 0) {
                 order[j] = order[j - 1];
                 --j;
             }
@@ -161,7 +187,7 @@ __noinline void bank_dircmd(void)
         }
     pagelines = headerlines;
     /* These are display entries, never cached files or traversal targets. */
-    if (p1.dir[0] && filter == 255) {
+    if (p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         for (j = 0; j < 2; ++j) {
             const char *dot = j ? ".." : ".";
             if (!match(p1.name, dot))
@@ -184,7 +210,8 @@ __noinline void bank_dircmd(void)
     }
     for (i = 0; i < count; ++i) {
         j = order[i];
-        if ((filter != 255 && directory_entries[j].type != filter) ||
+        if (!DIR_MATCH(filter, directory_entries[j].name, directory_entries[j].type,
+                       DIR_ACCESS(j)) ||
             !match(p1.name, directory_entries[j].name))
             continue;
         if (directory_entries[j].type == CBM_T_DIR)
@@ -638,6 +665,10 @@ __noinline unsigned char bank_directory(unsigned char dev)
         }
         strcpy(directory_entries[count].name, ent.name);
         directory_entries[count].blocks = ent.size;
+        if (ent.access == CBM_A_RO)
+            directory_locks[count >> 3] |= 1 << (count & 7);
+        else
+            directory_locks[count >> 3] &= ~(1 << (count & 7));
         directory_entries[count].type = ent.type == CBM_T_CBM && ent.size >= 120 &&
             !(ent.size % 40) ? CBM_T_DIR : ent.type;
         ++count;
@@ -823,10 +854,6 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
             ++s;
         } else if (*s || (mode & 64))
             return 0;
-        if (toupper(*s) == 'F') {
-            mode |= 128;
-            ++s;
-        }
         if (*s)
             return 0;
         *flags = (*flags & 11) | mode;

@@ -17,7 +17,7 @@ async function main(){
         await s.enter('cd child','9:\\NATIVE\\CHILD>');
         const before=hash(hd);
         await s.enter('cls','9:\\NATIVE\\CHILD>');
-        let out=await s.enter('format 9: /v:denied /id:xx','9:\\NATIVE\\CHILD>');
+        let out=await s.enter('format 9: /v:denied /i:xx','9:\\NATIVE\\CHILD>');
         assert(out.includes(messages.SYSOUT_FORMAT_CMD_HD_UNSUPPORTED),out);
         assert(!out.includes(messages.SYSOUT_PROCEED_WITH_FORMAT),out);
         assert.equal(hash(hd),before,'HD rejection leaves all disk bytes unchanged');
@@ -33,11 +33,11 @@ async function main(){
         // taking the byte-preservation snapshot for the cancellation check.
         await s.enter('dir \\ /b','8:\\OUTER\\INNER>');
         const populated=hash(disk);
-        await s.enter('format 8: /v:cancelled /id:cc',messages.SYSOUT_PROCEED_WITH_FORMAT);
+        await s.enter('format 8: /v:cancelled /i:cc',messages.SYSOUT_PROCEED_WITH_FORMAT);
         await s.keys('n');await s.wait('8:\\OUTER\\INNER>');
         assert.equal(hash(disk),populated,'declined format preserves the image');
         await s.enter('cls','8:\\OUTER\\INNER>');
-        await s.enter('format /v:"WHOLE DISK" 8: /id:Z9',messages.SYSOUT_PROCEED_WITH_FORMAT);
+        await s.enter('format /v:"WHOLE DISK" 8: /i:Z9',messages.SYSOUT_PROCEED_WITH_FORMAT);
         await s.keys('y');out=await s.wait('8:\\>',120000);
         assert(out.includes(messages.SYSOUT_FORMAT_COMPLETE),out);
         assert(!out.includes(messages.SYSOUT_FORMAT_LABEL_PROMPT),out);
@@ -67,7 +67,7 @@ async function main(){
             await patch(model,[0xa9,7,0x85,accu,0x60]);await patch(sender,[0xa9,1,0x85,accu,0x60]);
             for(const format of ['81','DD8','HD8','ED8','DDN','HDN','EDN','S8','SN']){
                 await s.enter('cls','8:\\>');
-                await s.enter('format 8: /f:'+format.toLowerCase()+' /v:safe /id:fm',messages.SYSOUT_PROCEED_WITH_FORMAT);
+                await s.enter('format 8: /f:'+format.toLowerCase()+' /v:safe /i:fm',messages.SYSOUT_PROCEED_WITH_FORMAT);
                 await s.keys('y');out=await s.wait('8:\\>');
                 assert(out.includes(messages.SYSOUT_FORMAT_COMPLETE),out);
                 const bytes=await monitor.memory(s.command,buffer,buffer+63);
@@ -81,12 +81,23 @@ async function main(){
         fs.writeFileSync(blank,Buffer.alloc(819200));
         await s.command('attach "'+monitorPath(blank)+'" 8');
         await s.enter('0:','0:\\>');
-        await s.enter('format 8: /v:blank /id:bl',messages.SYSOUT_PROCEED_WITH_FORMAT);
+        await s.enter('format 8: /v:blank /i:bl',messages.SYSOUT_PROCEED_WITH_FORMAT);
         await s.keys('y');out=await s.wait('0:\\>',120000);
         assert(out.includes(messages.SYSOUT_FORMAT_COMPLETE),out);
         await s.enter('8:','8:\\>');out=await s.enter('chkdsk','8:\\>');
         assert(out.includes('3,160 available blocks')&&out.includes('0 bytes allocated in 0 files'),out);
         console.log('PASS initially unformatted 1581 disk and preservation of a different selected drive');
+        await s.enter('echo quick payload > oldfile','8:\\>');
+        await s.enter('md child /size:120','8:\\>');
+        await s.enter('cd child','8:\\CHILD>');
+        await s.enter('format 8: /q /v:quick /i:ignored',messages.SYSOUT_PROCEED_WITH_FORMAT);
+        await s.keys('y');out=await s.wait('8:\\>',120000);
+        assert(out.includes(messages.SYSOUT_FORMAT_COMPLETE),out);
+        assert(!out.includes(messages.SYSOUT_DISK_ID_PROMPT),out);
+        await s.enter('cls','8:\\>');out=await s.enter('chkdsk','8:\\>');
+        assert(out.includes('Volume QUICK')&&out.includes('Disk ID is BL'),out);
+        assert(out.includes('3,160 available blocks')&&out.includes('0 bytes allocated in 0 files'),out);
+        console.log('PASS quick 1581 FORMAT from nested path, ignored /I, retained ID and cleared directory');
     }finally{await s.stop();}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

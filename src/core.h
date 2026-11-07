@@ -10,6 +10,7 @@
 #include "storage.h"
 #include "host.h"
 #include "mount.h"
+#include "dir-filter.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
@@ -48,6 +49,11 @@ typedef struct Entry {
 } Entry;
 
 extern Entry directory_entries[MAXFILES];
+/* The bridge starts at $0880 and is limited to 255 bytes by the build.
+ * Its reserved tail at $0980-$09FF holds the 37-byte directory lock bitmap.
+ * Every published cache fills its bits; no startup initialization is needed. */
+extern unsigned char directory_locks[(MAXFILES + 7) / 8];
+typedef char DirectoryLocksFit[(MAXFILES + 7) / 8 <= 128 ? 1 : -1];
 extern unsigned int count;
 extern unsigned char cachedev, cachevalid, drive;
 extern unsigned char optionalheader;

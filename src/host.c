@@ -228,6 +228,7 @@ __noinline int bank_host_find(const Path *p)
             strcpy(directory_entries[0].name, entry.name);
             directory_entries[0].blocks = entry.size;
             directory_entries[0].type = entry.type;
+            directory_locks[0] = entry.access == CBM_A_RO ? 1 : 0;
             count = 1; cachevalid = 0;
             return 0;
         }

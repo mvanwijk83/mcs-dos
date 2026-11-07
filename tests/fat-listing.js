@@ -9,6 +9,7 @@ fs.writeFileSync('build/test-fat-listing.c',`
 #include "../src/host.h"
 #pragma heapsize(0)
 #define CBM_T_DIR 20
+#define CBM_T_CBM 21
 #define CBM_T_SEQ 16
 #define CBM_T_PRG 17
 #define CBM_T_REL 19
@@ -77,6 +78,7 @@ static void item(unsigned int i)
         current.name[19] = 0;
     }
     if (mode == 2 && i % 7 == 0) current.attr = 16;
+    if (mode == 6 && i % 2 == 0) current.attr |= 1;
 }
 static unsigned char host_open(const Path *p,HostCursor *c,unsigned char f,unsigned char h){iecat=0;return 1;}
 static unsigned char host_next(HostCursor *c,struct DirectoryEntry *e){
@@ -166,6 +168,12 @@ int main(void)
     static const char first01[]={70,48,48,49,46,68,54,52,0};
     setup(30,0,"*");
     if(!fat_dir(0,255,0)||!finished()||rows!=32||footerFiles!=30||stats!=30) return 1;
+    // Unsorted metadata must remain exact beyond entry 34 and across batches.
+    // A 31-byte record formerly left that entry's offset high byte at $FF.
+    total=0;for(i=0;i<120;++i)total+=(i*37)%101+1;
+    setup(120,0,"*");
+    if(!fat_dir(0,255,0)||!finished()||rows!=122||footerFiles!=120||stats!=120||
+       footerSummary!=1||footerBytes!=total) return 30;
     setup(400,0,"*");
     if(!fat_dir(4,255,0)||!finished()||rows!=402||!check_order(0)||stats!=400) return 2;
     setup(400,0,"*");
@@ -211,6 +219,16 @@ int main(void)
     if(!fat_dir(4,255,HOST_DIR_NATIVE)||!finished()||footerFiles!=30||stats!=30) return 23;
     setup(30,0,"*");
     if(!fat_dir(0,255,HOST_DIR_NATIVE)||!finished()||pagelines!=37) return 24;
+    setup(30,0,"*");
+    if(!fat_dir(4,DIR_IMAGES,0)||!finished()||footerFiles!=20||footerDirs) return 25;
+    setup(30,6,"*");
+    if(!fat_dir(4,DIR_TYPE_MASK|DIR_ATTR_L,0)||!finished()||footerFiles!=15||footerDirs) return 26;
+    setup(30,6,"*");
+    if(!fat_dir(4,DIR_TYPE_MASK|DIR_ATTR_L|DIR_ATTR_NOT,0)||!finished()||footerFiles!=15||footerDirs!=2) return 27;
+    setup(30,0,"*");
+    if(!fat_dir(4,DIR_TYPE_MASK|DIR_ATTR_D,0)||!finished()||footerFiles||footerDirs!=2) return 28;
+    setup(30,0,"*");
+    if(!fat_dir(4,DIR_TYPE_MASK|DIR_ATTR_D|DIR_ATTR_NOT,0)||!finished()||footerFiles!=30||footerDirs) return 29;
     puts("PASS native alias/FAT listings, global sort, packed overflow, duplicate aliases, filters, redirection and cleanup");
     return 0;
 }

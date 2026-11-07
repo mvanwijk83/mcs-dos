@@ -3,6 +3,9 @@
 #include "core.h"
 #include "memory.h"
 Entry directory_entries[MAXFILES];
+#pragma bss(dir_cache)
+unsigned char directory_locks[(MAXFILES + 7) / 8];
+#pragma bss(bss)
 unsigned int count;
 unsigned char cachedev, cachevalid, drive;
 char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
@@ -223,6 +226,8 @@ void colors(void)
  * Format a byte count with optional thousands separators; the result uses static storage.
  *
  * bytes: Unsigned count to format. */
+/* Small persistent formatting buffers share the bridge's reserved RAM tail. */
+#pragma bss(dir_cache)
 __noinline char *bank_decimal(unsigned long bytes)
 {
     static char number[14];
@@ -239,6 +244,7 @@ __noinline char *bank_decimal(unsigned long bytes)
     } while (bytes);
     return number + pos;
 }
+#pragma bss(bss)
 
 #pragma optimize(pop)
 #pragma code(code)
@@ -426,6 +432,7 @@ unsigned char dosdrives(void)
 /* Format a device using the current drive naming setting; result uses static storage.
  *
  * dev: Device number (0 for cartridge storage, 8-30 for disks). */
+#pragma bss(dir_cache)
 const char *drivename(unsigned char dev)
 {
     static char text[4];
@@ -436,6 +443,7 @@ const char *drivename(unsigned char dev)
         snprintf(text, sizeof(text), "%u", dev);
     return text;
 }
+#pragma bss(bss)
 
 /* Expand the configured dollar codes and display the command prompt. */
 #pragma code(boot_code)

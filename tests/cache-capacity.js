@@ -19,7 +19,7 @@ typedef struct {
 struct DirectoryEntry {
     char name[17];
     unsigned int size;
-    unsigned char type;
+    unsigned char type, access;
 };
 
 static struct {
@@ -100,6 +100,8 @@ static unsigned char directory_read(unsigned char f, struct DirectoryEntry *e)
     }
     sprintf(e->name, "f%03u", cursor - 2);
     e->size = 1;
+    e->access = CBM_A_RW;
+    if ((cursor - 2) & 1) e->access = CBM_A_RO;
     e->type = 16;
     return 0;
 }
@@ -110,7 +112,7 @@ int main(void)
 {
     Path p;
     p.dir[0]=0;
-    unsigned int n, i;
+    unsigned int n, i, k;
     const unsigned int sizes[] = {1, 255, 256, MAXFILES - 1, MAXFILES};
     p.dev = 8;
     for (i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
@@ -122,6 +124,9 @@ int main(void)
         if (!directory(8) || count != n || !cachevalid || closed != 1 || errors ||
             freeblocks != 111)
             return 1;
+        for (k = 0; k < n; ++k)
+            if (k & 1) { if (DIR_ACCESS(k) != CBM_A_RO) return 5; }
+            else if (DIR_ACCESS(k) != CBM_A_RW) return 6;
         sprintf(p.name, "f%03u", n - 1);
         if (findfile(&p) != n - 1)
             return 2;

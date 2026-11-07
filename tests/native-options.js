@@ -9,6 +9,7 @@ fs.writeFileSync('build/test-native-options.c',`
 #include "../src/host.h"
 #pragma heapsize(0)
 #define CBM_T_DIR 20
+#define CBM_T_CBM 21
 #define CBM_T_SEQ 16
 #define CBM_T_PRG 17
 #define CBM_T_REL 19
@@ -75,6 +76,7 @@ static unsigned char item_reply(unsigned int *length,unsigned char *more){
     unsigned int next;
     while(readat<entries){item(readat);if(current.folder==cwd)break;++readat;}
     if(readat==entries){*length=0;*more=active=0;return 1;}
+    if(mode==6&&readat%2==0)current.attr|=1;
     io[0]=current.attr;strcpy(io+1,current.name);*length=1+strlen(current.name);++readat;
     next=readat;while(next<entries){item(next);if(current.folder==cwd)break;++next;}
     *more=active=next<entries;return 1;
@@ -137,6 +139,11 @@ int main(void){
     setup(40,0,"*");native_dir(4|16|64,255,0);if(errors||!ordered(2,1))return 15;
     setup(5,5,"*");native_dir(2,17,1);if(errors||stats||!strstr(output,"long native folder name\\\\child.prg")||strstr(output,".D64"))return 16;
     setup(270,0,"*.D64");native_dir(4|32,255,0);if(errors||footerFiles!=180||!ordered(1,0))return 17;
+    setup(30,0,"*");native_dir(4,DIR_IMAGES,0);if(errors||footerFiles!=20||footerDirs)return 18;
+    setup(30,6,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_L,0);if(errors||footerFiles!=15||footerDirs)return 19;
+    setup(30,6,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_L|DIR_ATTR_NOT,0);if(errors||footerFiles!=15||footerDirs!=2)return 20;
+    setup(30,0,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_D,0);if(errors||footerFiles||footerDirs!=2)return 21;
+    setup(30,0,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_D|DIR_ATTR_NOT,0);if(errors||footerFiles!=30||footerDirs)return 22;
     puts("PASS native DIR names, filtering, all sort directions, overflow, lowercase, type selection, recursion, fast path and cleanup");return 0;
 }
 `);

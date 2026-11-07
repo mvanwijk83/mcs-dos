@@ -447,12 +447,14 @@ __noinline void bank_formatcmd(void)
     static const char *const formats[] = {"81", "DD8", "HD8", "ED8", "DDN", "HDN", "EDN", "S8", "SN"};
     const char *target = 0, *label = 0, *diskid = 0, *format = 0, *colon;
     char name[17], id[3], root[6], extension[4];
-    unsigned char i, n, type, model, lfn;
+    unsigned char i, n, type, model, lfn, quick = 0;
     for (i = 1; i < argc; ++i) {
         if (!strnicmp(args[i], "/V:", 3) && !label)
             label = args[i] + 3;
-        else if (!strnicmp(args[i], "/ID:", 4) && !diskid)
-            diskid = args[i] + 4;
+        else if (!strnicmp(args[i], "/I:", 3) && !diskid)
+            diskid = args[i] + 3;
+        else if (!stricmp(args[i], "/Q"))
+            quick = 1;
         else if (!strnicmp(args[i], "/F:", 3) && !format)
             format = args[i] + 3;
         else if (args[i][0] == '/') {
@@ -486,6 +488,12 @@ __noinline void bank_formatcmd(void)
     model = drivemodel(p1.dev, 1);
     if (!model)
         return;
+    /* Bare NEW on CMD media clears one partition, not the physical disk.
+     * Keep FORMAT whole-disk; its type extensions require an ID/full format. */
+    if (quick && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+        error(SYSOUT_FORMAT_QUICK_UNSUPPORTED);
+        return;
+    }
     if (model == DRIVE_CMD_HD) {
         error(SYSOUT_FORMAT_CMD_HD_UNSUPPORTED);
         return;
@@ -520,7 +528,7 @@ __noinline void bank_formatcmd(void)
         error(strlen(label) > 16 ? SYSOUT_VOLUME_LABEL_TOO_LONG : SYSOUT_FORMAT_INVALID_LABEL);
         return;
     }
-    if (diskid) {
+    if (diskid && !quick) {
         if (strlen(diskid) != 2) {
             error(SYSOUT_DISK_ID_FORMAT);
             return;
@@ -550,20 +558,22 @@ __noinline void bank_formatcmd(void)
     }
     if (!*name)
         strcpy(name, SYSOUT_FORMAT_DEFAULT_LABEL);
-    if (!diskid) {
+    if (!diskid && !quick) {
         outs(SYSOUT_DISK_ID_PROMPT);
         if (!input(line, LINE, 0))
             return;
         diskid = line;
     }
-    if (strlen(diskid) != 2) {
-        error(SYSOUT_DISK_ID_FORMAT);
-        return;
-    }
-    filename(diskid, id);
-    if (!isalnum(id[0]) || !isalnum(id[1])) {
-        error(SYSOUT_DISK_ID_FORMAT);
-        return;
+    if (!quick) {
+        if (strlen(diskid) != 2) {
+            error(SYSOUT_DISK_ID_FORMAT);
+            return;
+        }
+        filename(diskid, id);
+        if (!isalnum(id[0]) || !isalnum(id[1])) {
+            error(SYSOUT_DISK_ID_FORMAT);
+            return;
+        }
     }
     /* Establish physical root only after confirmation and value validation. */
     if (model == DRIVE_1581 || model == DRIVE_CMD_FD || mount_active(p1.dev)) {
@@ -592,7 +602,11 @@ __noinline void bank_formatcmd(void)
     say(SYSOUT_FORMATTING);
     if (type == 2 && !drivemode(p1.dev, 1))
         return;
-    snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s%s%s", name, id, format ? "," : "", format ? format : "");
+    if (quick)
+        snprintf(diskcmd, sizeof(diskcmd), "n0:%s", name);
+    else
+        snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s%s%s", name, id,
+                 format ? "," : "", format ? format : "");
     if (command(p1.dev, diskcmd)) {
         working[location_index(p1.dev)][0] = 0;
         nav_invalidate();

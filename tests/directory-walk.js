@@ -50,6 +50,8 @@ int main(void){
     if(strcmp(output,"8:\\\\ROOT.TXT\\n8:\\\\ONE\\\\A.TXT\\n8:\\\\ONE\\\\INNER\\\\DEEP.TXT\\n8:\\\\TWO\\\\END.TXT\\n"))return 1;
     reset("one","*");dirwalk(0,17);
     if(strcmp(output,"8:\\\\ONE\\\\B.PRG\\n"))return 2;
+    reset("one","*");dirwalk(0,DIR_TYPE_MASK|DIR_ATTR_D);
+    if(strcmp(output,"8:\\\\ONE\\\\INNER\\n"))return 4;
     cmd=1;reset("","*");dirwalk(0,255);
     if(strcmp(output,"8:\\\\@4\\\\B.TXT\\n8:\\\\@4\\\\DOCS\\\\DEEP.TXT\\n8:\\\\@13\\\\A.TXT\\n"))return 3;
     return 0;

@@ -13,7 +13,12 @@ static unsigned char softiec_files, softiec_drive_id;
 typedef struct FatRow {
     HostRecord file;
     unsigned int offset;
+    /* Oscar64's indexed word store wraps Y without carrying when row*stride
+     * ends in $FF (entry 34 with a 31-byte stride). Keep rows power-of-two
+     * sized so writing the filename offset cannot corrupt another record. */
+    unsigned char access, reserved;
 } FatRow;
+typedef char FatRowStride[sizeof(FatRow) == 32 ? 1 : -1];
 typedef struct FatWork {
     FatRow rows[FAT_ROWS + 2];
     char last[256];
@@ -240,8 +245,9 @@ static unsigned int fat_emit(FatListing *listing, const FatRow *row, const char 
 static unsigned int fat_selected(const FatListing *listing, const FatRow *row)
 {
     return strcmp(row->file.name, ".") && strcmp(row->file.name, "..") &&
-        (listing->filter == 255 || row->file.type == listing->filter) &&
-        (!listing->recursive || row->file.type != CBM_T_DIR) &&
+        DIR_MATCH(listing->filter, fat_fullname(row), row->file.type, row->access) &&
+        (!listing->recursive || row->file.type != CBM_T_DIR ||
+         DIR_RECURSE_DIR(listing->filter)) &&
         fat_match(listing->native ? p2.dir : p1.name,
                   listing->native ? fat_fullname(row) : row->file.name);
 }
@@ -267,6 +273,8 @@ static unsigned int fat_collect(FatListing *listing)
             memcpy(native, io + 1, length - 1);
             native[length - 1] = 0;
             row.file.type = fat_type(native, io[0]);
+            row.access = io[0] & 1 ? CBM_A_RO : CBM_A_RW;
+            row.reserved = 0;
             softiec_files = row.file.type != CBM_T_DIR;
             softiec_alias((const unsigned char *)native, length - 1, row.file.name);
             softiec_files = 0;
@@ -370,7 +378,7 @@ __noinline unsigned int bank_fat_dir(unsigned char flags, unsigned char filter, 
         print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
         pagelines = 5;
     }
-    if (!listing.recursive && p1.dir[0] && filter == 255) {
+    if (!listing.recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         memset(&dot, 0, sizeof(dot)); dot.file.type = CBM_T_DIR; dot.file.known = 1;
         strcpy(dot.file.name, ".");
         if (listing.native ? fat_match(p2.dir, ".") : match(p1.name, "."))

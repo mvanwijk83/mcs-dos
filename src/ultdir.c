@@ -96,7 +96,7 @@ static unsigned char ultimate_enrich(HostRecord *r, unsigned char count, unsigne
 }
 /* Keep the output status in the caller-owned totals: the linked optimizer
  * mishandles a byte return across this helper's banked row call. */
-static __noinline void ultimate_emit(const HostRecord *r, unsigned char flags, unsigned char recursive, UltimateTotals *total)
+static __noinline void ultimate_emit(const HostRecord *r, unsigned char flags, unsigned char filter, unsigned char recursive, UltimateTotals *total)
 {
     struct DirectoryEntry entry;
     HostInfo info;
@@ -108,7 +108,7 @@ static __noinline void ultimate_emit(const HostRecord *r, unsigned char flags, u
         else total->bytes += r->bytes;
     }
     if (recursive) {
-        if (r->type != CBM_T_DIR) {
+        if (r->type != CBM_T_DIR || DIR_RECURSE_DIR(filter)) {
             snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
                      p1.dir, p1.dir[0] ? "\\" : "", r->name);
             if (!(flags & 2)) uppername(io, io);
@@ -119,7 +119,7 @@ static __noinline void ultimate_emit(const HostRecord *r, unsigned char flags, u
         info.bytes = r->bytes; info.known = r->known; info.kind = r->kind;
         host_row(&entry, DRIVE_SOFTIEC, flags, 0, &total->col, &info);
     }
-    if ((!recursive || r->type != CBM_T_DIR) &&
+    if ((!recursive || r->type != CBM_T_DIR || DIR_RECURSE_DIR(filter)) &&
         (!total->col || recursive || (flags & 1))) {
         total->ok = page();
         if (stop()) total->ok = 0;
@@ -141,7 +141,7 @@ static __noinline unsigned char ultimate_unsorted(unsigned char flags, unsigned 
         while (count < capacity && !(r = host_next(&cursor, &entry))) {
             if (stop()) goto failed;
             ++ordinal;
-            if ((filter != 255 && entry.type != filter) || !match(p1.name, entry.name)) continue;
+            if (!DIR_MATCH(filter, entry.name, entry.type, entry.access) || !match(p1.name, entry.name)) continue;
             ultimate_record(&records[count++], &entry, ordinal);
         }
         if (redirected) { channel_close(4); cursor.done = 1; }
@@ -149,7 +149,7 @@ static __noinline unsigned char ultimate_unsorted(unsigned char flags, unsigned 
             n = count - i < ULT_CHUNK ? count - i : ULT_CHUNK;
             if (!ultimate_enrich(records + i, n, flags, recursive)) goto failed;
             for (j = i; j < i + n; ++j) {
-                ultimate_emit(&records[j], flags, recursive, total);
+                ultimate_emit(&records[j], flags, filter, recursive, total);
                 if (!total->ok) goto failed;
             }
         }
@@ -183,7 +183,7 @@ static __noinline unsigned char ultimate_ordered(unsigned char flags, unsigned c
             if (!r) {
                 ++ordinal;
                 if (stop()) goto failed;
-                if ((filter != 255 && entry.type != filter) || !match(p1.name, entry.name)) continue;
+                if (!DIR_MATCH(filter, entry.name, entry.type, entry.access) || !match(p1.name, entry.name)) continue;
                 if ((flags & 128) && ordinal == 1) {
                     if (first) { ultimate_record(fixed, &entry, ordinal); fixedrow = 1; }
                     continue;
@@ -204,14 +204,14 @@ static __noinline unsigned char ultimate_ordered(unsigned char flags, unsigned c
         ultimate_sort(used, flags);
         if (fixedrow) {
             if (!ultimate_enrich(fixed, 1, flags, recursive)) return 0;
-            ultimate_emit(fixed, flags, recursive, total);
+            ultimate_emit(fixed, flags, filter, recursive, total);
             if (!total->ok) return 0;
         }
         for (i = 0; i < used; i += ULT_CHUNK) {
             count = used - i < ULT_CHUNK ? used - i : ULT_CHUNK;
             if (!keyed && !ultimate_enrich(&ULT_SCRATCH->sorted[i], count, flags, recursive)) return 0;
             for (r = i; r < i + count; ++r) {
-                ultimate_emit(&ULT_SCRATCH->sorted[r], flags, recursive, total);
+                ultimate_emit(&ULT_SCRATCH->sorted[r], flags, filter, recursive, total);
                 if (!total->ok) return 0;
             }
         }
@@ -233,16 +233,16 @@ __noinline unsigned char bank_ultimate_dir(unsigned char flags, unsigned char fi
         uppername(p1.dir, io);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io); pagelines = 5;
     }
-    if (!recursive && p1.dir[0] && filter == 255) {
+    if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         dot->type = CBM_T_DIR; dot->bytes = dot->kind = 0; dot->known = 1;
         strcpy(dot->name, ".");
         if (match(p1.name, dot->name)) {
-            ultimate_emit(dot, flags, 0, &total);
+            ultimate_emit(dot, flags, filter, 0, &total);
             if (!total.ok) goto finished;
         }
         strcpy(dot->name, "..");
         if (match(p1.name, dot->name)) {
-            ultimate_emit(dot, flags, 0, &total);
+            ultimate_emit(dot, flags, filter, 0, &total);
             if (!total.ok) goto finished;
         }
     }

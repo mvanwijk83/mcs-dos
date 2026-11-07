@@ -251,8 +251,27 @@ redirection cursor ownership, selective metadata and cancellation/error cleanup.
 scans aliases together, stats only capped sizes and restores the DOS path.
 `image-names` checks real ASCII FAT names and PETSCII shell extensions with
 both compiler character maps, including the truncated DUAL SID TEST.D6 alias.
+Native DIR tests retain the header and allocation footer, suppress per-file
+data, wrap 80/255-byte names, preserve logical lines on redirection and restore
+the DOS path after cancellation. Native MOUNT tests select both disk sides
+behind one IEC alias, preserve the exact source on restoration/rollback, and
+round-trip the existing mount-record storage with session format version 5.
+`native-options` checks full-name patterns, lowercase output, type filters,
+every sort direction, recursive paths and cleanup, including 300-entry listings
+and size sorting beyond the 256-entry metadata cache. Plain `/N` and `/N /L`
+retain the streaming fast path. `dir-filter` checks that unsupported drives
+ignore `/N`, including `DIRCMD=/N` combined with explicit switches.
+`fat-listing` checks the native Ultimate backend in ASCII and PETSCII builds,
+including globally sorted packed batches, duplicate aliases, maximum-length
+names and metadata replies, filters, redirection ownership and cancellation.
+`output-flush` checks that committing redirected output preserves a formatted
+line still being emitted from the shared formatting buffer.
 `node tests/host-session.js --listing --overflow` checks the linked cartridge
 with 91 real files, confirming that sorted output continues past the buffer.
+`node tests/host-session.js --listing --native` checks native-mode bank dispatch,
+long-name command parsing and BASIC mount-state restoration in the actual CRT.
+Its Ultimate drive/mount boundaries are stubbed; protocol fixtures cover the
+native directory enumeration and the exact UCI filename sent for each side.
 `ultimate-dir-benchmark` is an explicitly authorized live-hardware harness:
 its isolated cartridge copies disable pagination and expose jiffy timings in
 unused RAM. It does not inject executable code or alter the production build.

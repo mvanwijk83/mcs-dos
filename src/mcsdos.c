@@ -17,6 +17,8 @@
 #pragma compile("volume.c")
 #pragma compile("host.c")
 #pragma compile("softiec.c")
+#pragma compile("nativedir.c")
+#pragma compile("fatdir.c")
 #pragma compile("hostdir.c")
 #pragma compile("ultdir.c")
 #pragma compile("mount.c")

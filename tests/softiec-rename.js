@@ -7,11 +7,20 @@ fs.writeFileSync('build/test-softiec-rename.c', `
 #define CLOCKS_PER_SEC 60
 typedef unsigned long clock_t;
 typedef struct Path {unsigned char dev;char name[17],dir[128];} Path;
+#define MOUNT_NATIVE 128
+#define SOFTIEC_MOUNT_NATIVE 4
+typedef struct MountRecord {unsigned char dev,source,model,type;char dir[128],name[17];} MountRecord;
+static unsigned char softiec_long_mount(MountRecord *record);
 typedef struct HostRecord {char name[17];unsigned long bytes,ordinal;unsigned char type,known,kind;} HostRecord;
 #define CBM_T_DIR 20
 static Path p1={11,"VERY LONG SOURCE","USB1\\\\VERY LONG PARENT"},p2={11,"NEW",""};
 static unsigned int ultimatebase=0xde1c,ticks;
 static unsigned char io[256],aborted;
+static unsigned char redirected,ox,outputcol,pagelines;
+static char output[2048];static unsigned int outused;
+static void outc(unsigned char c){output[outused++]=c;output[outused]=0;ox=(ox+1)%40;outputcol=1;}
+static void newline(void){output[outused++]=10;output[outused]=0;ox=outputcol=0;}
+static unsigned char page(void){++pagelines;return !aborted;}
 static unsigned char softiec_files,softiec_drive_id;
 static unsigned char list_tried,list_saved,list_valid;
 static unsigned long softiec_file_size;
@@ -21,13 +30,13 @@ static unsigned char request[600],reply[600],statuses[64];
 static unsigned int sent,bytes,at,statbytes,statat;
 static unsigned char pending,more,listing,index,cwd,mode,timeout,inject,renamed,renames,restores,errors,aborts,writes;
 static unsigned char mountedid,mountcalls,ejectcalls;
-static unsigned char getpaths,diropens,cancel;
+static unsigned char getpaths,diropens,cancel,cancel_output;
 static HostRecord batch[2];
 static char native_names[512];
 static char mountedname[128];
 static char path[600],from[256],to[32];
 static void error(const char *s){++errors;strcpy(last,s);}
-static unsigned char stop(void){if(cancel&&softiec_files&&cwd==2){aborted=1;return 1;}return 0;}
+static unsigned char stop(void){if((cancel&&softiec_files&&cwd==2)||(cancel_output&&outused>8)){aborted=1;return 1;}return 0;}
 static clock_t clock(void){return ticks++;}
 static unsigned char count(void){return cwd==0?2:cwd==1?1:cwd==2?(mode==3?3:2):0;}
 static void status(const char *s){strcpy((char *)statuses,s);statbytes=strlen(s);statat=0;}
@@ -38,8 +47,10 @@ static void item(void){
     else if(!index){name=mode==15?"dual sid test.d64":mode>=9?"Very Long Image Disk File.d64":"note.seq";attr=0;}
     else if(mode==7)name="Different folder";
     else name=index==1?"Very Long Source Folder":"Very Long Source Other";
+    if(mode==17&&cwd==2){name=index?"Last Ninja 2, the [Side B].d64":"Last Ninja 2, the [Side A].d64";attr=0;}
     reply[0]=attr;strcpy((char *)reply+1,name);bytes=1+strlen(name);at=0;
     if(mode==16&&cwd==2&&!index){memset(reply+1,'x',251);memcpy(reply+252,".d64",4);bytes=256;reply[256]=0;}
+    if(mode==19&&cwd==2&&!index){memset(reply+1,'a',76);memcpy(reply+77,".d64",4);bytes=81;reply[81]=0;}
     if((mode==12||mode==15)&&cwd==2&&!index){unsigned int j;for(j=1;j<bytes;++j){
         if(reply[j]>=193&&reply[j]<=218)reply[j]-=128;
         else if(reply[j]>=65&&reply[j]<=90)reply[j]+=32;
@@ -106,14 +117,16 @@ static void poke(unsigned int p,unsigned char v){
 }
 #define PEEK(p) peek(p)
 #define POKE(p,v) poke(p,v)
-${functions('imagekind','softiec_wait','softiec_reply','softiec_dos','softiec_hex','softiec_matches','softiec_resolve','softiec_prefix','softiec_native','softiec_rename','softiec_file','softiec_mount','softiec_metadata','softiec_list_begin','softiec_list','ultimate_drive')}
+${functions('imagekind','softiec_wait','softiec_reply','softiec_dos','softiec_hex','softiec_alias','softiec_matches','softiec_resolve','softiec_prefix','softiec_native','softiec_rename','softiec_file','softiec_mount','softiec_metadata','softiec_list_begin','softiec_list','softiec_long_equal','softiec_long_mount','ultimate_drive')}
 static void reset(unsigned char m){
     mode=m;sent=pending=more=listing=cwd=timeout=inject=renamed=renames=restores=errors=aborts=writes=aborted=0;ticks=0;
     strcpy(path,"/SD/Original/");last[0]=0;
     softiec_files=softiec_drive_id=mountedid=mountcalls=ejectcalls=statcalls=0;mountedname[0]=0;
-    list_tried=list_saved=list_valid=getpaths=diropens=cancel=0;
+    list_tried=list_saved=list_valid=getpaths=diropens=cancel=cancel_output=0;
+    outused=ox=outputcol=pagelines=redirected=0;output[0]=0;
 }
 int main(void){
+    MountRecord native;
     reset(0);softiec_rename();
     if(errors||!renamed||renames!=1||restores!=1||strcmp(path,"/SD/Original/")||strcmp(from,"Very Long Source Folder")||strcmp(to,"new"))return 1;
     reset(2);softiec_rename();if(errors!=1||renamed||renames!=1||restores!=1||strcmp(path,"/SD/Original/")||strcmp(last,"INVALID NAME"))return 2;
@@ -163,6 +176,18 @@ int main(void){
     reset(16);strcpy(batch[0].name,"XXXXXXXXXXXXXXXX");batch[0].known=2;
     if(!softiec_list(&p1,batch,1,native_names)||batch[0].known!=1||batch[0].kind!=1||strlen(native_names)!=255||statcalls!=1)return 35;
     if(!softiec_list(0,0,0,0)||strcmp(path,"/SD/Original/"))return 36;
+    reset(17);strcpy(p1.name,"LAST NINJA 2, TH");
+    if(softiec_mount(&p1,8,0)||mountcalls||restores!=1||strcmp(path,"/SD/Original/")||strcmp(statusbuf,SYSOUT_AMBIGUOUS_FILE_NAME))return 37;
+    reset(17);memset(&native,0,sizeof(native));native.dev=8;native.type=MOUNT_NATIVE;
+    strcpy(native.dir,"USB1\\\\VERY LONG PARENT\\\\Last Ninja 2, the [Side B].d64");
+    if(!softiec_mount((const Path *)&native,8,SOFTIEC_MOUNT_NATIVE)||mountcalls!=1||strcmp(mountedname,"Last Ninja 2, the [Side B].d64")||strcmp(path,"/SD/Original/"))return 38;
+    if(!softiec_long_mount(&native)||mountcalls!=2||strcmp(mountedname,"Last Ninja 2, the [Side B].d64"))return 39;
+    reset(17);strcpy(native.dir,"USB1\\\\VERY LONG PARENT\\\\LAST NINJA 2, TH");
+    if(softiec_long_mount(&native)||mountcalls||strcmp(statusbuf,SYSOUT_AMBIGUOUS_FILE_NAME)||strcmp(path,"/SD/Original/"))return 40;
+    reset(17);strcpy(native.dir,"USB1\\\\VERY LONG PARENT\\\\Last Ninja 2, the [Side C].d64");
+    if(softiec_long_mount(&native)||mountcalls||strcmp(statusbuf,SYSOUT_FILE_NOT_FOUND)||strcmp(path,"/SD/Original/"))return 51;
+    reset(17);strcpy(native.dir,"USB1\\\\VERY LONG PARENT\\\\Last Ninja 2, the [Side A].d64");
+    if(!softiec_long_mount(&native)||strcmp(mountedname,"Last Ninja 2, the [Side A].d64"))return 52;
     return 0;
 }
 `);

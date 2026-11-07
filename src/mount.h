@@ -5,8 +5,12 @@
 #define MOUNT_COUNT 3
 #define MOUNT_RECORD_SIZE 149
 #define MOUNT_STATE_SIZE 575
+#define MOUNT_NATIVE 128
+#define SOFTIEC_MOUNT_NATIVE 4
 typedef struct MountRecord {
     unsigned char dev, source, model, type;
+    /* Native Ultimate records store parent + full leaf in dir; name retains
+     * the IEC alias for protecting the mounted file from ordinary commands. */
     char dir[128], name[17];
 } MountRecord;
 extern MountRecord mounts[MOUNT_COUNT];

@@ -6,7 +6,9 @@ const harness = `
 #include <string.h>
 #include "../tests/location-fixture.h"
 #undef host_device
+#undef host_dir
 #define host_device(d) (model>=DRIVE_SOFTIEC)
+#define HOST_DIR_NATIVE 2
 #include <ctype.h>
 #define CBM_T_DEL 0
 #define CBM_T_SEQ 16
@@ -25,13 +27,16 @@ typedef struct PartitionInfo {unsigned char type;} PartitionInfo;
 static unsigned char partition_info(unsigned char d,unsigned char n,PartitionInfo *p){return 0;}
 struct Path {unsigned char dev; char name[17]; char dir[128];};
 static struct Entry files[5] = {{"del",CBM_T_DEL,1},{"seq",CBM_T_SEQ,2},{"prg",CBM_T_PRG,3},{"usr",CBM_T_USR,4},{"rel",CBM_T_REL,5}};
-static struct Path p1;
+static struct Path p1,p2;
 static unsigned char drive, envready, pagelines, redirected, outputcol, ox, aborted;
 static unsigned int count=5, freeblocks, workspace[5];
 static int argc, errors, seen, selected;
 static unsigned char model, entries, blockreports, freereports;
+static unsigned char nativecalls,lastflags,lastfilter,lastmode;
+static void host_dir(unsigned char f,unsigned char t,unsigned char r){if(r&HOST_DIR_NATIVE)++nativecalls;lastflags=f;lastfilter=t;lastmode=r;}
 static const char *args[5];
-static char *envget(const char *s) {return 0;}
+static const char *defaults;
+static char *envget(const char *s) {return (char *)defaults;}
 static char io[256];
 static int path(const char *s, struct Path *p) {strcpy(p->name,s);return 1;}
 static int directory(unsigned char d) {return 1;}
@@ -54,7 +59,7 @@ static const char *decimal(unsigned int n) {return "";}
 static int page(void) {return 1;}
 static void outs(const char *s) {ox=outputcol=1;}
 static void newline(void) {ox=outputcol=0;}
-${functions('diroption','dirdefaults','dircompare','direntry','dirfooter','dircmd')}
+${functions('diroption','dirdefaults','dircompare','direntry','dirfooter','dirpath','dircmd')}
 int main(void) {
     int i;
     static const char *types[5]={"/TD","/TS","/TP","/TU","/TR"};
@@ -81,6 +86,17 @@ int main(void) {
     dircmd();if(entries || blockreports || freereports)return 11; /* Host listings use their own backend. */
     model=DRIVE_1541;entries=blockreports=freereports=0;
     dircmd();if(entries!=5 || blockreports!=5 || freereports!=1)return 12;
+    model=DRIVE_SOFTIEC;argc=2;args[1]="/N";errors=nativecalls=0;dircmd();
+    if(errors||nativecalls!=1)return 13;
+    argc=3;args[2]="/B";dircmd();if(errors!=1||nativecalls!=1)return 14;
+    argc=2;model=DRIVE_SD2IEC;dircmd();if(errors!=1||nativecalls!=1)return 15;
+    model=DRIVE_1541;args[2]="/B";argc=3;seen=0;dircmd();if(errors!=1||seen!=5)return 16;
+    model=DRIVE_SOFTIEC;argc=3;args[2]="/L";dircmd();if(lastflags!=2||nativecalls!=2)return 17;
+    argc=4;args[2]="/OS";args[3]="/S";dircmd();if(lastflags!=36||lastmode!=3)return 18;
+    args[2]="/TP";args[3]="*.D64";dircmd();if(lastfilter!=CBM_T_PRG||strcmp(p2.dir,"*.D64"))return 19;
+    argc=1;envready=1;defaults="/N /ON";dircmd();if(lastflags!=4||lastmode!=2)return 20;
+    argc=2;args[1]="/L";dircmd();if(lastflags!=2||lastmode!=2)return 21;
+    model=DRIVE_SD2IEC;argc=1;dircmd();if(lastflags!=4||lastmode!=0)return 22;
     return 0;
 }
 `;

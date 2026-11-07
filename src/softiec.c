@@ -7,141 +7,9 @@ static unsigned char softiec_files, softiec_drive_id;
 unsigned long softiec_file_size;
 unsigned char softiec_file_kind;
 static unsigned char list_tried, list_saved, list_valid;
+__noinline unsigned char bank_softiec_long_mount(MountRecord *record);
 
-static unsigned char softiec_wait(unsigned char mask, unsigned char value)
-{
-    clock_t started = clock();
-    while ((PEEK(ultimatebase) & mask) != value)
-        if ((clock_t)(clock() - started) >= 2 * CLOCKS_PER_SEC) return 0;
-    return 1;
-}
-
-/* Every MMIO byte is stored: unused reads can be removed by Oscar64. A reply
- * is acknowledged only after both FIFOs have been consumed. */
-static unsigned char softiec_reply(unsigned char *data, unsigned int capacity,
-                                  unsigned int *length, unsigned char *more)
-{
-    unsigned int n = 0;
-    unsigned char s = 0, c;
-    if (!softiec_wait(0x22, 0x20)) goto failed;
-    *more = !!(PEEK(ultimatebase) & 0x10);
-    while (PEEK(ultimatebase) & 128) {
-        if (n == capacity) goto failed;
-        data[n++] = PEEK(ultimatebase + 2);
-    }
-    *length = n;
-    while (PEEK(ultimatebase) & 64) {
-        if (s == sizeof(statusbuf) - 1) goto failed;
-        c = PEEK(ultimatebase + 3);
-        statusbuf[s++] = c;
-    }
-    statusbuf[s] = 0;
-    POKE(ultimatebase, 2);
-    if ((!s && *more) || (s >= 2 && statusbuf[0] == 48 && statusbuf[1] == 48)) return 1;
-    if (!s) strcpy(statusbuf, SYSOUT_ULTIMATE_DOS_FAILED);
-    return 0;
-failed:
-    POKE(ultimatebase, 4);
-    strcpy(statusbuf, SYSOUT_ULTIMATE_DOS_FAILED);
-    return 0;
-}
-
-/* DOS target 2 has a separate path from the Software IEC drive. Original
- * commands only: GET_PATH, CHANGE_DIR, OPEN_DIR, READ_DIR and RENAME_FILE. */
-static unsigned char softiec_dos(unsigned char command, const char *first, const char *second,
-                                unsigned char *data, unsigned int capacity,
-                                unsigned int *length, unsigned char *more)
-{
-    const char *s;
-    if (!softiec_wait(0xfd, 0)) {
-        strcpy(statusbuf, SYSOUT_ULTIMATE_DOS_FAILED);
-        return 0;
-    }
-    POKE(ultimatebase + 1, 2);
-    POKE(ultimatebase + 1, command);
-    if (command == 0x23 || command == 0x24) POKE(ultimatebase + 1, softiec_drive_id);
-    s = first;
-    if (s) do { POKE(ultimatebase + 1, *s); } while (*s++);
-    s = second;
-    if (s) do { POKE(ultimatebase + 1, *s); } while (*s++);
-    POKE(ultimatebase, 1);
-    if (!softiec_reply(data, capacity, length, more)) return 0;
-    if (command != 0x14 && *more) {
-        POKE(ultimatebase, 4);
-        strcpy(statusbuf, SYSOUT_ULTIMATE_DOS_FAILED);
-        return 0;
-    }
-    return 1;
-}
-
-static unsigned char softiec_hex(unsigned char c)
-{
-    if (c >= 48 && c <= 57) return c - 48;
-    if (c >= 65 && c <= 70) return c - 55;
-    if (c >= 97 && c <= 102) return c - 87;
-    return 255;
-}
-
-/* Match the original firmware's FAT-to-IEC rendering: {hex} escapes, ASCII
- * upper case, sixteen displayed bytes, and the parser's trailing-space trim.
- * Enumerating actual names avoids guessing from truncated IEC aliases. */
-static unsigned char softiec_matches(const unsigned char *native, unsigned int length, const char *name)
-{
-    char shown[17];
-    unsigned int at = 0;
-    unsigned char used = 0, escape = 0, c, h, l;
-    /* IEC presents these as CBM types and omits their FAT suffix. */
-    if (softiec_files && length >= 4 && native[length - 4] == 46) {
-        c = native[length - 3] & 0x5f; h = native[length - 2] & 0x5f; l = native[length - 1] & 0x5f;
-        if ((c == 80 && h == 82 && l == 71) || (c == 83 && h == 69 && l == 81) ||
-            (c == 82 && h == 69 && l == 76) || (c == 85 && h == 83 && l == 82)) length -= 4;
-    }
-    while (at < length && used < 16) {
-        c = native[at];
-        if (c == 123) { escape = 1; if (++at == length) break; c = native[at]; }
-        if (escape) {
-            if (at + 1 == length) break;
-            h = softiec_hex(native[at]); l = softiec_hex(native[at + 1]);
-            if (h != 255 && l != 255) { shown[used++] = (h << 4) | l; at += 2; }
-            else escape = 0;
-        } else if (c == 125) { escape = 0; ++at; }
-        else {
-            shown[used++] = c >= 97 && c <= 122 ? c - 32 : c;
-            ++at;
-        }
-    }
-    while (used && shown[used - 1] == ' ') --used;
-    shown[used] = 0;
-    return !stricmp(shown, name);
-}
-
-/* workspace[512..767] receives the unique actual directory name. */
-static unsigned char softiec_resolve(const char *name)
-{
-    unsigned int length;
-    unsigned char more, found = 0, duplicate = 0;
-    if (!softiec_dos(0x13, 0, 0, io, sizeof(io), &length, &more)) {
-        if (statusbuf[0] == 48 && statusbuf[1] == 49) strcpy(statusbuf, SYSOUT_DIRECTORY_NOT_FOUND);
-        return 0;
-    }
-    if (!softiec_dos(0x14, 0, 0, io, sizeof(io), &length, &more)) return 0;
-    for (;;) {
-        if (length > 1 && (!!(io[0] & 16) != !!softiec_files) && softiec_matches(io + 1, length - 1, name)) {
-            if (found) duplicate = 1;
-            else {
-                memcpy(workspace + 512, io + 1, length - 1);
-                workspace[512 + length - 1] = 0;
-                found = 1;
-            }
-        }
-        if (!more) break;
-        if (stop()) { POKE(ultimatebase, 4); return 0; }
-        if (!softiec_reply(io, sizeof(io), &length, &more)) return 0;
-    }
-    if (duplicate) strcpy(statusbuf, SYSOUT_AMBIGUOUS_DIRECTORY);
-    else if (!found) strcpy(statusbuf, SYSOUT_DIRECTORY_NOT_FOUND);
-    return found && !duplicate;
-}
+#include "softiec-io.h"
 
 /* Restrict explicit device numbers to powered Ultimate emulated drives.
  * Never use the firmware's implicit "last mounted drive" destination. */
@@ -201,12 +69,17 @@ static unsigned char softiec_file(const Path *p, const char *name, unsigned char
     else ok = softiec_dos(0x23, workspace + 512, 0, io, sizeof(io), &length, &more);
 finished:
     softiec_files = 0;
+    /* Restoring the DOS path replaces statusbuf; retain a resolution failure
+     * so the caller can distinguish an ambiguous file from a mount error. */
+    if (!ok) strcpy(workspace + 832, statusbuf);
     if (saved && !softiec_dos(0x11, workspace, 0, io, sizeof(io), &length, &more)) ok = 0;
+    else if (!ok) strcpy(statusbuf, workspace + 832);
     return ok;
 }
 
 __noinline unsigned char bank_softiec_mount(const Path *p, unsigned char dev, unsigned char unmount)
 {
+    if (unmount == SOFTIEC_MOUNT_NATIVE) return bank_softiec_long_mount((MountRecord *)p);
     return softiec_file(p, p ? p->name : (const char *)0, dev, unmount);
 }
 /* bit 0: resolved native filename; bit 1: exact byte size available. */
@@ -238,6 +111,80 @@ static void softiec_list_begin(const Path *p)
         if (*q) ++q;
     }
     list_valid = 1;
+}
+
+/* Whole-name comparison is independent of the compiler's PETSCII case map. */
+static unsigned char softiec_long_equal(const unsigned char *native, unsigned int size, const char *typed)
+{
+    unsigned int i;
+    unsigned char a, b;
+    if (strlen(typed) != size) return 0;
+    for (i = 0; i < size; ++i) {
+        a = native[i] & 127; b = (unsigned char)typed[i] & 127;
+        if (a >= 97 && a <= 122) a -= 32;
+        if (b >= 97 && b <= 122) b -= 32;
+        if (a != b) return 0;
+    }
+    return 1;
+}
+
+/* Native records reuse dir for the complete shell parent/leaf specification.
+ * Canonical FAT spelling replaces the leaf only after a unique exact match. */
+__noinline unsigned char bank_softiec_long_mount(MountRecord *record)
+{
+    unsigned int length, prefix, leafsize;
+    unsigned char more = 0, n, found = 0, duplicate = 0, saved = 0, ok = 0;
+    char component[17], *leaf = strrchr(record->dir, 0x5c), *q = record->dir;
+    leaf = leaf ? leaf + 1 : record->dir;
+    prefix = leaf - record->dir;
+    softiec_files = 0;
+    if (!ultimatebase || PEEK(ultimatebase + 1) != 0xc9) goto finished;
+    if (!softiec_dos(0x12, 0, 0, (unsigned char *)workspace, 508, &length, &more)) goto finished;
+    workspace[length] = 0; saved = 1;
+    if (!softiec_dos(0x11, "/", 0, io, sizeof(io), &length, &more)) goto finished;
+    while (q < leaf) {
+        n = 0;
+        while (*q && (unsigned char)*q != 0x5c && n < 16) component[n++] = *q++;
+        component[n] = 0;
+        if (!softiec_resolve(component) || !softiec_dos(0x11, workspace + 512, 0, io, sizeof(io), &length, &more)) goto finished;
+        if (*q) ++q;
+    }
+    if (!softiec_dos(0x13, 0, 0, io, sizeof(io), &length, &more) ||
+        !softiec_dos(0x14, 0, 0, io, sizeof(io), &length, &more)) goto finished;
+    for (;;) {
+        if (length > 1 && !(io[0] & 16) && softiec_long_equal(io + 1, length - 1, leaf)) {
+            if (found) duplicate = 1;
+            else { memcpy(workspace + 512, io + 1, length - 1); workspace[511 + length] = 0; found = 1; }
+        }
+        if (!more) break;
+        if (stop()) { POKE(ultimatebase, 4); goto finished; }
+        if (!softiec_reply(io, sizeof(io), &length, &more)) goto finished;
+    }
+    if (duplicate) { strcpy(statusbuf, SYSOUT_AMBIGUOUS_FILE_NAME); goto finished; }
+    if (!found) {
+        /* A short comma-containing IEC alias still gets the usual ambiguity
+         * diagnostic, while full native names never fall back to truncation. */
+        if (strlen(leaf) > 16) { strcpy(statusbuf, SYSOUT_FILE_NOT_FOUND); goto finished; }
+        softiec_files = 1;
+        found = softiec_resolve(leaf); softiec_files = 0;
+        if (!found) goto finished;
+    }
+    leafsize = strlen(workspace + 512);
+    if (prefix + leafsize >= sizeof(record->dir)) { strcpy(statusbuf, SYSOUT_PATH_TOO_LONG); goto finished; }
+    record->type = MOUNT_NATIVE | imagekind(workspace + 512);
+    if (!(record->type & 127)) { strcpy(statusbuf, SYSOUT_UNSUPPORTED_DRIVE_TYPE); goto finished; }
+    softiec_files = 1;
+    softiec_alias((const unsigned char *)workspace + 512, leafsize, record->name);
+    softiec_files = 0;
+    softiec_drive_id = record->dev;
+    ok = softiec_dos(0x23, workspace + 512, 0, io, sizeof(io), &length, &more);
+    if (ok) strcpy(record->dir + prefix, workspace + 512);
+finished:
+    softiec_files = 0;
+    if (!ok) strcpy(workspace + 832, statusbuf);
+    if (saved && !softiec_dos(0x11, workspace, 0, io, sizeof(io), &length, &more)) ok = 0;
+    else if (!ok) strcpy(statusbuf, workspace + 832);
+    return ok;
 }
 
 /* Resolve all pending aliases with one native directory stream. Only capped

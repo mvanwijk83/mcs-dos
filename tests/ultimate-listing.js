@@ -23,15 +23,18 @@ static unsigned long sum,seenbytes[1100];
 static unsigned int seen[1100];
 static unsigned char seentypes[1100],summary;
 static char io[256];
+static unsigned char nativecalls,headers;
 ${fs.readFileSync('src/ultdir.c','utf8').slice(fs.readFileSync('src/ultdir.c','utf8').indexOf('#define ULT_CHUNK'),fs.readFileSync('src/ultdir.c','utf8').indexOf('static void ultimate_record'))}
 static unsigned char location_root(unsigned char d,const char *p){return !*p;}
 static const char *drivename(unsigned char d){return "11";}
 static const char *typename(unsigned char t){return t==CBM_T_DIR?"DIR":t==CBM_T_PRG?"PRG":"SEQ";}
 static void host_volume(const Path *p){}
 static void uppername(const char *s,char *d){strcpy(d,s);}
-static void print(const char *s,...){}
+static void print(const char *s,...){if(!strcmp(s,SYSOUT_DIR_HEADER))++headers;}
 static void say(const char *s){}
 static void newline(void){}
+static void outc(unsigned char c){}
+static unsigned char softiec_names(const Path *p){if(active)return 0;++nativecalls;return 1;}
 static unsigned char stop(void){return aborted;}
 static unsigned char page(void){if(cancelrow&&rows>=cancelrow)aborted=1;return !aborted;}
 static void channel_close(unsigned char f){if(f==4){active=0;++closecalls;}}
@@ -51,7 +54,7 @@ static unsigned char softiec_list(const Path *p,HostRecord *r,unsigned char n,ch
     unsigned char i,needed=0;
     if(!p){++ends;return 1;}
     if(n>12)return 0;
-    for(i=0;i<n;++i)if(r[i].known==2||strlen(r[i].name)==16){
+    for(i=0;i<n;++i)if(r[i].known==2||(strlen(r[i].name)==16&&!r[i].kind)){
         needed=1;r[i].kind=1;
         if(r[i].known==2){++stats;r[i].bytes=10000UL+atoi(r[i].name+1);r[i].known=1;}
     }
@@ -63,7 +66,7 @@ static void host_row(const struct DirectoryEntry *e,unsigned char model,unsigned
     seen[rows]=mode==1?rows:atoi(e->name+1);seenbytes[rows]=info->bytes;seentypes[rows++]=e->type;
 }
 static void host_footer(unsigned int f,unsigned int d,unsigned long total,unsigned char s){files=f;dirs=d;sum=total;summary=s;}
-${functions('imagekind','imageformat','match','ultimate_record','ultimate_compare','ultimate_swap','ultimate_down','ultimate_keep','ultimate_sort','ultimate_enrich','ultimate_emit','ultimate_unsorted','ultimate_ordered','ultimate_dir')}
+${functions('imagekind','imageformat','match','ultimate_record','ultimate_compare','ultimate_swap','ultimate_down','ultimate_keep','ultimate_sort','ultimate_enrich','ultimate_emit','ultimate_unsorted','ultimate_ordered','ultimate_dir').replace('(HostRecord *)files','(HostRecord *)directory_entries')}
 static void reset(void){opens=rows=closecalls=ends=scans=stats=files=dirs=0;sum=0;aborted=active=0;cachevalid=1;}
 int main(void){
     unsigned int i;

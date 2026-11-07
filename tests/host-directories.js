@@ -52,6 +52,7 @@ static unsigned char softiec_metadata(const Path *p,const char *name){
     return 3;
 }
 static void uppername(const char *s,char *p){while(*s)*p++=toupper(*s++);*p=0;}
+static void displaypath(unsigned char dev,const char *path,char *shown){uppername(path,shown);}
 static unsigned char page(void){return 1;}
 static unsigned char stop(void){return 0;}
 static void channel_close(unsigned char f){}

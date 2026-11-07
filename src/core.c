@@ -214,6 +214,8 @@ void colors(void)
     bordercolor(bd);
 }
 
+#pragma code(volume_code)
+#pragma data(volume_data)
 #pragma optimize(push, 0)
 
 /* Oscar64 needs this routine unoptimized for 32-bit decimal division.
@@ -221,7 +223,7 @@ void colors(void)
  * Format a byte count with optional thousands separators; the result uses static storage.
  *
  * bytes: Unsigned count to format. */
-char *decimal(unsigned long bytes)
+__noinline char *bank_decimal(unsigned long bytes)
 {
     static char number[14];
     unsigned char pos = 13, group = 0;
@@ -239,6 +241,8 @@ char *decimal(unsigned long bytes)
 }
 
 #pragma optimize(pop)
+#pragma code(code)
+#pragma data(data)
 
 /* Format allocated disk space, counting the full 256 bytes of each block.
  *
@@ -646,22 +650,17 @@ unsigned char command(unsigned char dev, const char *s)
  *
  * p: Wildcard pattern.
  * s: Native filename, compared byte for byte. */
-unsigned char match(const char *p, const char *s)
+__noinline unsigned char match(const char *p, const char *s)
 {
-    while (*p) {
-        if (*p == '*') {
-            do {
-                if (match(p + 1, s))
-                    return 1;
-            } while (*s++);
-            return 0;
-        }
-        if (!*s || (*p != '?' && *p != *s))
-            return 0;
-        ++p;
-        ++s;
+    const char *star = 0, *retry = 0;
+    while (*s) {
+        if (*p == '*') { star = ++p; retry = s; }
+        else if (*p && (*p == '?' || *p == *s)) { ++p; ++s; }
+        else if (star) { p = star; s = ++retry; }
+        else return 0;
     }
-    return !*s;
+    while (*p == '*') ++p;
+    return !*p;
 }
 
 /* Return the display label for a Commodore file type.

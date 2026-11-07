@@ -83,7 +83,7 @@ for (const generation of [2, 3, 4]) {
     }
 }
 assert.deepEqual(
-    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer', 'volume', 'host', 'hostdir', 'mount', 'ultdir', 'softiec']);
+    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer', 'volume', 'host', 'hostdir', 'mount', 'ultdir', 'softiec', 'nativedir', 'fatdir']);
 for (const b of layout.commandBanks) {
     assert(b.used > 0 && b.used <= 8192);
     assert.equal(b.used + b.free, 8192);

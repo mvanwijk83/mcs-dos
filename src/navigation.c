@@ -69,7 +69,7 @@ __noinline void bank_displaypath(unsigned char dev, const char *dir, char *dst)
             number = number * 10 + *q++ - '0';
         model = modelof(dev);
         if (number && number < 255 && (!*q || *q == 0x5c) &&
-            (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+            (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD || model == DRIVE_SD2IEC)) {
             optionalheader = 1;
             if (partition_info(dev, number, &info) && info.type && info.type != 255 &&
                 info.name[0] && !strpbrk(info.name, "\\:,\"*?/@") &&

@@ -68,7 +68,7 @@ unsigned char location_select(unsigned char d,const char *p){return host_select(
 #pragma optimize(push, 0)
 ${fn('directory_read')}
 #pragma optimize(pop)
-${functions('host_partition','host_begin','host_partfind','host_isdir','host_select','host_open','host_next','host_find','host_complete')}
+${functions('host_partition','host_begin','host_partfind','host_dir_component','host_select','host_open','host_next','host_find','host_complete')}
 int main(void){
     Path p={8,"",""};HostCursor cursor;struct DirectoryEntry e;PartitionInfo info;unsigned int index=0;
     if(!host_open(&p,&cursor,4,0)||!cursor.partitions)return 1;

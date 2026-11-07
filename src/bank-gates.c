@@ -2,9 +2,38 @@
  * Oscar64 allocates a shared call stack and registers for these direct calls.
  * Each returning gate restores the caller's mapping, including nested calls. */
 #include "core.h"
+__noinline unsigned char bank_imagekind(const char *name);
+/* Filename callers supply RAM-backed command, directory or UCI buffers. */
+__noinline unsigned char imagekind(const char *name)
+{
+    unsigned char previous = bank_enter(BANK_MOUNT);
+    unsigned char result = bank_imagekind(name);
+    bank_leave(previous);
+    return result;
+}
+__noinline char *bank_decimal(unsigned long bytes);
+__noinline char *decimal(unsigned long bytes)
+{
+    unsigned char previous = bank_enter(BANK_VOLUME);
+    char *result = bank_decimal(bytes);
+    bank_leave(previous); return result;
+}
+__noinline void bank_native_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
+__noinline unsigned int bank_fat_dir(unsigned char flags, unsigned char filter, unsigned char mode);
+static __noinline unsigned char fat_dir(unsigned char flags, unsigned char filter, unsigned char mode)
+{
+    unsigned char previous = bank_enter(BANK_FATDIR);
+    unsigned char result = bank_fat_dir(flags, filter, mode);
+    bank_leave(previous);
+    return result;
+}
 __noinline unsigned char bank_ultimate_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
 __noinline unsigned char ultimate_dir(unsigned char flags, unsigned char filter, unsigned char recursive)
 {
+    if (!(flags & 32)) {
+        unsigned int result = fat_dir(flags, filter, recursive);
+        if (result != 2) return result;
+    }
     unsigned char previous = bank_enter(BANK_ULTDIR);
     unsigned char result = bank_ultimate_dir(flags, filter, recursive);
     bank_leave(previous); return result;
@@ -156,8 +185,11 @@ __noinline unsigned char host_complete(const Path *p, const char *prefix, unsign
 __noinline void bank_host_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
 __noinline void host_dir(unsigned char flags, unsigned char filter, unsigned char recursive)
 {
-    unsigned char previous = bank_enter(BANK_HOSTDIR);
-    bank_host_dir(flags, filter, recursive);
+    if ((recursive & HOST_DIR_NATIVE) && !(recursive & 1) && !(flags & 32))
+        if (fat_dir(flags, filter, HOST_DIR_NATIVE) != 2) return;
+    unsigned char previous = bank_enter(recursive & HOST_DIR_NATIVE ? BANK_NATIVEDIR : BANK_HOSTDIR);
+    if (recursive & HOST_DIR_NATIVE) bank_native_dir(flags, filter, recursive & 1);
+    else bank_host_dir(flags, filter, recursive);
     bank_leave(previous);
 }
 
@@ -379,7 +411,7 @@ __noinline void bank_dircmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void dircmd(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    unsigned char previous = bank_enter(BANK_ULTDIR);
     bank_dircmd();
     bank_leave(previous);
 }
@@ -821,7 +853,7 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags);
  * flags: Input/output listing and sort flags. */
 __noinline unsigned char diroption(const char *s, unsigned char *flags)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    unsigned char previous = bank_enter(BANK_ULTDIR);
     unsigned char result = bank_diroption(s, flags);
     bank_leave(previous);
     return result;
@@ -836,7 +868,7 @@ __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags);
  * flags: Input/output listing and sort flags. */
 __noinline unsigned char dirdefaults(const char *s, unsigned char *flags)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    unsigned char previous = bank_enter(BANK_ULTDIR);
     unsigned char result = bank_dirdefaults(s, flags);
     bank_leave(previous);
     return result;

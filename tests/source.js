@@ -1,7 +1,7 @@
 require('./setup');
 const fs = require('fs');
-const modules = ['c64-support', 'core', 'edit', 'fileutil', 'filemgmt', 'disk', 'storage', 'storage-cbm', 'storage-cmd', 'navigation', 'transfer', 'volume', 'host', 'hostdir', 'ultdir', 'softiec', 'mount', 'session', 'boot', 'mcsdos'];
-const source = modules.map(name => fs.readFileSync('src/' + name + '.c', 'utf8'))
+const modules = ['c64-support', 'core', 'edit', 'fileutil', 'filemgmt', 'disk', 'storage', 'storage-cbm', 'storage-cmd', 'navigation', 'transfer', 'volume', 'host', 'hostdir', 'ultdir', 'softiec', 'nativedir', 'fatdir', 'mount', 'session', 'boot', 'mcsdos'];
+const source = [fs.readFileSync('src/softiec-io.h','utf8'),...modules.map(name => fs.readFileSync('src/' + name + '.c', 'utf8'))]
                    .join('\n')
                    .replaceAll('\r\n', '\n');
 const header = fs.readFileSync('src/core.h', 'utf8');

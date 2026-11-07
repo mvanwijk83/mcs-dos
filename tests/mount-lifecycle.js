@@ -14,21 +14,31 @@ struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access
 #define MOUNT_COUNT 3
 #define MOUNT_RECORD_SIZE 149
 #define MOUNT_STATE_SIZE 575
+#define MOUNT_NATIVE 128
+#define SOFTIEC_MOUNT_NATIVE 4
 typedef struct Path {unsigned char dev;char name[17],dir[128];} Path;
 typedef struct MountRecord {unsigned char dev,source,model,type;char dir[128],name[17];} MountRecord;
 static MountRecord mounts[3];
 static unsigned char mount_bypass,sd_ready,drive=9,argc,optionalheader,answer=1,prompts,closed,commands,failnew;
-static char mount_hostdir[128],working[24][128],output[1024],last[40],selected[128];
+static char mount_hostdir[128],working[24][128],output[1024],last[40],selected[128],statusbuf[64];
+static char io[256];
 static const char *args[4];
 static unsigned char redirected;
 static Path outputpath,p1;
 #define mount_confirm() yesno(SYSOUT_REPLACE_MOUNT)
 static unsigned char image_entry(unsigned char dev,const char *name,unsigned char directory);
-static unsigned char ultimate,ultcalls,ultdev,ulteject,readat;
+static unsigned char ultimate,ultcalls,ultdev,ulteject,readat,fail_ambiguous,fail_native;
 static unsigned char drivemodel(unsigned char d,unsigned char r){return d==9?DRIVE_SD2IEC:d==11?DRIVE_SOFTIEC:DRIVE_1541;}
 static unsigned char location_index(unsigned char d){return d?d-7:0;}
 static unsigned char ultimate_drive(unsigned char d){return ultimate&&d==8;}
-static unsigned char softiec_mount(const Path *p,unsigned char d,unsigned char u){++ultcalls;ultdev=d;ulteject=u;return 1;}
+static unsigned char softiec_long_mount(MountRecord *r);
+static unsigned char softiec_mount(const Path *p,unsigned char d,unsigned char u){
+    if(u==SOFTIEC_MOUNT_NATIVE)return softiec_long_mount((MountRecord *)p);
+    ++ultcalls;ultdev=d;ulteject=u;
+    if(fail_ambiguous){fail_ambiguous=0;strcpy(statusbuf,SYSOUT_AMBIGUOUS_FILE_NAME);return 0;}
+    strcpy(statusbuf,"00,OK");return 1;
+}
+static unsigned char softiec_long_mount(MountRecord *r){++ultcalls;ultdev=r->dev;ulteject=0;if(fail_native){fail_native=0;strcpy(statusbuf,"89,FAILED");return 0;}return 1;}
 static void error(const char *s){if(!optionalheader){strcat(output,s);strcat(output,"\\n");}}
 static void print(const char *fmt,...){char text[256];va_list a;va_start(a,fmt);vsnprintf(text,sizeof(text),fmt,a);va_end(a);strcat(output,text);}
 static const char *drivename(unsigned char d){return d==8?"8":d==9?"9":"0";}
@@ -59,7 +69,7 @@ static unsigned char path(const char *text,Path *p){
     else {strcpy(p->name,slash?slash+1:full);if(slash)*slash=0;else full[0]=0;strcpy(p->dir,full);}
     return 1;
 }
-${functions('imagekind','imageformat','imagetype','mount_active','mount_geometry','mount_invalidate','mount_reset','close_media','sd_leave','sd_insert','image_entry','mount_select','mount_guard','target_device','mountcmd','mount_restore')}
+${functions('imagekind','imageformat','imagetype','mount_active','mount_geometry','mount_invalidate','mount_reset','close_media','sd_leave','sd_insert','image_entry','mount_select','mount_guard','target_device','mount_source','ultimate_insert','mountcmd','mount_restore')}
 static void invoke(const char *name){argc=2;args[1]=name;output[0]=0;mountcmd(0);}
 int main(void){
     const char native_image[]={68,117,97,108,32,83,73,68,32,84,101,115,116,46,100,54,52,0};
@@ -94,6 +104,18 @@ int main(void){
     mount_reset();if(mount_active(9)||mounts[1].dev||mount_hostdir[0])return 16;
     drive=9;argc=1;n=commands;mountcmd(1);
     if(commands<n+2)return 18;
+    ultimate=1;drive=0;argc=3;args[1]="11:\\\\USB1\\\\FUN.D64";args[2]="8:";
+    fail_ambiguous=1;output[0]=0;mountcmd(0);
+    if(mounts[1].dev||!strstr(output,SYSOUT_AMBIGUOUS_FILE_NAME)||strstr(output,"Cannot mount"))return 21;
+    output[0]=0;mountcmd(0);if(mounts[1].dev!=8)return 22;
+    fail_ambiguous=1;output[0]=0;mountcmd(0);
+    if(mounts[1].dev!=8||strcmp(mounts[1].name,"FUN.D64")||!strstr(output,SYSOUT_AMBIGUOUS_FILE_NAME)||strstr(output,"Cannot mount"))return 23;
+    args[1]="11:\\\\USB1\\\\Last Ninja 2, the [Side B].d64";output[0]=0;mountcmd(0);
+    if(!(mounts[1].type&MOUNT_NATIVE)||strcmp(mounts[1].dir,"USB1\\\\Last Ninja 2, the [Side B].d64")||strcmp(mounts[1].name,"LAST NINJA 2, TH")||!strstr(output,"Last Ninja 2, the [Side B].d64 mounted"))return 24;
+    n=ultcalls;mount_restore();if(ultcalls!=n+1||!(mounts[1].type&MOUNT_NATIVE))return 25;
+    p.dev=11;strcpy(p.dir,"USB1");strcpy(p.name,"LAST NINJA 2, TH");if(mount_guard(&p))return 26;
+    fail_native=1;args[1]="11:\\\\USB1\\\\Last Ninja 2, the [Side C].d64";output[0]=0;n=ultcalls;mountcmd(0);
+    if(ultcalls!=n+2||strcmp(mounts[1].dir,"USB1\\\\Last Ninja 2, the [Side B].d64")||!strstr(output,"Cannot mount Last Ninja 2, the [Side C].d64"))return 27;
     return 0;
 }
 `);

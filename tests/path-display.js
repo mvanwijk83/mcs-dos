@@ -35,6 +35,11 @@ int main(void){
     model=DRIVE_1581;queries=0;displaypath(8,"normal",shown);
     if(strcmp(shown,"NORMAL")||queries)return 8;
     displaypath(8,"",shown);if(*shown)return 9;
+    model=DRIVE_SD2IEC;name="EEPROMFS";
+    displaypath(8,"@4",shown);if(strcmp(shown,"EEPROMFS"))return 10;
+    name="";displaypath(8,"@4",shown);if(strcmp(shown,"@4"))return 11;
+    name="EEPROMFS";displaypath(8,stored,shown);
+    if(strlen(shown)!=127||strncmp(shown,"@4",2))return 12;
     return 0;
 }
 `);

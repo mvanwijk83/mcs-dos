@@ -21,7 +21,7 @@ async function main(){
     }
     const s=await start(hd,disk,true);let prompt='9:\\>';
     async function run(line,expected,next=prompt){
-        if(sd){line=line.replaceAll('\\usb1','\\@1\\usb1');if(expected)expected=expected.replaceAll('\\USB1','\\@1\\USB1');if(!next.includes('\\@1'))next=next.replaceAll('\\USB1','\\@1\\USB1');}
+        if(sd){line=line.replaceAll('\\usb1','\\@1\\usb1');if(expected)expected=expected.replaceAll('\\USB1','\\1541\\USB1');if(!next.includes('\\1541'))next=next.replaceAll('\\USB1','\\1541\\USB1');}
         await s.enter('cls',prompt);const out=await s.enter(line,expected||next);await s.wait(next);prompt=next;
         console.log('PASS '+line);return out;
     }
@@ -48,13 +48,40 @@ async function main(){
             assert(legacyRoot>=0,'legacy SoftIEC absolute-root command is present');
             Buffer.from('CD//\0').copy(crt,legacyRoot);
         }
+        if(process.argv.includes('--native')){
+            const labels=fs.readFileSync('build/easyflash/shell.lbl','utf8');
+            for(const name of ['bank_ultimate_drive','bank_softiec_long_mount']){
+                const addr=parseInt(labels.match(new RegExp('^al ([\\da-f]+) \\.'+name+'$','m'))[1],16);
+                let found=false;
+                for(let at=64;at<crt.length;at+=crt.readUInt32BE(at+4))
+                    if(crt.readUInt16BE(at+10)===20&&crt.readUInt16BE(at+12)===0xa000){
+                        Buffer.from([0xa9,1,0x85,0x1b,0x60]).copy(crt,at+16+addr-0xa000);found=true;
+                    }
+                assert(found);
+            }
+        }
         fs.writeFileSync(base+'.crt',crt);
         await s.command('attach "'+monitorPath(base+'.crt')+'" $20');await s.command('reset 1');await s.wait('0:\\>');
         await run('9:',null,'9:\\>');let out=await run('dir');assert(out.includes(sd?'<FAT>':'USB1'),out);
         await run('md forbidden',messages.SYSOUT_VIRTUAL_ROOT_NO_FILES);
-        if(sd)await run('cd \\@1',null,'9:\\@1>');
+        if(sd)await run('cd \\@1',null,'9:\\1541>');
         await run('cd usb1',null,'9:\\USB1>');await run('echo original > note');
         if(process.argv.includes('--listing')){
+            if(process.argv.includes('--native')){
+                out=await run('dir /n',messages.SYSOUT_ULTIMATE_DOS_FAILED);
+                assert(out.includes('Directory of')&&!out.includes('NOTE'),out);
+                await s.enter('mount "Last Ninja 2, the [Side B].d64" 8:',messages.SYSOUT_REPLACE_MOUNT);
+                await s.enter('y',prompt);
+                const addr=parseInt(fs.readFileSync('build/easyflash/shell.lbl','utf8').match(/^al ([\da-f]+) \.mounts$/m)[1],16)+149;
+                await s.command('bank ram');const saved=await require('./monitor').memory(s.command,addr,addr+148);await s.command('bank cpu');
+                assert.equal(saved[0],8);assert.equal(saved[1],9);assert(saved[3]&128);
+                const shown=String.fromCharCode(...saved.slice(4,132)).split('\0')[0].replace(/[\xc1-\xda]/g,c=>String.fromCharCode(c.charCodeAt(0)-128)).toUpperCase();
+                assert.equal(shown,'USB1\\LAST NINJA 2, THE [SIDE B].D64');
+                await s.enter('basic','ready.');await s.enter('shell',prompt);
+                await s.command('bank ram');const restored=await require('./monitor').memory(s.command,addr,addr+148);await s.command('bank cpu');
+                assert.deepEqual(restored,saved);
+                console.log('PASS linked DIR /N dispatch, long comma-containing MOUNT and BASIC mount-record restoration (UCI mount boundary stubbed)');
+            }
             if(process.argv.includes('--overflow')){
                 await s.keys('8:many.bat\\x0d');
                 await s.wait('overflow ready',180000); await s.wait(prompt);
@@ -65,6 +92,13 @@ async function main(){
                 return;
             }
             out=await run('dir');assert(out.includes('NOTE')&&!out.includes('~'),out);
+            if(sd){
+                out=await run('dir /n /l');assert(out.includes('note'),out);
+                await run('set dircmd=/n');
+                out=await run('dir /on');assert(out.includes('NOTE'),out);
+                await run('set dircmd=');
+                console.log('PASS linked unsupported /N fallback and DIRCMD with explicit switches');
+            }
             out=await run('dir /on');assert(out.includes('NOTE'),out);
             await run('dir > 0:host-list');await run('type 0:host-list','NOTE');
             await run('md child');await run('cd child',null,'9:\\USB1\\CHILD>');

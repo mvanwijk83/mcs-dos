@@ -260,6 +260,7 @@
 #define SYSOUT_HOST_SIZE_UNKNOWN "???"
 #define SYSOUT_HOST_TOTAL_MORE "+"
 #define SYSOUT_AMBIGUOUS_DIRECTORY "Ambiguous directory name"
+#define SYSOUT_AMBIGUOUS_FILE_NAME "Ambiguous file name"
 #define SYSOUT_ULTIMATE_DOS_FAILED "Ultimate DOS command failed"
 #define SYSOUT_ULTIMATE_DOS_RESTORE_FAILED "Unable to restore Ultimate DOS path"
 #define SYSOUT_PARTITION_FAT "FAT"

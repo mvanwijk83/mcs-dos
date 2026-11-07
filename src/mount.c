@@ -6,7 +6,9 @@ unsigned char mount_bypass;
 static unsigned char sd_ready;
 
 /* Image kinds describe names, independently of the underlying CBM file type. */
-unsigned char imagekind(const char *name)
+#pragma code(mount_code)
+#pragma data(mount_data)
+__noinline unsigned char bank_imagekind(const char *name)
 {
     static const char *const extensions[] = {"D64","D71","D81","DNP","G64","G71","DHD","D41"};
     const char *dot = strrchr(name, '.');
@@ -23,6 +25,8 @@ unsigned char imagekind(const char *name)
     }
     return 0;
 }
+#pragma code(code)
+#pragma data(data)
 const char *imageformat(unsigned char kind)
 {
     static const char *const extensions[] = {"D64","D71","D81","DNP","G64","G71","DHD","D41"};
@@ -114,11 +118,18 @@ __noinline unsigned char bank_mount_select(unsigned char dev, const char *dir)
 __noinline unsigned char bank_mount_guard(const Path *p)
 {
     unsigned char i;
+    const char *leaf;
+    unsigned int prefix;
     for (i = 0; i < MOUNT_COUNT; ++i)
         /* SD2IEC paths now address the image, never the hidden host. An
          * identical spelling inside it must remain an ordinary file. */
         if ((i || !mount_active(p->dev)) && mounts[i].dev && mounts[i].source == p->dev &&
-            !stricmp(mounts[i].dir, p->dir) && !stricmp(mounts[i].name, p->name)) {
+            !stricmp(mounts[i].name, p->name)) {
+            if (mounts[i].type & MOUNT_NATIVE) {
+                leaf = strrchr(mounts[i].dir, 0x5c);
+                prefix = leaf ? leaf - mounts[i].dir : 0;
+                if (strlen(p->dir) != prefix || strnicmp(mounts[i].dir, p->dir, prefix)) continue;
+            } else if (stricmp(mounts[i].dir, p->dir)) continue;
             error(SYSOUT_MOUNT_IN_USE); return 0;
         }
     return 1;
@@ -140,6 +151,44 @@ static unsigned char mount_confirm(void)
     outc(toupper(c)); newline();
     return toupper(c) == 'Y';
 }
+
+/* Only Ultimate MOUNT accepts a native leaf beyond the ordinary 16-byte
+ * component syntax. Parents keep the shell's existing path semantics. */
+static unsigned char mount_source(const char *text, Path *p, MountRecord *record, unsigned char ultimate)
+{
+    const char *leaf = strrchr(text, 0x5c);
+    unsigned int prefix, size, parent;
+    if (!leaf) leaf = strchr(text, ':');
+    leaf = leaf ? leaf + 1 : text;
+    record->type = 0;
+    size = strlen(leaf);
+    if (!ultimate || (size <= 16 && !strchr(leaf, ','))) return path(text, p);
+    if (!size || strpbrk(leaf, ":\"/*?")) { error(SYSOUT_INVALID_FILE_NAME); return 0; }
+    prefix = leaf - text;
+    memcpy(io, text, prefix); io[prefix] = 0;
+    if (!path(io, p) || p->name[0]) return 0;
+    if (drivemodel(p->dev, 0) != DRIVE_SOFTIEC) { error(SYSOUT_UNSUPPORTED_DRIVE_TYPE); return 0; }
+    parent = strlen(p->dir);
+    if (parent + !!parent + size >= sizeof(record->dir)) { error(SYSOUT_PATH_TOO_LONG); return 0; }
+    strcpy(record->dir, p->dir);
+    if (parent) record->dir[parent++] = 0x5c;
+    strcpy(record->dir + parent, leaf);
+    strncpy(record->name, leaf, 16); record->name[16] = 0;
+    uppername(record->name, record->name);
+    while (record->name[0] && record->name[strlen(record->name) - 1] == ' ') record->name[strlen(record->name) - 1] = 0;
+    strcpy(p->name, record->name);
+    record->type = MOUNT_NATIVE;
+    return 1;
+}
+
+static unsigned char ultimate_insert(MountRecord *record)
+{
+    /* Native mounts share the existing resident gate. This operation carries
+     * a MountRecord pointer; ordinary operations continue to carry a Path. */
+    if (record->type & MOUNT_NATIVE) return softiec_mount((const Path *)record, record->dev, SOFTIEC_MOUNT_NATIVE);
+    p1.dev = record->source; strcpy(p1.dir, record->dir); strcpy(p1.name, record->name);
+    return softiec_mount(&p1, record->dev, 0);
+}
 __noinline void bank_mountcmd(unsigned char unmount)
 {
     /* Commands are serialized. Keep transaction snapshots out of the small
@@ -147,7 +196,8 @@ __noinline void bank_mountcmd(unsigned char unmount)
     static MountRecord previous, next;
     static char cwd[128];
     char shown[17];
-    unsigned char dev = drive, model, slot, kind, ok = 0, oldquiet = optionalheader;
+    const char *label = shown, *leaf;
+    unsigned char dev = drive, model, slot, kind, ok = 0, oldquiet = optionalheader, ambiguous = 0;
     if (argc < (unmount ? 1 : 2) || argc > (unmount ? 2 : 3)) goto syntax;
     if (!unmount) {
         const char *leaf = strrchr(args[1], 0x5c);
@@ -186,30 +236,37 @@ __noinline void bank_mountcmd(unsigned char unmount)
         strcpy(working[location_index(dev)], mount_hostdir); mount_bypass = 1;
     }
     optionalheader = 1;
-    ok = path(args[1], &p1);
+    ok = mount_source(args[1], &p1, &next, model != DRIVE_SD2IEC);
     mount_bypass = 0;
     strcpy(working[location_index(dev)], cwd);
     optionalheader = oldquiet;
     if (ok) { strcpy(shown, p1.name); uppername(shown, shown); }
+    if (ok && (next.type & MOUNT_NATIVE)) {
+        leaf = strrchr(args[1], 0x5c);
+        if (!leaf) leaf = strchr(args[1], ':');
+        label = leaf ? leaf + 1 : args[1];
+    }
     if (!ok || !p1.name[0] || strpbrk(p1.name, "*?")) goto failed;
     kind = imagekind(p1.name);
     if (model == DRIVE_SD2IEC) {
         if (p1.dev != dev || !p1.dir[0] || !kind || (kind > 4 && kind != 8)) goto failed;
     } else if (drivemodel(p1.dev, 0) != DRIVE_SOFTIEC) goto failed;
-    next.dev = dev; next.source = p1.dev; next.model = model; next.type = kind;
-    strcpy(next.dir, p1.dir); strcpy(next.name, p1.name);
+    next.dev = dev; next.source = p1.dev; next.model = model;
+    if (!(next.type & MOUNT_NATIVE)) {
+        next.type = kind; strcpy(next.dir, p1.dir); strcpy(next.name, p1.name);
+    }
     /* Ultimate's legacy interface cannot report existing media: confirmation
      * also covers mounts made through its menu before entering the shell. */
     if ((previous.dev || model != DRIVE_SD2IEC) && !mount_confirm()) return;
     optionalheader = 1;
     close_media();
-    ok = model == DRIVE_SD2IEC ? sd_insert(&next) : softiec_mount(&p1, dev, 0);
+    ok = model == DRIVE_SD2IEC ? sd_insert(&next) : ultimate_insert(&next);
     optionalheader = oldquiet;
     if (!ok) {
+        ambiguous = model != DRIVE_SD2IEC && !strcmp(statusbuf, SYSOUT_AMBIGUOUS_FILE_NAME);
         if (previous.dev) {
             optionalheader = 1;
-            p1.dev = previous.source; strcpy(p1.dir, previous.dir); strcpy(p1.name, previous.name);
-            ok = model == DRIVE_SD2IEC ? sd_insert(&previous) : softiec_mount(&p1, dev, 0);
+            ok = model == DRIVE_SD2IEC ? sd_insert(&previous) : ultimate_insert(&previous);
             optionalheader = oldquiet;
             if (!ok) {
                 mounts[slot].dev = 0;
@@ -224,14 +281,15 @@ __noinline void bank_mountcmd(unsigned char unmount)
     if (model == DRIVE_SD2IEC && !previous.dev) strcpy(mount_hostdir, cwd);
     working[location_index(dev)][0] = 0;
     nav_invalidate();
-    print(SYSOUT_MOUNTED, shown, drivename(dev));
+    print(SYSOUT_MOUNTED, label, drivename(dev));
     return;
 failed:
-    print(SYSOUT_CANNOT_MOUNT, shown);
+    if (ambiguous) error(SYSOUT_AMBIGUOUS_FILE_NAME);
+    else print(SYSOUT_CANNOT_MOUNT, label);
     return;
 unavailable:
     if (unmount) print(SYSOUT_CANNOT_UNMOUNT, drivename(dev));
-    else print(SYSOUT_CANNOT_MOUNT, shown);
+    else print(SYSOUT_CANNOT_MOUNT, label);
     return;
 syntax:
     error(unmount ? SYSOUT_SYNTAX_UNMOUNT : SYSOUT_SYNTAX_MOUNT);
@@ -240,7 +298,6 @@ syntax:
  * Working directories are restored by nav_finish only after media is ready. */
 __noinline void bank_mount_restore(void)
 {
-    Path p;
     unsigned char i, ok, quiet = optionalheader;
     sd_ready = 0;
     for (i = 0; i < MOUNT_COUNT; ++i) {
@@ -250,9 +307,8 @@ __noinline void bank_mount_restore(void)
             !memchr(mounts[i].dir, 0, 128) || !memchr(mounts[i].name, 0, 17)) {
             mounts[i].dev = 0; continue;
         }
-        p.dev = mounts[i].source; strcpy(p.dir, mounts[i].dir); strcpy(p.name, mounts[i].name);
         optionalheader = 1;
-        ok = i ? (ultimate_drive(mounts[i].dev) && softiec_mount(&p, mounts[i].dev, 0)) : sd_insert(&mounts[i]);
+        ok = i ? (ultimate_drive(mounts[i].dev) && ultimate_insert(&mounts[i])) : sd_insert(&mounts[i]);
         optionalheader = quiet;
         if (!ok) {
             if (!i) {

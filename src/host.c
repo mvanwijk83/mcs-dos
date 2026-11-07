@@ -131,15 +131,18 @@ __noinline unsigned char bank_host_next(HostCursor *cursor, struct DirectoryEntr
     return r;
 }
 
-__noinline unsigned char bank_host_isdir(unsigned char dev, const char *name)
+static __noinline unsigned char host_dir_component(unsigned char dev, unsigned char model, char *name)
 {
     struct DirectoryEntry entry;
     unsigned char r;
     if (!host_begin(dev, 6, 0, 1)) return 0;
     while (!(r = directory_read(6, &entry)))
-        if (!strcmp(entry.name, name)) {
+        if (!(model == DRIVE_SD2IEC ? stricmp(entry.name, name) : strcmp(entry.name, name))) {
             channel_close(6);
-            return entry.type == CBM_T_DIR;
+            if (entry.type != CBM_T_DIR) return 0;
+            /* Send the spelling returned by the drive, including mixed PETSCII case. */
+            strcpy(name, entry.name);
+            return 1;
         }
     channel_close(6);
     return 0;
@@ -203,7 +206,7 @@ __noinline unsigned char bank_host_select(unsigned char dev, const char *dir, un
         n = 0;
         while (*q && (unsigned char)*q != 0x5c && n < 16) name[n++] = *q++;
         name[n] = 0;
-        if (!bank_host_isdir(dev, name)) {
+        if (!host_dir_component(dev, model, name)) {
             error(SYSOUT_DIRECTORY_NOT_FOUND); return 0;
         }
         snprintf(request, sizeof(request), "cd:%s", name);

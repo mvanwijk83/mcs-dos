@@ -131,7 +131,7 @@ __noinline unsigned char bank_victype(void)
  * pushing a command: ordinary EasyFlash RAM must be restored, not queried.
  * Only our own bounded request is accepted/aborted; leave a busy UCI alone.
  *
- * Query an idle Ultimate interface with a bounded wait; return a recognized board name or null. */
+ * Query an idle Ultimate interface with a bounded wait; return a recognized cart/board name or null. */
 __noinline const char *bank_ultimate(void)
 {
     unsigned char n, c, ok, started;
@@ -193,7 +193,7 @@ __noinline const char *bank_ultimate(void)
  * Report computer, video timing, KERNAL and attached drive models using bounded hardware probes. */
 __noinline void bank_sysinfo(unsigned char probe14)
 {
-    static const char *const models[] = {"",
+    static const char *const drives[] = {"",
                                          "1541",
                                          "1571",
                                          "1581",
@@ -205,11 +205,11 @@ __noinline void bank_sysinfo(unsigned char probe14)
                                          "SD2IEC Mass Storage Device"};
     unsigned char saved = PEEK(0xd02f), c128, revision = PEEK(0xff80);
     unsigned char dev, model, pal = 0, raster, previous, vic = 2;
-    const char *kernal, *board = bank_ultimate();
+    const char *kernal, *ultimate = bank_ultimate();
     POKE(0xd02f, 0xf8);
     c128 = PEEK(0xd02f) == 0xf8;
     POKE(0xd02f, saved);
-    if (board)
+    if (ultimate)
         c128 = 0;
     else if (!c128)
         vic = bank_victype();
@@ -232,13 +232,13 @@ __noinline void bank_sysinfo(unsigned char probe14)
         print("Commodore %s %s computer\n",
           c128                         ? ((PEEK(0xd600) & 7) == 2 ? "128DCR" : "128")
           : vic == 3                   ? "65"
-          : !board && revision == 0x43 ? "SX-64"
+          : !ultimate && revision == 0x43 ? "SX-64"
                                        : "64",
-          !board && !c128 && vic == 2 && revision == 0x43 ? "portable" : "personal");
+          !ultimate && !c128 && vic == 2 && revision == 0x43 ? "portable" : "personal");
     print("%u KB RAM\n", c128 || vic == 3 ? 128 : 64);
     newline();
-    if (board)
-        print("CPU:      MOS 6510 (FPGA)\nBoard:    %s\n", board);
+    if (ultimate)
+        print("CPU:      MOS 6510 (FPGA)\nBoard:    %s\n", ultimate);
     else
         say(vic == 4           ? "CPU:      45GS02 (FPGA)"
             : vic == 3         ? "CPU:      CSG 4510"
@@ -269,7 +269,7 @@ __noinline void bank_sysinfo(unsigned char probe14)
             continue;
         }
         print("Drive %s: %s%s%s\n", drivename(dev),
-              dosdrives() || dev < 10 ? " " : "", models[model],
+              dosdrives() || dev < 10 ? " " : "", drives[model],
               model < DRIVE_CMD_HD ? " Floppy Disk Drive" : "");
         if (model >= DRIVE_CMD_HD)
             continue;

@@ -21,6 +21,31 @@ __noinline void bank_attribcmd(void);
 __noinline void bank_concatcmd(void);
 __noinline void bank_renamecmd(void);
 
+#pragma code(ultdir_code)
+#pragma data(ultdir_data)
+/* Native filters borrow the idle second Path; parent paths remain DOS paths. */
+static unsigned char dirpath(const char *text, unsigned char native)
+{
+    const char *leaf = strrchr(text, 0x5c);
+    unsigned int prefix;
+    if (!native) return path(text, &p1);
+    if (!leaf) leaf = strchr(text, ':');
+    leaf = leaf ? leaf + 1 : text;
+    prefix = leaf - text;
+    memcpy(io, text, prefix); io[prefix] = 0;
+    if (!path(io, &p1)) return 0;
+    if (drivemodel(p1.dev, 0) != DRIVE_SOFTIEC) return path(text, &p1);
+    if (strlen(leaf) <= 16 && !strpbrk(leaf, ",\"/")) {
+        if (!path(text, &p1)) return 0;
+        path_directory(&p1);
+        strcpy(p2.dir, p1.name[0] ? p1.name : "*");
+    } else {
+        if (strlen(leaf) >= sizeof(p2.dir) || strpbrk(leaf, ":\"/")) { error(SYSOUT_INVALID_FILE_NAME); return 0; }
+        strcpy(p2.dir, leaf); strcpy(p1.name, "*");
+    }
+    return 1;
+}
+
 /* Compare cached entries without disturbing physical directory order.
  *
  * Compare cached directory entries for sorting; return negative, zero or positive.
@@ -49,15 +74,18 @@ __noinline void bank_dircmd(void)
     unsigned int *order = (unsigned int *)workspace;
     unsigned int usedblocks = 0;
     char shown[17];
-    unsigned char flags = 0, explicit = 0, filter = 255, type, soft, headerlines = 5;
+    unsigned char flags = 0, explicit = 0, filter = 255, type, soft, headerlines = 5, native = 0;
     char *defaults = envready ? envget("DIRCMD") : (char *)0;
     for (i = 1; i < argc; ++i)
         if (args[i][0] == '/')
             explicit = 1;
-    if (!explicit && defaults)
-        bank_dirdefaults(defaults, &flags);
+    if (defaults) {
+        native = bank_dirdefaults(defaults, &flags) & 2;
+        if (explicit) flags = 0;
+    }
     if (!path("", &p1))
         return;
+    strcpy(p2.dir, "*");
     for (i = 1; i < argc; ++i) {
         if (args[i][0] == '/') {
             if (toupper(args[i][1]) == 'T' && args[i][2] && !args[i][3]) {
@@ -76,15 +104,18 @@ __noinline void bank_dircmd(void)
                     error(SYSOUT_INVALID_SWITCH);
                     return;
                 }
-            } else if (!stricmp(args[i], "/S"))
+            } else if (!stricmp(args[i], "/N"))
+                native = 1;
+            else if (!stricmp(args[i], "/S"))
                 recursive = 1;
             else if (!bank_diroption(args[i], &flags)) {
                 error(SYSOUT_INVALID_SWITCH);
                 return;
             }
-        } else if (!path(args[i], &p1))
-            return;
+        }
     }
+    for (i = 1; i < argc; ++i)
+        if (args[i][0] != '/' && !dirpath(args[i], native)) return;
     bare = flags & 1;
     lower = flags & 2;
     sort = flags & 4;
@@ -93,6 +124,10 @@ __noinline void bank_dircmd(void)
     path_directory(&p1);
     if (!p1.name[0])
         strcpy(p1.name, "*");
+    if (native && drivemodel(p1.dev, 0) == DRIVE_SOFTIEC) {
+        if (flags & (1 | 8)) { error(SYSOUT_INVALID_SWITCH); return; }
+        host_dir(flags, filter, HOST_DIR_NATIVE | recursive); return;
+    }
     if (host_device(p1.dev)) {
         host_dir(flags, filter, recursive);
         return;
@@ -184,6 +219,8 @@ __noinline void bank_dircmd(void)
 /* Execute COPY or MOVE, including wildcard expansion and concatenation handling.
  *
  * moving: Nonzero selects MOVE; zero selects COPY. */
+#pragma code(filemgmt_code)
+#pragma data(filemgmt_data)
 __noinline void bank_copycmd(unsigned char moving)
 {
     unsigned int i, limit, total = 0;
@@ -761,6 +798,8 @@ __noinline unsigned char bank_scratch(const Path *p)
  *
  * s: Terminated switch beginning with a slash.
  * flags: Input/output listing and sort flags. */
+#pragma code(ultdir_code)
+#pragma data(ultdir_data)
 __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
 {
     if (!stricmp(s, "/B"))
@@ -793,7 +832,7 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
         *flags = (*flags & 11) | mode;
     } else if (!stricmp(s, "/W"))
         *flags |= 8;
-    else if (stricmp(s, "/P"))
+    else if (stricmp(s, "/P") && stricmp(s, "/N"))
         return 0;
     return 1;
 }
@@ -805,7 +844,7 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
 __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags)
 {
     char option[6];
-    unsigned char n;
+    unsigned char n, result = 1;
     while (*s) {
         while (*s == ' ')
             ++s;
@@ -823,8 +862,9 @@ __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags)
         option[n] = 0;
         if (!bank_diroption(option, flags))
             return 0;
+        if (!stricmp(option, "/N")) result |= 2;
     }
-    return 1;
+    return result;
 }
 
 #pragma code(code)

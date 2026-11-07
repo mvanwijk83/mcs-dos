@@ -21,6 +21,7 @@ typedef struct HostRecord {
     unsigned char type, known, kind;
 } HostRecord;
 unsigned char ultimate_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
+#define HOST_DIR_NATIVE 2
 unsigned char softiec_list(const struct Path *p, HostRecord *records, unsigned char count, char *names);
 void host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
               unsigned char partitions, unsigned char *col, const HostInfo *info);

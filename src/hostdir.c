@@ -162,7 +162,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
     if (drivemodel(p1.dev, 0) == DRIVE_SOFTIEC) return ultimate_dir(flags, filter, recursive);
     if (!recursive && !(flags & 1)) {
         if (!location_root(p1.dev, p1.dir)) bank_host_volume(&p1);
-        uppername(p1.dir, io);
+        displaypath(p1.dev, p1.dir, io);
         print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
         pagelines = 5;
     }

@@ -369,6 +369,7 @@ unsigned char entrytrack, entrysector, entryoffset;
 __noinline unsigned char bank_output_append(void)
 {
     unsigned char ok;
+    char command[24];
     if (!mount_guard(&outputpath)) return 0;
     if (!outputpath.dev)
         return channel_write(5, outputbuf, outputused) == outputused;
@@ -378,8 +379,9 @@ __noinline unsigned char bank_output_append(void)
         outputstarted = 1;
         return 1;
     }
-    snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, outputmode);
-    if (channel_open(5, outputpath.dev, 5, diskcmd) || diskstatus(outputpath.dev, 1) >= 20) {
+    /* A flush can interrupt print() while it is reading fmtbuf/diskcmd. */
+    snprintf(command, sizeof(command), "0:%s,s,%c", outputpath.name, outputmode);
+    if (channel_open(5, outputpath.dev, 5, command) || diskstatus(outputpath.dev, 1) >= 20) {
         channel_close(5); return 0;
     }
     ok = channel_write(5, outputbuf, outputused) == outputused;

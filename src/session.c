@@ -1,7 +1,7 @@
 #include "core.h"
 #include "session.h"
 /* Changing these sizes requires a new on-flash format and matching offsets. */
-#if LINE != 128 || ENVSIZE != 512 || ENVVALUE != 32 || RAWMAP != 16 || KEYBUFSIZE != 256 || \
+#if LINE != 128 || ENVSIZE != 256 || ENVVALUE != 32 || RAWMAP != 16 || KEYBUFSIZE != 256 || \
     FUNCTIONKEYS != 7
 #error Update the session format before changing persistent buffer sizes
 #endif

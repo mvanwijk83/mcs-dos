@@ -2,29 +2,41 @@
  * Oscar64 allocates a shared call stack and registers for these direct calls.
  * Each returning gate restores the caller's mapping, including nested calls. */
 #include "core.h"
+
+/* Keep the saved mapping on the CPU stack: a C local held across the banked
+ * call otherwise makes Oscar64 spill registers to its software stack in many
+ * gates. Each balanced pair uses one CPU-stack byte, including nested gates.
+ * $07F5 is BANK_CURRENT. Typed calls still expose the full call graph, and
+ * bank_leave performs the mapping change with interrupts masked as before. */
+#define BANK_PUSH(bank) do { \
+    __asm { lda 0x07f5; pha } \
+    bank_leave(bank); \
+} while (0)
+#define BANK_POP() bank_leave(__asm { pla; sta accu })
+
 __noinline unsigned char bank_imagekind(const char *name);
 /* Filename callers supply RAM-backed command, directory or UCI buffers. */
 __noinline unsigned char imagekind(const char *name)
 {
-    unsigned char previous = bank_enter(BANK_MOUNT);
+    BANK_PUSH(BANK_MOUNT);
     unsigned char result = bank_imagekind(name);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 __noinline char *bank_decimal(unsigned long bytes);
 __noinline char *decimal(unsigned long bytes)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     char *result = bank_decimal(bytes);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline void bank_native_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
 __noinline unsigned int bank_fat_dir(unsigned char flags, unsigned char filter, unsigned char mode);
 static __noinline unsigned char fat_dir(unsigned char flags, unsigned char filter, unsigned char mode)
 {
-    unsigned char previous = bank_enter(BANK_FATDIR);
+    BANK_PUSH(BANK_FATDIR);
     unsigned char result = bank_fat_dir(flags, filter, mode);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 __noinline unsigned char bank_ultimate_dir(unsigned char flags, unsigned char filter, unsigned char recursive);
@@ -34,151 +46,151 @@ __noinline unsigned char ultimate_dir(unsigned char flags, unsigned char filter,
         unsigned int result = fat_dir(flags, filter, recursive);
         if (result != 2) return result;
     }
-    unsigned char previous = bank_enter(BANK_ULTDIR);
+    BANK_PUSH(BANK_ULTDIR);
     unsigned char result = bank_ultimate_dir(flags, filter, recursive);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline unsigned char bank_softiec_list(const Path *p, HostRecord *records, unsigned char count, char *names);
 __noinline unsigned char softiec_list(const Path *p, HostRecord *records, unsigned char count, char *names)
 {
-    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    BANK_PUSH(BANK_SOFTIEC);
     unsigned char result = bank_softiec_list(p, records, count, names);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline void bank_host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
                              unsigned char partitions, unsigned char *col, const HostInfo *info);
 __noinline void host_row(const struct DirectoryEntry *entry, unsigned char model, unsigned char flags,
                         unsigned char partitions, unsigned char *col, const HostInfo *info)
 {
-    unsigned char previous = bank_enter(BANK_HOSTDIR);
-    bank_host_row(entry, model, flags, partitions, col, info); bank_leave(previous);
+    BANK_PUSH(BANK_HOSTDIR);
+    bank_host_row(entry, model, flags, partitions, col, info); BANK_POP();
 }
 __noinline void bank_host_footer(unsigned int files, unsigned int dirs, unsigned long total, unsigned char summary);
 __noinline void host_footer(unsigned int files, unsigned int dirs, unsigned long total, unsigned char summary)
 {
-    unsigned char previous = bank_enter(BANK_HOSTDIR);
-    bank_host_footer(files, dirs, total, summary); bank_leave(previous);
+    BANK_PUSH(BANK_HOSTDIR);
+    bank_host_footer(files, dirs, total, summary); BANK_POP();
 }
 __noinline void bank_mountcmd(unsigned char unmount);
 __noinline void mountcmd(unsigned char unmount)
 {
-    unsigned char previous = bank_enter(BANK_MOUNT);
-    bank_mountcmd(unmount); bank_leave(previous);
+    BANK_PUSH(BANK_MOUNT);
+    bank_mountcmd(unmount); BANK_POP();
 }
 __noinline unsigned char bank_mount_select(unsigned char dev, const char *dir);
 __noinline unsigned char mount_select(unsigned char dev, const char *dir)
 {
-    unsigned char previous = bank_enter(BANK_MOUNT);
+    BANK_PUSH(BANK_MOUNT);
     unsigned char result = bank_mount_select(dev, dir);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline unsigned char bank_mount_guard(const Path *p);
 __noinline unsigned char mount_guard(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_MOUNT);
+    BANK_PUSH(BANK_MOUNT);
     unsigned char result = bank_mount_guard(p);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline void bank_mount_restore(void);
 __noinline void mount_restore(void)
 {
-    unsigned char previous = bank_enter(BANK_MOUNT);
-    bank_mount_restore(); bank_leave(previous);
+    BANK_PUSH(BANK_MOUNT);
+    bank_mount_restore(); BANK_POP();
 }
 __noinline unsigned char bank_softiec_mount(const Path *p, unsigned char dev, unsigned char unmount);
 __noinline unsigned char softiec_mount(const Path *p, unsigned char dev, unsigned char unmount)
 {
-    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    BANK_PUSH(BANK_SOFTIEC);
     unsigned char result = bank_softiec_mount(p, dev, unmount);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline unsigned char bank_ultimate_drive(unsigned char dev);
 __noinline unsigned char bank_softiec_metadata(const Path *p, const char *name);
 __noinline unsigned char softiec_metadata(const Path *p, const char *name)
 {
-    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    BANK_PUSH(BANK_SOFTIEC);
     unsigned char result = bank_softiec_metadata(p, name);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline unsigned char ultimate_drive(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    BANK_PUSH(BANK_SOFTIEC);
     unsigned char result = bank_ultimate_drive(dev);
-    bank_leave(previous); return result;
+    BANK_POP(); return result;
 }
 __noinline unsigned char bank_disk_location(const Path *p);
 __noinline unsigned char disk_location(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     unsigned char result = bank_disk_location(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 __noinline void bank_executecommand(char *s);
 __noinline void executecommand(char *s)
 {
-    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    BANK_PUSH(BANK_HOSTDIR);
     bank_executecommand(s);
-    bank_leave(previous);
+    BANK_POP();
 }
 __noinline void bank_host_volume(const Path *p);
 __noinline void host_volume(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    BANK_PUSH(BANK_HOSTDIR);
     bank_host_volume(p);
-    bank_leave(previous);
+    BANK_POP();
 }
 __noinline unsigned char bank_host_select(unsigned char dev, const char *dir, unsigned char model);
 __noinline unsigned char host_select(unsigned char dev, const char *dir, unsigned char model)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     unsigned char result = bank_host_select(dev, dir, model);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_host_partfind(unsigned char dev, const char *name, PartitionInfo *info);
 __noinline unsigned char host_partfind(unsigned char dev, const char *name, PartitionInfo *info)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     unsigned char result = bank_host_partfind(dev, name, info);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_host_open(const Path *p, HostCursor *cursor, unsigned char lfn, unsigned char hidden);
 __noinline unsigned char host_open(const Path *p, HostCursor *cursor, unsigned char lfn, unsigned char hidden)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     unsigned char result = bank_host_open(p, cursor, lfn, hidden);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_host_next(HostCursor *cursor, struct DirectoryEntry *entry);
 __noinline unsigned char host_next(HostCursor *cursor, struct DirectoryEntry *entry)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     unsigned char result = bank_host_next(cursor, entry);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline int bank_host_find(const Path *p);
 __noinline int host_find(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     int result = bank_host_find(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_host_complete(const Path *p, const char *prefix, unsigned int *index);
 __noinline unsigned char host_complete(const Path *p, const char *prefix, unsigned int *index)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     unsigned char result = bank_host_complete(p, prefix, index);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -187,34 +199,34 @@ __noinline void host_dir(unsigned char flags, unsigned char filter, unsigned cha
 {
     if ((recursive & HOST_DIR_NATIVE) && !(recursive & 1) && !(flags & 32))
         if (fat_dir(flags, filter, HOST_DIR_NATIVE) != 2) return;
-    unsigned char previous = bank_enter(recursive & HOST_DIR_NATIVE ? BANK_NATIVEDIR : BANK_HOSTDIR);
+    BANK_PUSH(recursive & HOST_DIR_NATIVE ? BANK_NATIVEDIR : BANK_HOSTDIR);
     if (recursive & HOST_DIR_NATIVE) bank_native_dir(flags, filter, recursive & 1);
     else bank_host_dir(flags, filter, recursive);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_host_wildcopy(void);
 __noinline void host_wildcopy(void)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     bank_host_wildcopy();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_host_delete(unsigned char suppress);
 __noinline void host_delete(unsigned char suppress)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     bank_host_delete(suppress);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_host_remove(Path *p, unsigned char recursive);
 __noinline unsigned char host_remove(Path *p, unsigned char recursive)
 {
-    unsigned char previous = bank_enter(BANK_HOSTDIR);
+    BANK_PUSH(BANK_HOSTDIR);
     unsigned char result = bank_host_remove(p, recursive);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -222,15 +234,15 @@ __noinline unsigned char bank_softiec_target(void);
 __noinline void bank_softiec_rename(void);
 __noinline void softiec_rename(void)
 {
-    unsigned char previous = bank_enter(BANK_SOFTIEC);
+    BANK_PUSH(BANK_SOFTIEC);
     bank_softiec_rename();
-    bank_leave(previous);
+    BANK_POP();
 }
 __noinline unsigned char softiec_target(void)
 {
-    unsigned char previous = bank_enter(BANK_HOST);
+    BANK_PUSH(BANK_HOST);
     unsigned char result = bank_softiec_target();
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 __noinline void bank_tapecopycmd(void);
@@ -241,18 +253,18 @@ __noinline void bank_tapecopy_report(void);
  * Resident gate: restore the previous bank after the service returns. */
 void tapecopycmd(void)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_tapecopycmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 /* Report the previous tape transfer result and optionally start another transfer.
  * Resident gate: restore the previous bank after the service returns. */
 void tapecopy_report(void)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_tapecopy_report();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_session_save(void);
@@ -264,8 +276,9 @@ __noinline unsigned char bank_session_run(void);
  * Resident gate: restore the previous bank after the service returns. */
 unsigned char session_run(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL), result = bank_session_run();
-    bank_leave(previous);
+    BANK_PUSH(BANK_FILEUTIL);
+    unsigned char result = bank_session_run();
+    BANK_POP();
     return result;
 }
 
@@ -273,8 +286,9 @@ unsigned char session_run(void)
  * Resident gate: restore the previous bank after the service returns. */
 unsigned char session_save(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL), result = bank_session_save();
-    bank_leave(previous);
+    BANK_PUSH(BANK_FILEUTIL);
+    unsigned char result = bank_session_save();
+    BANK_POP();
     return result;
 }
 
@@ -282,8 +296,9 @@ unsigned char session_save(void)
  * Resident gate: restore the previous bank after the service returns. */
 unsigned char session_restore(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL), result = bank_session_restore();
-    bank_leave(previous);
+    BANK_PUSH(BANK_FILEUTIL);
+    unsigned char result = bank_session_restore();
+    BANK_POP();
     return result;
 }
 
@@ -301,9 +316,9 @@ __noinline void bank_editstatus(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void editstatus(void)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     bank_editstatus();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_editsaving(void);
@@ -312,9 +327,9 @@ __noinline void bank_editsaving(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void editsaving(void)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     bank_editsaving();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_editcmd(void);
@@ -323,9 +338,9 @@ __noinline void bank_editcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void editcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     bank_editcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_typeoptions(unsigned char *mode, unsigned long *limit);
@@ -337,8 +352,9 @@ __noinline unsigned char bank_typeoptions(unsigned char *mode, unsigned long *li
  * limit: Output line count for head/tail; return nonzero on success. */
 __noinline unsigned char typeoptions(unsigned char *mode, unsigned long *limit)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL), result = bank_typeoptions(mode, limit);
-    bank_leave(previous);
+    BANK_PUSH(BANK_FILEUTIL);
+    unsigned char result = bank_typeoptions(mode, limit);
+    BANK_POP();
     return result;
 }
 
@@ -350,9 +366,9 @@ __noinline void bank_typecmd(unsigned char printer);
  * printer: Nonzero selects PRINT and parses its printer destination. */
 __noinline void typecmd(unsigned char printer)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL);
+    BANK_PUSH(BANK_FILEUTIL);
     bank_typecmd(printer);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_findoptions(unsigned char *flags, char **needle);
@@ -364,8 +380,9 @@ __noinline unsigned char bank_findoptions(unsigned char *flags, char **needle);
  * needle: Output pointer to the search text; return nonzero on success. */
 __noinline unsigned char findoptions(unsigned char *flags, char **needle)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL), result = bank_findoptions(flags, needle);
-    bank_leave(previous);
+    BANK_PUSH(BANK_FILEUTIL);
+    unsigned char result = bank_findoptions(flags, needle);
+    BANK_POP();
     return result;
 }
 
@@ -376,9 +393,9 @@ __noinline void bank_findcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void findcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL);
+    BANK_PUSH(BANK_FILEUTIL);
     bank_findcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_runcmd(unsigned char implicit);
@@ -387,9 +404,9 @@ __noinline void bank_runcmd(unsigned char implicit);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void runcmd(unsigned char implicit)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL);
+    BANK_PUSH(BANK_FILEUTIL);
     bank_runcmd(implicit);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_help(int id);
@@ -400,9 +417,9 @@ __noinline void bank_help(int id);
  * id: Command index; a negative value selects the overview. */
 __noinline void help(int id)
 {
-    unsigned char previous = bank_enter(BANK_FILEUTIL);
+    BANK_PUSH(BANK_FILEUTIL);
     bank_help(id);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_dircmd(void);
@@ -411,9 +428,9 @@ __noinline void bank_dircmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void dircmd(void)
 {
-    unsigned char previous = bank_enter(BANK_ULTDIR);
+    BANK_PUSH(BANK_ULTDIR);
     bank_dircmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_copycmd(unsigned char moving);
@@ -424,9 +441,9 @@ __noinline void bank_copycmd(unsigned char moving);
  * moving: Nonzero selects MOVE; zero selects COPY. */
 __noinline void copycmd(unsigned char moving)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     bank_copycmd(moving);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_delcmd(void);
@@ -435,9 +452,9 @@ __noinline void bank_delcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void delcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     bank_delcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_attribcmd(void);
@@ -446,9 +463,9 @@ __noinline void bank_attribcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void attribcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     bank_attribcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_renamecmd(void);
@@ -457,25 +474,25 @@ __noinline void bank_renamecmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void renamecmd(void)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     bank_renamecmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_direntry(unsigned int index, const char *shown, unsigned char soft);
 __noinline void direntry(unsigned int index, const char *shown, unsigned char soft)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     bank_direntry(index, shown, soft);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft);
 __noinline void dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     bank_dirfooter(files, dirs, blocks, soft);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_blockio(unsigned char dev, unsigned char track, unsigned char sector,
@@ -491,9 +508,9 @@ __noinline unsigned char bank_blockio(unsigned char dev, unsigned char track, un
 __noinline unsigned char blockio(unsigned char dev, unsigned char track, unsigned char sector,
                                  unsigned char writing)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     unsigned char result = bank_blockio(dev, track, sector, writing);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -505,9 +522,9 @@ __noinline unsigned char bank_rawopen(unsigned char dev);
  * dev: Disk device; return nonzero on success. */
 __noinline unsigned char rawopen(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     unsigned char result = bank_rawopen(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -520,9 +537,9 @@ __noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
  * report: 0=quiet, 1=report errors, 128=return precise model instead of geometry. */
 __noinline unsigned char drivetype(unsigned char dev, unsigned char report)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = bank_drivetype(dev, report);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -535,9 +552,9 @@ __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tr
  * tracks: Total tracks: 35, 70 or 80. */
 __noinline unsigned char tracksectors(unsigned char track, unsigned char tracks)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     unsigned char result = bank_tracksectors(track, tracks);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -549,9 +566,9 @@ __noinline unsigned char bank_bam(unsigned char dev);
  * dev: Disk device; return nonzero for a supported readable format. */
 __noinline unsigned char bam(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     unsigned char result = bank_bam(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -561,9 +578,9 @@ __noinline unsigned char bank_copyrel(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline unsigned char copyrel(void)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     unsigned char result = bank_copyrel();
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -575,9 +592,9 @@ __noinline void bank_volcmd(unsigned char stats);
  * stats: Nonzero selects CHKDSK; zero selects VOL. */
 __noinline void volcmd(unsigned char stats)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     bank_volcmd(stats);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_labelcmd(void);
@@ -586,9 +603,9 @@ __noinline void bank_labelcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void labelcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     bank_labelcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_formatcmd(void);
@@ -597,9 +614,9 @@ __noinline void bank_formatcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void formatcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     bank_formatcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_diskinitcmd(void);
@@ -608,9 +625,9 @@ __noinline void bank_diskinitcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void diskinitcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     bank_diskinitcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_diskidcmd(void);
@@ -619,9 +636,9 @@ __noinline void bank_diskidcmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void diskidcmd(void)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     bank_diskidcmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_diskcopycmd(void);
@@ -630,9 +647,9 @@ __noinline void bank_diskcopycmd(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void diskcopycmd(void)
 {
-    unsigned char previous = bank_enter(BANK_DISK);
+    BANK_PUSH(BANK_DISK);
     bank_diskcopycmd();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_startupprompt(void);
@@ -641,9 +658,9 @@ __noinline void bank_startupprompt(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void startupprompt(void)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_startupprompt();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_startupcolor(void);
@@ -652,9 +669,9 @@ __noinline void bank_startupcolor(void);
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void startupcolor(void)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_startupcolor();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_startupcharset(unsigned char device);
@@ -665,9 +682,9 @@ __noinline void bank_startupcharset(unsigned char device);
  * device: Startup device from which to load the configured charset. */
 __noinline void startupcharset(unsigned char device)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     bank_startupcharset(device);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_bootsplash(unsigned char wait);
@@ -678,9 +695,9 @@ __noinline void bank_bootsplash(unsigned char wait);
  * wait: 0=interactive splash, 1=timed startup, 4=SYSINFO without the splash. */
 __noinline void bootsplash(unsigned char wait)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_bootsplash(wait);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall);
@@ -694,9 +711,9 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
  * recall: Nonzero enables command history and raw filename tracking. */
 __noinline unsigned char input(char *buf, unsigned int max, unsigned char recall)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     unsigned char result = bank_input(buf, max, recall);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -710,9 +727,9 @@ __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char
  * deleting: Nonzero deletes a flag; zero inserts a clear flag. */
 __noinline void rawedit(unsigned char pos, unsigned char len, unsigned char deleting)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     bank_rawedit(pos, len, deleting);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_setcmd(const char *s);
@@ -723,9 +740,9 @@ __noinline void bank_setcmd(const char *s);
  * s: Unparsed text following SET; an empty string lists all variables. */
 __noinline void setcmd(const char *s)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_setcmd(s);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_bootstart(unsigned char startdrive);
@@ -736,9 +753,9 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive);
  * startdrive: Initial device; return the device selected for startup. */
 __noinline unsigned char bootstart(unsigned char startdrive)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     unsigned char result = bank_bootstart(startdrive);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -750,9 +767,9 @@ __noinline unsigned char bank_directory(unsigned char dev);
  * dev: Device to enumerate; return nonzero on success. */
 __noinline unsigned char directory(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_directory(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -764,9 +781,9 @@ __noinline int bank_findfile(const Path *p);
  * p: File path; return its index, -1 if absent, or -2 if directory reading fails. */
 __noinline int findfile(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     int result = bank_findfile(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -778,9 +795,9 @@ __noinline unsigned char bank_preparewrite(const Path *p);
  * p: Exact destination path; return nonzero when writing may proceed. */
 __noinline unsigned char preparewrite(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_preparewrite(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -794,9 +811,9 @@ __noinline unsigned char bank_openreadtype(const Path *p, unsigned char lfn, uns
  * type: Supported CBM_T_SEQ, CBM_T_PRG or CBM_T_USR type; return nonzero on success. */
 __noinline unsigned char openreadtype(const Path *p, unsigned char lfn, unsigned char type)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_openreadtype(p, lfn, type);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -809,9 +826,9 @@ __noinline unsigned char bank_openread(const Path *p, unsigned char lfn);
  * lfn: Logical file number to open. */
 __noinline unsigned char openread(const Path *p, unsigned char lfn)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_openread(p, lfn);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -824,9 +841,9 @@ __noinline unsigned char bank_openwrite(const Path *p, unsigned char type);
  * type: Commodore file type; return nonzero on success. */
 __noinline unsigned char openwrite(const Path *p, unsigned char type)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_openwrite(p, type);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -838,9 +855,9 @@ __noinline unsigned char bank_scratch(const Path *p);
  * p: Path to scratch; return nonzero on success. */
 __noinline unsigned char scratch(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_scratch(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -853,9 +870,9 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags);
  * flags: Input/output listing and sort flags. */
 __noinline unsigned char diroption(const char *s, unsigned char *flags)
 {
-    unsigned char previous = bank_enter(BANK_ULTDIR);
+    BANK_PUSH(BANK_ULTDIR);
     unsigned char result = bank_diroption(s, flags);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -868,18 +885,18 @@ __noinline unsigned char bank_dirdefaults(const char *s, unsigned char *flags);
  * flags: Input/output listing and sort flags. */
 __noinline unsigned char dirdefaults(const char *s, unsigned char *flags)
 {
-    unsigned char previous = bank_enter(BANK_ULTDIR);
+    BANK_PUSH(BANK_ULTDIR);
     unsigned char result = bank_dirdefaults(s, flags);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline void bank_showprompt(void);
 __noinline void showprompt(void)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     bank_showprompt();
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_tokenize(char *s);
@@ -887,9 +904,9 @@ __noinline unsigned char bank_tokenize(char *s);
 /* Parse arguments in the boot bank and restore the caller's mapping. */
 __noinline unsigned char tokenize(char *s)
 {
-    unsigned char previous = bank_enter(BANK_BOOT);
+    BANK_PUSH(BANK_BOOT);
     unsigned char result = bank_tokenize(s);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -898,9 +915,9 @@ __noinline void bank_keycmd(const char *s);
 /* Store or display function-key bindings; restore the caller's bank. */
 __noinline void keycmd(const char *s)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     bank_keycmd(s);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline int bank_commandid(const char *s);
@@ -908,9 +925,9 @@ __noinline int bank_commandid(const char *s);
 /* Resolve built-ins and aliases in the editor bank. */
 __noinline int commandid(const char *s)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     int result = bank_commandid(s);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -919,9 +936,9 @@ __noinline void bank_execute(char *s);
 /* Parse output routing in the editor bank and restore the caller's mapping. */
 __noinline void execute(char *s)
 {
-    unsigned char previous = bank_enter(BANK_EDIT);
+    BANK_PUSH(BANK_EDIT);
     bank_execute(s);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report);
@@ -929,18 +946,18 @@ __noinline unsigned char bank_drivepresent(unsigned char dev);
 /* Test for an IEC listener without relying on an empty-name OPEN. */
 __noinline unsigned char drivepresent(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = bank_drivepresent(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 /* Identify the physical device without assuming its current partition geometry. */
 __noinline unsigned char drivemodel(unsigned char dev, unsigned char report)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = bank_drivemodel(dev, report);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -948,9 +965,9 @@ __noinline unsigned char bank_drivemode(unsigned char dev, unsigned char doubles
 /* Dispatch mode preparation to the physical device backend. */
 __noinline unsigned char drivemode(unsigned char dev, unsigned char doublesided)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = bank_drivemode(dev, doublesided);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -961,16 +978,16 @@ __noinline unsigned char bank_path(const char *s, Path *p);
 __noinline unsigned char path(const char *s, Path *p)
 {
     char text[PATHSIZE];
-    unsigned char previous, result;
+    unsigned char result;
     if (strlen(s) >= PATHSIZE) {
         error(SYSOUT_PATH_TOO_LONG);
         return 0;
     }
     /* Preserve completed native bytes before leaving the tokenizer's bank. */
     filename(s, text);
-    previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     result = bank_path(text, p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -978,98 +995,98 @@ __noinline void bank_location_select(unsigned char dev, const char *dir);
 extern volatile unsigned char location_success;
 __noinline unsigned char location_select(unsigned char dev, const char *dir)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     bank_location_select(dev, dir);
-    bank_leave(previous);
+    BANK_POP();
     return location_success;
 }
 
 __noinline unsigned char bank_location_file(unsigned char dev, const char *dir);
 __noinline unsigned char location_file(unsigned char dev, const char *dir)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     unsigned char result = bank_location_file(dev, dir);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_location_root(unsigned char dev, const char *dir);
 __noinline unsigned char location_root(unsigned char dev, const char *dir)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     unsigned char result = bank_location_root(dev, dir);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_location_list(unsigned char dev, const char *dir);
 __noinline unsigned char location_list(unsigned char dev, const char *dir)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     unsigned char result = bank_location_list(dev, dir);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_path_directory(Path *p);
 __noinline unsigned char path_directory(Path *p)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     unsigned char result = bank_path_directory(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_path_join(Path *p);
 __noinline unsigned char path_join(Path *p)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     unsigned char result = bank_path_join(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline void bank_displaypath(unsigned char dev, const char *dir, char *dst);
 __noinline void displaypath(unsigned char dev, const char *dir, char *dst)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     bank_displaypath(dev, dir, dst);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline void bank_navcmd(unsigned char operation);
 __noinline void navcmd(unsigned char operation)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     bank_navcmd(operation);
-    bank_leave(previous);
+    BANK_POP();
 
 }
 
 __noinline void bank_nav_finish(void);
 __noinline void nav_finish(void)
 {
-    unsigned char previous = bank_enter(BANK_NAV);
+    BANK_PUSH(BANK_NAV);
     bank_nav_finish();
-    bank_leave(previous);
+    BANK_POP();
 
 }
 
 __noinline unsigned char cmd_root(unsigned char dev);
 __noinline unsigned char partition_root(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = cmd_root(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char cmd_lookup(unsigned char dev, const char *name, PartitionInfo *info);
 __noinline unsigned char partition_lookup(unsigned char dev, const char *name, PartitionInfo *info)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = cmd_lookup(dev, name, info);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
@@ -1077,100 +1094,101 @@ __noinline unsigned char bank_copyfile(unsigned char moving);
 __noinline void bank_dirwalk(unsigned char flags, unsigned char filter);
 __noinline void dirwalk(unsigned char flags, unsigned char filter)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     bank_dirwalk(flags, filter);
-    bank_leave(previous);
+    BANK_POP();
 }
 
 __noinline unsigned char copyfile(unsigned char moving)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     unsigned char result = bank_copyfile(moving);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_fileentry(const Path *p);
 __noinline unsigned char fileentry(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     unsigned char result = bank_fileentry(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_deletable(const Path *p);
 __noinline unsigned char deletable(const Path *p)
 {
-    unsigned char previous = bank_enter(BANK_FILEMGMT);
+    BANK_PUSH(BANK_FILEMGMT);
     unsigned char result = bank_deletable(p);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_output_append(void);
 __noinline unsigned char output_append(void)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     unsigned char result = bank_output_append();
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char cmd_partition(unsigned char dev, unsigned char number, PartitionInfo *info);
 __noinline unsigned char partition_info(unsigned char dev, unsigned char number, PartitionInfo *info)
 {
-    unsigned char previous = bank_enter(BANK_STORAGE);
+    BANK_PUSH(BANK_STORAGE);
     unsigned char result = cmd_partition(dev, number, info);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_startup_path(Path *p);
 __noinline unsigned char startup_path(Path *p)
 {
-    unsigned char previous = bank_enter(BANK_NAV), result = bank_startup_path(p);
-    bank_leave(previous);
+    BANK_PUSH(BANK_NAV);
+    unsigned char result = bank_startup_path(p);
+    BANK_POP();
     return result;
 }
 
 __noinline unsigned char bank_raw_reader_open(const Path *p, unsigned char lfn);
 __noinline unsigned char raw_reader_open(const Path *p, unsigned char lfn)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     unsigned char result = bank_raw_reader_open(p, lfn);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 __noinline int bank_raw_reader_read(unsigned char lfn, void *buffer, unsigned int size);
 __noinline int raw_reader_read(unsigned char lfn, void *buffer, unsigned int size)
 {
-    unsigned char previous = bank_enter(BANK_TRANSFER);
+    BANK_PUSH(BANK_TRANSFER);
     int result = bank_raw_reader_read(lfn, buffer, size);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 
 __noinline void bank_volumeheader(unsigned char dev);
 __noinline void volumeheader(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     bank_volumeheader(dev);
-    bank_leave(previous);
+    BANK_POP();
 }
 __noinline unsigned char bank_partitionheader(unsigned char dev);
 __noinline unsigned char partitionheader(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     unsigned char result = bank_partitionheader(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }
 __noinline unsigned char bank_validate_disk(unsigned char dev);
 __noinline unsigned char validate_disk(unsigned char dev)
 {
-    unsigned char previous = bank_enter(BANK_VOLUME);
+    BANK_PUSH(BANK_VOLUME);
     unsigned char result = bank_validate_disk(dev);
-    bank_leave(previous);
+    BANK_POP();
     return result;
 }

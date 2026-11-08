@@ -1,7 +1,7 @@
 // Test startup settings atomically, including environment capacity and screen recoloring.
 require('./setup');
 const fs = require('fs'), assert = require('assert/strict');
-const {fn, functions, header} = require('./source');
+const {constant, fn, functions, header} = require('./source');
 const env = fn('envget');
 const drives = functions('dosdrives', 'drivename');
 const set = fn('setcmd');
@@ -13,8 +13,8 @@ const code = `
 #include <ctype.h>
 #include <stdarg.h>
 #define ENVVALUE 32
-#define ENVSIZE 512
-static char environment[512], prompttext[33];
+#define ENVSIZE ${constant('ENVSIZE')}
+static char environment[ENVSIZE], prompttext[33];
 static unsigned int envused;
 static unsigned char fg = 15, bg, bd, errors, envready;
 static char output[160];
@@ -125,18 +125,18 @@ int main(void)
         return 11;
     envused = 0;
     errors = 0;
-    for (i = 0; i < 13; ++i) {
+    for (i = 0; i < 6; ++i) {
         sprintf(b, "n%02u=12345678901234567890123456789012", i);
         setcmd(b);
     }
-    setcmd("edge=1234567890123456789012345");
-    if (envused != 512 || errors)
+    setcmd("edge=1234567890123456789012345678");
+    if (envused != 256 || errors)
         return 12;
     setcmd("/ENV");
-    if (strcmp(output, "512 bytes total environment size\\n512 bytes used\\n  0 bytes free\\n"))
+    if (strcmp(output, "256 bytes total environment size\\n256 bytes used\\n  0 bytes free\\n"))
         return 20;
-    setcmd("edge=12345678901234567890123456");
-    if (envused != 512 || errors != 1)
+    setcmd("edge=12345678901234567890123456789");
+    if (envused != 256 || errors != 1 || strcmp(envget("EDGE"), "1234567890123456789012345678"))
         return 13;
     setcmd("edge=");
     setcmd("extra=ok");
@@ -144,12 +144,12 @@ int main(void)
         return 14;
     envused = 0;
     setcmd("/eNv  ");
-    if (strcmp(output, "512 bytes total environment size\\n  0 bytes used\\n512 bytes free\\n"))
+    if (strcmp(output, "256 bytes total environment size\\n  0 bytes used\\n256 bytes free\\n"))
         return 15;
     setcmd("aa=12345678901234567890123456789012");
     setcmd("b=123456789");
     setcmd("/ENV");
-    if (strcmp(output, "512 bytes total environment size\\n 48 bytes used\\n464 bytes free\\n"))
+    if (strcmp(output, "256 bytes total environment size\\n 48 bytes used\\n208 bytes free\\n"))
         return 16;
     setcmd("driveids=dos");
     if (strcmp(drivename(8), "8"))
@@ -181,4 +181,4 @@ require('./simulator')('build/test-startup-settings.c');
 assert(header.includes('#define LINE 128'));
 assert(header.includes('#define MAXARGS 33'));
 console.log(
-    'PASS startup colors/prompt, atomic invalid colors, 8/32 limits exact 512-byte capacity, aligned usage statistics deferred DRIVEIDS and exact screen recoloring');
+    'PASS startup colors/prompt, atomic invalid colors, 8/32 limits exact 256-byte capacity, aligned usage statistics deferred DRIVEIDS and exact screen recoloring');

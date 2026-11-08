@@ -56,7 +56,7 @@ module.exports =
     await enter('echo set boot=must-not-run >autoexec.bat');
     await enter('set keep=preserved');
     await enter('set color=2,6,7');
-    const fields = [['environment', 512], ['prompttext', 33]];
+    const fields = [['environment', 256], ['prompttext', 33]];
     const expected = [];
     for (const field of fields)
         expected.push(await variable(...field));

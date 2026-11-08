@@ -26,7 +26,7 @@ extern unsigned char resume_requested;
 #define LOCATIONCOUNT 24
 #define MAXARGS 33
 #define ENVVALUE 32
-#define ENVSIZE 512
+#define ENVSIZE 256
 #define KEYBUFSIZE 256
 #define FUNCTIONKEYS 7
 #define VERSION "2.1"
@@ -34,7 +34,7 @@ extern unsigned char resume_requested;
 
 #define MAXFILES 296
 #define EDITROWS 24
-#define BATCHMAX 2048
+#define BATCHMAX 1024
 
 typedef struct Path {
     unsigned char dev; /* 0 is cartridge storage; disk devices are 8-30. */

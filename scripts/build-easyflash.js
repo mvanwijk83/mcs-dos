@@ -127,7 +127,7 @@ fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
 fs.writeFileSync(`${out}/layout.json`,JSON.stringify({entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
- wedge:wedge.length,sessionBytes:7952,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
+ wedge:wedge.length,sessionBytes:7696,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
  freeRam:0xa000-bssEnd+0x400,freeRanges:[[bssEnd,0xa000],[0xc300,0xc700]],
  helpBank:10,helpBytes:help.length,filesystemVersion:3,used,fileBytes,available},null,2));
 console.log('Built '+out+'/MCS-DOS.crt');

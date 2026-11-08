@@ -112,7 +112,7 @@ assert(layout.bssEnd <= 0xa000);
 assert.deepEqual(layout.romWindow, {start: 0xa000, end: 0xc000});
 assert(layout.wedge > 0 && layout.wedge <= 0x1e0, 'wedge must not overlap resume token');
 assert.deepEqual(layout.sessionBanks, [48, 55]);
-assert.equal(layout.sessionBytes, 7952);
+assert.equal(layout.sessionBytes, 7696);
 assert.deepEqual(layout.freeRanges[1], [0xc300, 0xc700]);
 for (let bank = 48; bank <= 55; bank++)
     for (const address of [0x8000, 0xa000]) {

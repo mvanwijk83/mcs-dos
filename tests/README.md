@@ -63,6 +63,16 @@ No build is needed for `unit`; most tests compile temporary C fixtures from
 production function bodies and execute them in Oscar64's 6502 simulator. `image`
 needs a build but no emulator. The other groups need the tools indicated below.
 
+`banking` compiles the production mapping helpers and representative resident
+gates with nested services. It checks argument forwarding, byte/word/pointer
+returns, restoration of cartridge and cartridge-disabled mappings, interrupt
+state, and CPU stack balance across repeated calls.
+
+`batch-loading` checks the configured batch-size boundary, terminator storage,
+oversized-file rejection, adjacent RAM, read/open failures, and nested-batch
+protection. `startup-settings` checks the 256-byte environment capacity and
+refusal to grow a full environment by one byte.
+
 ## Selecting coverage
 
 The standalone disk-wide 1581 CHKDSK experiment uses full D81 fixtures and

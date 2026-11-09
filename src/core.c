@@ -25,10 +25,13 @@ unsigned int envused;
 char keybindings[KEYBUFSIZE];
 /* Behavioral settings remain inactive until AUTOEXEC has unwound. */
 unsigned char envready;
-char line[LINE], history[10][LINE], draft[LINE];
+char line[LINE];
 char prompttext[ENVVALUE + 1];
 /* Completed bytes live in the command itself, never as cache indices. */
-unsigned char rawline[RAWMAP], rawhistory[10][RAWMAP], rawdraft[RAWMAP];
+unsigned char rawline[RAWMAP];
+#pragma bss(history_ram)
+History history;
+#pragma bss(bss)
 unsigned char rawparse[(LINE + MAXARGS + 7) / 8];
 unsigned char histcount, histnext;
 /* Formatting and disk command construction never overlap. */
@@ -59,6 +62,18 @@ unsigned int launchaddress;
 
 unsigned char noseparators;
 unsigned char resume_requested;
+
+/* Both copies run in low RAM while KERNAL and the editor bank are hidden. */
+__noinline void history_recall(char *buf, unsigned char slot)
+{
+    __asm { php
+            sei }
+    POKE(1, 0x34);
+    strcpy(buf, history.text[slot]);
+    memcpy(rawline, history.raw[slot], RAWMAP);
+    POKE(1, 0x36);
+    __asm { plp }
+}
 
 const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",

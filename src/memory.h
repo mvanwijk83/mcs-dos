@@ -13,6 +13,9 @@
 #pragma section(dir_cache, 0, , , bss)
 #pragma region(dir_cache, 0x0980, 0x0a00, , , {dir_cache})
 #pragma region(main, 0x0a00, 0xa000, , , {code, data, bss, heap})
+/* The shell writes through KERNAL ROM and maps it out only for history reads. */
+#pragma section(history_ram, 0, , , bss)
+#pragma region(history, 0xf800, 0xfda0, , , {history_ram})
 #pragma region(shellstack, 0xc800, 0xd000, , , {stack})
 #pragma stacksize(SHELL_STACK_SIZE)
 #pragma heapsize(0)

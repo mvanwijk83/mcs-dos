@@ -62,7 +62,12 @@ module.exports =
     }
     async function variable(name, n = 1) {
         const a = address(name);
-        return Buffer.from(await memory(a, a + n - 1));
+        if (a >= 0xe000) await command('bank ram');
+        try {
+            return Buffer.from(await memory(a, a + n - 1));
+        } finally {
+            if (a >= 0xe000) await command('bank cpu');
+        }
     }
     async function settled(s, predicate) {
         for (let i = 0; i < 20 && !predicate(s); i++) {
@@ -107,7 +112,7 @@ module.exports =
              'key /f1:help /f4:dir/w /f7:"my program"', 'echo off'])
         await enter(cmd);
     const fields = [
-        ['environment', 256, 16], ['history', 1280, 272], ['rawhistory', 160, 1552],
+        ['environment', 256, 16], ['history', 1440, 272],
         ['prompttext', 33, 1712], ['keybindings', 256, 1745], ['working', 3072, 2001],
         ['mounts', 447, 5073], ['mount_hostdir', 128, 5520]
     ];

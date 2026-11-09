@@ -612,9 +612,8 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
             continue;
         }
         if (c == CH_STOP && recall && !editprompt) {
-            buf[0] = draft[0] = 0;
+            buf[0] = 0;
             memset(rawline, 0, sizeof(rawline));
-            memset(rawdraft, 0, sizeof(rawdraft));
             pos = view = 0;
             h = histcount;
             dirty = 1;
@@ -633,21 +632,18 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
             return 1;
         }
         if (recall && (c == CH_CURS_UP || c == CH_CURS_DOWN)) {
-            if (h == histcount) {
-                strcpy(draft, buf);
-                memcpy(rawdraft, rawline, RAWMAP);
-            }
+            if (h == histcount && (c == CH_CURS_DOWN || !h))
+                continue;
             if (c == CH_CURS_UP && h)
                 --h;
             if (c == CH_CURS_DOWN && h < histcount)
                 ++h;
             if (h == histcount) {
-                strcpy(buf, draft);
-                memcpy(rawline, rawdraft, RAWMAP);
+                buf[0] = 0;
+                memset(rawline, 0, sizeof(rawline));
             } else {
                 i = (histnext + 10 - histcount + h) % 10;
-                strcpy(buf, history[i]);
-                memcpy(rawline, rawhistory[i], RAWMAP);
+                history_recall(buf, i);
             }
             pos = strlen(buf);
             dirty = 1;

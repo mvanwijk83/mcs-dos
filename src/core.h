@@ -70,10 +70,16 @@ extern char environment[ENVSIZE];
 extern unsigned int envused;
 extern char keybindings[KEYBUFSIZE];
 extern unsigned char envready;
-extern char line[LINE], history[10][LINE], draft[LINE];
+extern char line[LINE];
 extern char prompttext[ENVVALUE + 1];
 #define RAWMAP ((LINE + 7) / 8)
-extern unsigned char rawline[RAWMAP], rawhistory[10][RAWMAP], rawdraft[RAWMAP];
+typedef struct History {
+    char text[10][LINE];
+    unsigned char raw[10][RAWMAP];
+} History;
+extern History history;
+extern unsigned char rawline[RAWMAP];
+void history_recall(char *buf, unsigned char slot);
 extern unsigned char rawparse[(LINE + MAXARGS + 7) / 8];
 extern unsigned char histcount, histnext;
 extern char fmtbuf[160], statusbuf[64];

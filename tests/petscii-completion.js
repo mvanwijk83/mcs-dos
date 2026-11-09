@@ -58,9 +58,8 @@ require('./shell')('petscii', async ({disk, command, keys, enter, screen}) => {
     assert(out.includes('exact graphic'), out);
     await keys('type g1');
     await complete();
-    await keys('\\x91\\x11');
-    out = await enter('');
-    assert(out.includes('exact graphic'), out);
+    out = await keys('\\x91\\x11');
+    assert(out.endsWith('8:\\>'), out);
     await enter('cls');
     await keys('type g1');
     await complete();
@@ -76,7 +75,7 @@ require('./shell')('petscii', async ({disk, command, keys, enter, screen}) => {
     out = await enter('type copied');
     assert(out.includes('exact graphic'), out);
     console.log(
-        'PASS exact PETSCII completion, cache/history, draft, edited-name fallback and COPY source preservation');
+        'PASS exact PETSCII completion and recall, discarded draft, edited-name fallback and COPY source preservation');
 }).catch(error => {
     console.error(error);
     process.exitCode = 1;

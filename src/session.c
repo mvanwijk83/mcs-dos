@@ -5,6 +5,8 @@
     FUNCTIONKEYS != 7
 #error Update the session format before changing persistent buffer sizes
 #endif
+typedef char HistorySessionSize[
+    sizeof(History) == SESSION_PROMPT_OFFSET - SESSION_HISTORY_OFFSET ? 1 : -1];
 /* Session persistence belongs with RUN in the file utility bank. Keeping it
  * out of the startup bank leaves room for hardware probes and configuration. */
 #pragma code(fileutil_code)
@@ -23,9 +25,7 @@ static unsigned char transfer(unsigned char op, unsigned char n)
     return !CART_MAILBOX[4];
 }
 
-/* Explicit on-flash fields, never compiler pointers or a raw C structure.
- *
- * Encode one shell-state byte without saving compiler pointers or structure padding.
+/* Encode one visible shell-state byte. History and font RAM are copied separately.
  *
  * i: Byte offset in the serialized state, before the font data. */
 static unsigned char statebyte(unsigned int i)
@@ -58,10 +58,6 @@ static unsigned char statebyte(unsigned int i)
     }
     if (i < SESSION_HISTORY_OFFSET)
         return environment[i - SESSION_ENV_OFFSET];
-    if (i < SESSION_RAW_HISTORY_OFFSET)
-        return ((char *)history)[i - SESSION_HISTORY_OFFSET];
-    if (i < SESSION_PROMPT_OFFSET)
-        return ((char *)rawhistory)[i - SESSION_RAW_HISTORY_OFFSET];
     if (i < SESSION_KEYS_OFFSET)
         return prompttext[i - SESSION_PROMPT_OFFSET];
     if (i < SESSION_LOCATIONS_OFFSET)
@@ -114,10 +110,8 @@ static void stateput(unsigned int i, unsigned char value)
         }
     } else if (i < SESSION_HISTORY_OFFSET)
         environment[i - SESSION_ENV_OFFSET] = value;
-    else if (i < SESSION_RAW_HISTORY_OFFSET)
-        ((char *)history)[i - SESSION_HISTORY_OFFSET] = value;
     else if (i < SESSION_PROMPT_OFFSET)
-        ((char *)rawhistory)[i - SESSION_RAW_HISTORY_OFFSET] = value;
+        ((char *)&history)[i - SESSION_HISTORY_OFFSET] = value;
     else if (i < SESSION_KEYS_OFFSET)
         prompttext[i - SESSION_PROMPT_OFFSET] = value;
     else if (i < SESSION_LOCATIONS_OFFSET)
@@ -144,14 +138,20 @@ __noinline unsigned char bank_session_save(void)
         return 0;
     while (pos < SESSION_SIZE) {
         n = SESSION_SIZE - pos > CART_TRANSFER_MAX ? CART_TRANSFER_MAX : SESSION_SIZE - pos;
-        /* Do not cross from encoded shell fields into font RAM in the same chunk. */
-        if (pos < SESSION_FONT_OFFSET) {
-            if (n > SESSION_FONT_OFFSET - pos)
-                n = SESSION_FONT_OFFSET - pos;
+        /* History and font bytes are read from RAM beneath KERNAL in chunks. */
+        if (pos >= SESSION_FONT_OFFSET) {
+            session_ramread((const void *)(0xe800 + pos - SESSION_FONT_OFFSET), n);
+        } else if (pos >= SESSION_HISTORY_OFFSET && pos < SESSION_PROMPT_OFFSET) {
+            if (n > SESSION_PROMPT_OFFSET - pos)
+                n = SESSION_PROMPT_OFFSET - pos;
+            session_ramread((const char *)&history + (pos - SESSION_HISTORY_OFFSET), n);
+        } else {
+            unsigned int end = pos < SESSION_HISTORY_OFFSET ? SESSION_HISTORY_OFFSET : SESSION_FONT_OFFSET;
+            if (n > end - pos)
+                n = end - pos;
             for (i = 0; i < n; ++i)
                 io[i] = statebyte(pos + i);
-        } else
-            session_fontread(pos - SESSION_FONT_OFFSET, n);
+        }
         memcpy(CART_TEXT, io, n);
         if (!transfer(CART_SESSION_WRITE, n))
             return 0;
@@ -204,7 +204,7 @@ __noinline unsigned char bank_session_restore(void)
     }
     prompttext[ENVVALUE] = 0;
     for (i = 0; i < 10; ++i)
-        history[i][LINE - 1] = 0;
+        history.text[i][LINE - 1] = 0;
     for (i = 0; i < LOCATIONCOUNT; ++i)
         working[i][PATHSIZE - 1] = 0;
     nav_invalidate();
@@ -250,19 +250,16 @@ __noinline unsigned char bank_session_run(void)
 #pragma code(code)
 #pragma data(data)
 
-/* Reading font RAM beneath KERNAL must execute entirely in resident RAM.
+/* Copy bytes beneath KERNAL into io while preserving the interrupt state.
  *
- * Copy font bytes beneath KERNAL into io while preserving the interrupt state.
- *
- * offset: Byte offset within the 2048-byte saved font.
- * size: Bytes to copy; must fit io and the remaining font. */
-__noinline void session_fontread(unsigned int offset, unsigned char size)
+ * source: Address in RAM beneath KERNAL.
+ * size: Bytes to copy, at most the mailbox transfer limit. */
+__noinline void session_ramread(const void *source, unsigned char size)
 {
     __asm { php
  sei }
-    /* Hide KERNAL briefly to expose the saved font; resident code remains visible. */
     POKE(1, 0x34);
-    memcpy(io, (void *)(0xe800 + offset), size);
+    memcpy(io, source, size);
     POKE(1, 0x36);
     __asm { plp }
 }

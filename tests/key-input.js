@@ -21,8 +21,9 @@ const harness = `
 #define PEEK(a) ((a)==197 ? scan : held)
 static unsigned char held,scan=64, ox=3,oy, histcount,histnext,editprompt,cachevalid=1,cachedev;
 static unsigned int count;
-static unsigned char rawline[9],rawdraft[9],rawhistory[10][9];
-static char history[10][65],draft[65],keybindings[256],shownline[40];
+static unsigned char rawline[RAWMAP];
+static char keybindings[256],shownline[40];
+static void history_recall(char *buf,unsigned char slot) {buf[0]=0;}
 static unsigned char events[10],mods[10];
 static int used,reads,newlines;
 typedef struct {unsigned char dev; char name[17]; char dir[128];} Path;

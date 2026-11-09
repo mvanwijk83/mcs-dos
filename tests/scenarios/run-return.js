@@ -12,7 +12,12 @@ module.exports =
     }
     async function variable(name, n) {
         const at = address(name);
-        return Buffer.from(await memory(at, at + n - 1));
+        if (at >= 0xe000) await command('bank ram');
+        try {
+            return Buffer.from(await memory(at, at + n - 1));
+        } finally {
+            if (at >= 0xe000) await command('bank cpu');
+        }
     }
     async function settled(s, predicate) {
         for (let i = 0; i < 40 && !predicate(s); i++) {

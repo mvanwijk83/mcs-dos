@@ -7,5 +7,5 @@ unsigned char session_save(void);
 unsigned char session_restore(void);
 void session_basic(void);
 unsigned char session_run(void);
-void session_fontread(unsigned int offset, unsigned char size);
+void session_ramread(const void *source, unsigned char size);
 #endif

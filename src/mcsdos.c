@@ -104,8 +104,8 @@ again:
             if (!input(line, LINE, 1))
                 continue;
             if (line[0]) {
-                strcpy(history[histnext], line);
-                memcpy(rawhistory[histnext], rawline, RAWMAP);
+                strcpy(history.text[histnext], line);
+                memcpy(history.raw[histnext], rawline, RAWMAP);
                 histnext = (histnext + 1) % 10;
                 if (histcount < 10)
                     ++histcount;

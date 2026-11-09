@@ -583,7 +583,8 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
     quit = reboot = batching = aborted = editprompt = pagelines = 0;
     envready = 0;
     envused = histcount = histnext = cachevalid = count = cmdslot = 0;
-    environment[0] = line[0] = draft[0] = 0;
+    environment[0] = line[0] = 0;
+    memset(&history, 0, sizeof(history));
     memset(keybindings, 0, sizeof(keybindings));
     strcpy(prompttext, "$p$g");
     batchpos = batchlen = 0;

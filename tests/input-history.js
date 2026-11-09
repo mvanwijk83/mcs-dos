@@ -21,14 +21,16 @@ require('./shell')('input-history', async ({disk, command, keys, enter}) => {
     let text;
     for (let i = 0; i < 10; i++)
         text = await keys('\\x11');
-    assert(text.endsWith('8:\\>draft'), text);
+    assert(text.endsWith('8:\\>'), text);
+    assert((await keys('\\x91'.repeat(10))).endsWith('8:\\>echo history01'));
+    assert((await keys('\\x11'.repeat(10))).endsWith('8:\\>'));
     const beforeStop = await keys('draft text');
     const afterStop = await keys('\\x03');
     assert.equal(afterStop.split('\n').length, beforeStop.split('\n').length,
         'RUN/STOP must retain the current prompt row');
     assert(afterStop.endsWith('8:\\>'), afterStop);
     await keys('\\x91');
-    assert((await keys('\\x11')).endsWith('8:\\>'), 'cleared draft must stay empty');
+    assert((await keys('\\x11')).endsWith('8:\\>'), 'Down past the newest entry clears the line');
     await keys('\\x03');
     await command('detach 8');
     const files = require('./disk-image').files(disk);
@@ -47,7 +49,7 @@ require('./shell')('input-history', async ({disk, command, keys, enter}) => {
     assert(text.includes(messages.SYSOUT_BATCH_CMD_TOO_LONG.trim()), text);
     assert(!text.includes('should-not-run'), text);
     console.log(
-        'PASS 127-character input, history wrap/draft restoration, and batch overflow refusal');
+        'PASS 127-character input, history wrap and repeated recall, discarded draft, and batch overflow refusal');
 }).catch(error => {
     console.error(error);
     process.exitCode = 1;

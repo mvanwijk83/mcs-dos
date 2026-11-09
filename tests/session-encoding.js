@@ -8,7 +8,8 @@ fs.writeFileSync('build/test-session-encoding.c',`
 #include "../src/mount.h"
 static unsigned char fg,bg,bd,drive,echoon,histcount,histnext,envready;
 static unsigned int envused;
-static char environment[${constant('ENVSIZE')}],history[10][128],rawhistory[10][16],prompttext[33],keybindings[256],working[24][128];
+static char environment[${constant('ENVSIZE')}],prompttext[33],keybindings[256],working[24][128];
+static struct {char text[10][128];unsigned char raw[10][16];} history;
 MountRecord mounts[MOUNT_COUNT];
 char mount_hostdir[128];
 static unsigned char font[2048],encoded[MOUNT_STATE_SIZE];
@@ -23,8 +24,12 @@ int main(void){
     if(envused!=sizeof(environment))return 5;
     stateput(SESSION_HISTORY_OFFSET-1,94);
     stateput(SESSION_HISTORY_OFFSET,47);
-    if(environment[sizeof(environment)-1]!=94||history[0][0]!=47)return 6;
-    if(statebyte(SESSION_HISTORY_OFFSET-1)!=94||statebyte(SESSION_HISTORY_OFFSET)!=47)return 7;
+    stateput(SESSION_RAW_HISTORY_OFFSET,59);
+    stateput(SESSION_PROMPT_OFFSET-1,63);
+    stateput(SESSION_PROMPT_OFFSET,72);
+    if(environment[sizeof(environment)-1]!=94||history.text[0][0]!=47||
+        history.raw[0][0]!=59||history.raw[9][15]!=63||prompttext[0]!=72)return 6;
+    if(statebyte(SESSION_HISTORY_OFFSET-1)!=94||statebyte(SESSION_PROMPT_OFFSET)!=72)return 7;
     for(i=0;i<447;++i)((unsigned char*)mounts)[i]=(i*17+3)&255;
     for(i=0;i<128;++i)mount_hostdir[i]=(i*17+447*17+3)&255;
     for(i=0;i<MOUNT_STATE_SIZE;++i){

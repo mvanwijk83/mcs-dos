@@ -20,6 +20,33 @@ __noinline void bank_diskidcmd(void);
 __noinline void bank_diskinitcmd(void);
 __noinline void bank_diskcopycmd(void);
 
+/* Parse CHKDSK's optional drive path and mutually exclusive /V and /C switches. */
+static unsigned char validate;
+__noinline unsigned char bank_reportoptions(void)
+{
+    unsigned char i, seenpath = 0;
+    validate = 0;
+    for (i = 1; i < argc; ++i) {
+        if (!stricmp(args[i], "/V"))
+            validate |= 1;
+        else if (!stricmp(args[i], "/C"))
+            validate |= 2;
+        else {
+            if (args[i][0] == '/' || seenpath++)
+                break;
+            if (!path(args[i], &p1))
+                return 0;
+            if (p1.name[0])
+                break;
+        }
+    }
+    if (i < argc || validate == 3) {
+        error(SYSOUT_INVALID_PARAM);
+        return 0;
+    }
+    return 1;
+}
+
 /* CBM DOS raw block interface. Each drive uses secondary address 2;
  * separate host logical files let two drives keep their buffers open.
  *
@@ -279,7 +306,7 @@ __noinline void bank_volcmd(unsigned char stats)
     if (!path("", &p1))
         return;
     if (stats) {
-        if (!reportoptions(1))
+        if (!bank_reportoptions())
             return;
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;

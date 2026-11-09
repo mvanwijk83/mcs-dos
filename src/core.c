@@ -57,7 +57,7 @@ char launchname[17];
 unsigned char launchdevice, launchlength, launchabsolute;
 unsigned int launchaddress;
 
-unsigned char noseparators, validate;
+unsigned char noseparators;
 unsigned char resume_requested;
 
 const char *const commands[] = {
@@ -720,46 +720,23 @@ void runbatch(void)
     batching = 1;
 }
 
-/* Validate MEM or volume-report switches and update the shared validate flags.
- *
- * disk: Nonzero permits a drive path and the mutually exclusive /V and /C switches. */
-unsigned char reportoptions(unsigned char disk)
-{
-    unsigned char i, seenpath = 0;
-    validate = 0;
-    for (i = 1; i < argc; ++i) {
-        if (disk && !stricmp(args[i], "/V"))
-            validate |= 1;
-        else if (disk && !stricmp(args[i], "/C"))
-            validate |= 2;
-        else {
-            if (args[i][0] == '/' || !disk || seenpath++)
-                break;
-            if (!path(args[i], &p1))
-                return 0;
-            if (p1.name[0])
-                break;
-        }
-    }
-    if (i < argc || validate == 3) {
-        error(SYSOUT_INVALID_PARAM);
-        return 0;
-    }
-    return 1;
-}
+#pragma code(hostdir_code)
+#pragma data(hostdir_data)
 
 /* Return free shell RAM after the linked end of global data and reserved regions. */
-unsigned int freememory(void)
+static unsigned int freememory(void)
 {
     return 0xa000U - ((unsigned int)&BSSEnd) + 0x0400U;
 }
 
 /* Validate and execute MEM, showing how the fixed memory layout uses RAM. */
-void memcmd(void)
+__noinline void bank_memcmd(void)
 {
     unsigned long reserved;
-    if (!reportoptions(0))
+    if (argc > 1) {
+        error(SYSOUT_INVALID_PARAM);
         return;
+    }
     reserved = 65536UL - ((unsigned int)&BSSEnd - 0x0801) - SHELL_STACK_SIZE - freememory() - 8192U;
     print(SYSOUT_MEM_TOTAL, decimal(65536UL));
     print(SYSOUT_MEM_SHELL, decimal((unsigned int)&BSSEnd - 0x0801));
@@ -772,8 +749,6 @@ void memcmd(void)
 /* Validate and dispatch one command using the shared argument and path workspaces.
  *
  * s: Writable command text, including any switches. */
-#pragma code(hostdir_code)
-#pragma data(hostdir_data)
 __noinline void bank_executecommand(char *s)
 {
     char *tail, *end;
@@ -950,7 +925,7 @@ __noinline void bank_executecommand(char *s)
         labelcmd();
         break;
     case 13:
-        memcmd();
+        bank_memcmd();
         break;
     case 14:
         copycmd(1);

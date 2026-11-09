@@ -97,7 +97,7 @@ extern unsigned char outputbuf[128];
 extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
-extern unsigned char noseparators, validate;
+extern unsigned char noseparators;
 #define COMMANDCOUNT 38
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
@@ -189,9 +189,6 @@ unsigned char drivetype(unsigned char dev, unsigned char report);
 unsigned char tracksectors(unsigned char track, unsigned char tracks);
 unsigned char bam(unsigned char dev);
 unsigned char copyrel(void);
-unsigned char reportoptions(unsigned char disk);
-unsigned int freememory(void);
-void memcmd(void);
 void delcmd(void);
 void volcmd(unsigned char stats);
 void labelcmd(void);

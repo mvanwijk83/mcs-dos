@@ -3,12 +3,10 @@ require('./setup');
 const fs = require('fs');
 const {functions} = require('./source');
 let code = 'static unsigned char noseparators,validate;\n' +
-           functions('decimal', 'allocated', 'reportoptions', 'freememory', 'memcmd', 'deletable',
+           functions('decimal', 'allocated', 'reportoptions', 'memcmd', 'deletable',
                'delcmd', 'driveinfo', 'volcmd');
 code = code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,
     'static unsigned char deletable(void *p) { return 1; }');
-code = code.replace(/static unsigned int freememory\(void\)\s*\{[\s\S]*?\n\}/,
-    'static unsigned int freememory(void) { return 2000; }');
 const harness = `
 
 #include <stdio.h>
@@ -24,6 +22,7 @@ static unsigned int count = 2;
 static unsigned int freeblocks = 660;
 static char BSSEnd;
 #define SHELL_STACK_SIZE 2048U
+static unsigned int freememory(void) { return 2000; }
 
 static struct {
     unsigned char dev; char name[17]; char dir[128];

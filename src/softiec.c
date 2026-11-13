@@ -283,6 +283,159 @@ static void softiec_native(const char *name, char *native)
     *native = 0;
 }
 
+/* UCI write packets carry one or two raw sectors. A null sector is zero-filled
+ * here, so the image contents are independent of FAT seek-past-EOF semantics. */
+static void softiec_disk_sector(volatile unsigned char *fifo, const unsigned char *data)
+{
+    unsigned char i = 0;
+    if (data) {
+        do { *fifo = data[i]; } while (++i);
+    } else {
+        do {
+            *fifo = 0; *fifo = 0; *fifo = 0; *fifo = 0;
+            i += 4;
+        } while (i);
+    }
+}
+
+static unsigned char softiec_disk_write(unsigned char count, const unsigned char *first,
+                                        const unsigned char *second)
+{
+    volatile unsigned char *fifo = (volatile unsigned char *)(ultimatebase + 1);
+    unsigned int length;
+    unsigned char more;
+    if (!softiec_wait(0xfd, 0)) {
+        strcpy(statusbuf, SYSOUT_ULTIMATE_DOS_FAILED);
+        return 0;
+    }
+    *fifo = 2; *fifo = 5; *fifo = 0; *fifo = 0;
+    softiec_disk_sector(fifo, first);
+    if (count == 2)
+        softiec_disk_sector(fifo, second);
+    POKE(ultimatebase, 1);
+    return softiec_reply(io, sizeof(io), &length, &more) && !more;
+}
+
+static unsigned char softiec_disk_open(const char *name, unsigned char mode)
+{
+    volatile unsigned char *fifo = (volatile unsigned char *)(ultimatebase + 1);
+    unsigned int length;
+    unsigned char more;
+    if (!softiec_wait(0xfd, 0)) {
+        strcpy(statusbuf, SYSOUT_ULTIMATE_DOS_FAILED);
+        return 0;
+    }
+    *fifo = 2; *fifo = 2; *fifo = mode;
+    while (*name) *fifo = *name++;
+    POKE(ultimatebase, 1);
+    return softiec_reply(io, sizeof(io), &length, &more) && !more;
+}
+
+/* READ_DATA may return an empty status FIFO on success. Compare the full
+ * sector and consume the status before acknowledging this single reply. */
+static unsigned char softiec_disk_check(unsigned int sector, const unsigned char *expected)
+{
+    volatile unsigned char *fifo = (volatile unsigned char *)(ultimatebase + 1);
+    volatile unsigned char *data = fifo + 1, *status = fifo + 2;
+    unsigned int length;
+    unsigned char more, i = 0, equal = 1, count = 0, byte;
+    if (!softiec_wait(0xfd, 0)) return 0;
+    *fifo = 2; *fifo = 6; *fifo = 0; *fifo = sector; *fifo = sector >> 8; *fifo = 0;
+    POKE(ultimatebase, 1);
+    if (!softiec_reply(io, sizeof(io), &length, &more) || more) return 0;
+    if (!softiec_wait(0xfd, 0)) return 0;
+    *fifo = 2; *fifo = 4; *fifo = 0; *fifo = 1;
+    POKE(ultimatebase, 1);
+    if (!softiec_wait(0x22, 0x20) || (PEEK(ultimatebase) & 0x10)) goto failed;
+    do {
+        if (!(PEEK(ultimatebase) & 128)) goto failed;
+        byte = *data;
+        if (byte != expected[i]) equal = 0;
+    } while (++i);
+    if (PEEK(ultimatebase) & 128) goto failed;
+    while (PEEK(ultimatebase) & 64) {
+        if (count == sizeof(statusbuf) - 1) goto failed;
+        byte = *status;
+        if (count < 2 && byte != 48) equal = 0;
+        ++count;
+    }
+    POKE(ultimatebase, 2);
+    return equal && count != 1;
+failed:
+    POKE(ultimatebase, 4);
+    return 0;
+}
+
+static unsigned char softiec_disk_verify(const char *name, unsigned char kind,
+                                         const ImageLabel *label)
+{
+    const ImageLayout *layout = &image_layouts[kind - 1];
+    unsigned char *expected = (unsigned char *)workspace + 512;
+    unsigned int length;
+    unsigned char more, index, ok;
+    if (!softiec_disk_open(name, 1)) return 0;
+    memset(expected, 0, 256);
+    ok = softiec_disk_check(0, expected);
+    for (index = 0; ok && index < layout->count; ++index) {
+        image_metadata(kind, index, label, expected);
+        ok = softiec_disk_check(layout->metadata[index], expected);
+    }
+    return softiec_dos(0x03, 0, 0, io, sizeof(io), &length, &more) && ok;
+}
+
+__noinline unsigned char bank_softiec_makedisk(const Path *p, unsigned char kind,
+                                              const ImageLabel *label)
+{
+    const ImageLayout *layout = &image_layouts[kind - 1];
+    unsigned int length, sector;
+    unsigned char more, count, index = 0, opened = 0, ok = 0;
+    unsigned char *first, *second;
+    char *native = workspace + 768;
+
+    /* Reuse the directory transaction used for native listing. */
+    softiec_list_begin(p);
+    if (!list_valid) goto finish;
+    softiec_native(p->name, native);
+    if (!softiec_disk_open(native, 6)) goto finish; /* WRITE | CREATE_NEW */
+    opened = 1;
+    for (sector = 0; sector < layout->sectors; sector += count) {
+        if (stop()) goto finish;
+        /* Legacy firmware can write garbage on aligned 512-byte UCI writes.
+         * Start with 256 bytes so all 512-byte packets cross a sector boundary. */
+        count = sector && layout->sectors - sector > 1 ? 2 : 1;
+        first = second = 0;
+        if (index < layout->count && layout->metadata[index] == sector) {
+            first = io;
+            image_metadata(kind, index++, label, first);
+        }
+        if (count == 2 && index < layout->count && layout->metadata[index] == sector + 1) {
+            second = (unsigned char *)workspace + 512;
+            image_metadata(kind, index++, label, second);
+        }
+        if (!softiec_disk_write(count, first, second)) goto finish;
+    }
+    ok = 1;
+finish:
+    if (!ok && !aborted && statusbuf[0]) error(statusbuf);
+    if (opened) {
+        if (!softiec_dos(0x03, 0, 0, io, sizeof(io), &length, &more)) ok = 0;
+        /* The legacy write reply does not expose short writes. Verify size
+         * after close before reporting success. */
+        if (ok)
+            ok = softiec_dos(0x08, native, 0, io, sizeof(io), &length, &more) &&
+                 length >= 4 && io[0] == 0 && io[1] == (unsigned char)layout->sectors &&
+                 io[2] == layout->sectors >> 8 && io[3] == 0;
+        if (ok && !softiec_disk_verify(native, kind, label)) {
+            ok = 0;
+            error(SYSOUT_MAKEDISK_VERIFY_FAILED);
+        }
+        if (!ok && !softiec_dos(0x09, native, 0, io, sizeof(io), &length, &more))
+            error(statusbuf);
+    }
+    if (!bank_softiec_list(0, 0, 0, 0)) ok = 0;
+    return ok;
+}
+
 /* Reuse the idle editor workspace: saved DOS path, resolved source, error.
  * Shell paths and the Software IEC drive's own location are never changed. */
 __noinline void bank_softiec_rename(void)

@@ -9,7 +9,7 @@
   "ECHO": "Displays messages, or turns command-\nechoing on or off.\n\n  ECHO [ON | OFF]\n  ECHO [message]\n\nType ECHO without parameters to display\nthe current echo setting. ECHO. (no\nspace) will insert a blank line.",
   "EDIT": "Edits one screen of text.\n\nEDIT [filename]\n\nSupported edit keys are cursor keys,\nINST/DEL, CLR/HOME, and RETURN. RUN/STOP\nexits and prompts to save.\n\nOmit filename to be prompted at save.\nTo create a batch file, include a .BAT\nextension.",
   "BASIC": "Starts the C64 BASIC environment.\n\nIn BASIC, type SHELL to return.",
-  "FORMAT": "Formats a disk.\n\nFORMAT drive: [/V:label] [/ID:id]\n              [/F:format]\n\n  /V:label   Specifies the volume label.\n  /I:id      Specifies the disk ID.\n  /Q         Performs a quick format.\n  /F:format  Specifies a CMD-FD format\n             type: 81, DD8, HD8, ED8,\n             DDN, HDN, EDN, S8 or SW.",
+  "FORMAT": "Formats a disk.\n\nFORMAT drive: [/V:label] [/I:id]\n              [/F:format]\n\n  /V:label   Specifies the volume label.\n  /I:id      Specifies the disk ID.\n  /Q         Performs a quick format.\n  /F:format  Specifies a CMD-FD format\n             type: 81, DD8, HD8, ED8,\n             DDN, HDN, EDN, S8 or SW.",
   "HELP": "Displays help on MCS-DOS commands.\n\n  HELP [command]\n\n[command]\n  Displays help on that command.\n\nCOMMAND /? also displays help. If no\ncommand is specified, a list of valid\ncommands is displayed.",
   "LABEL": "Creates, changes, or deletes the volume\nlabel of a disk.\n\nLABEL [drive:] [label]",
   "MEM": "Displays the amount of used and free\nmemory in your system.\n\nMEM",
@@ -36,5 +36,6 @@
   "MD": "Creates a directory or partition.\n\nMD [drive:][path] [/SIZE:n]\nMKDIR [drive:][path] [/SIZE:n]\n\n  /SIZE:n  Specifies the partition size\n           for 1581 drives (minimum 120\n           sectors, multiple of 40).",
   "RD": "Removes a directory or partition.\n\nRD [drive:][path] [/S [/P]]\nRMDIR [drive:][path]\n\n  /S  Removes all directories and files\n      in the specified directory as\n      well. Not supported on CMD native\n      directories.\n  /P  Suppresses confirmation prompt\n      with /S.",
   "MOUNT": "Mounts a disk image.\n\nMOUNT image [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices.\n\nUltimate accepts quoted native long file\nnames, including spaces and commas.\nParent directories use MCS-DOS paths.",
-  "UNMOUNT": "Unmount a disk image.\n\nUNMOUNT [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices."
+  "UNMOUNT": "Unmount a disk image.\n\nUNMOUNT [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices.",
+  "MAKEDISK": "Creates a blank disk image.\n\nMAKEDISK [drive:][path]filename\n         [/V:label] [/I:id]\n\n  /V:label  Specifies the volume label.\n  /I:id     Specifies the disk ID.\n\nSupported on Ultimate and SD2IEC storage\nmedia. The image format is determined by\nthe file name extension. Supported\nformats are D64, D71 and D81."
 }

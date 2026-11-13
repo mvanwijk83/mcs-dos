@@ -77,6 +77,23 @@ __noinline void mountcmd(unsigned char unmount)
     BANK_PUSH(BANK_MOUNT);
     bank_mountcmd(unmount); BANK_POP();
 }
+
+__noinline void bank_makediskcmd(void);
+__noinline void makediskcmd(void)
+{
+    BANK_PUSH(BANK_MOUNT);
+    bank_makediskcmd();
+    BANK_POP();
+}
+
+__noinline unsigned char bank_softiec_makedisk(const Path *p, unsigned char kind, const ImageLabel *label);
+__noinline unsigned char softiec_makedisk(const Path *p, unsigned char kind, const ImageLabel *label)
+{
+    BANK_PUSH(BANK_SOFTIEC);
+    unsigned char result = bank_softiec_makedisk(p, kind, label);
+    BANK_POP();
+    return result;
+}
 __noinline unsigned char bank_mount_select(unsigned char dev, const char *dir);
 __noinline unsigned char mount_select(unsigned char dev, const char *dir)
 {
@@ -147,6 +164,26 @@ __noinline unsigned char host_select(unsigned char dev, const char *dir, unsigne
     unsigned char result = bank_host_select(dev, dir, model);
     BANK_POP();
     return result;
+}
+
+__noinline unsigned char bank_makedisk_title(const char *label, const char *id, ImageLabel *title);
+__noinline unsigned char makedisk_title(const char *label, const char *id, ImageLabel *title)
+{
+    BANK_PUSH(BANK_STORAGE);
+    unsigned char result = bank_makedisk_title(label, id, title);
+    BANK_POP();
+    return result;
+}
+
+__noinline unsigned int bank_image_metadata(unsigned char kind, unsigned char index,
+                                            const ImageLabel *label, unsigned char *data);
+__noinline unsigned int image_metadata(unsigned char kind, unsigned char index,
+                                       const ImageLabel *label, unsigned char *data)
+{
+    BANK_PUSH(BANK_MOUNT);
+    unsigned int length = bank_image_metadata(kind, index, label, data);
+    BANK_POP();
+    return length;
 }
 
 __noinline unsigned char bank_host_partfind(unsigned char dev, const char *name, PartitionInfo *info);

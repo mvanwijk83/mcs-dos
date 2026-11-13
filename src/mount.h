@@ -7,6 +7,15 @@
 #define MOUNT_STATE_SIZE 575
 #define MOUNT_NATIVE 128
 #define SOFTIEC_MOUNT_NATIVE 4
+typedef struct ImageLayout {
+    unsigned int sectors;
+    unsigned int metadata[4];
+    unsigned char count;
+} ImageLayout;
+typedef struct ImageLabel {
+    char name[17], id[3];
+} ImageLabel;
+extern const ImageLayout image_layouts[3];
 typedef struct MountRecord {
     unsigned char dev, source, model, type;
     /* Native Ultimate records store parent + full leaf in dir; name retains
@@ -23,6 +32,11 @@ const char *imagetype(const char *name, unsigned char type);
 unsigned char mount_active(unsigned char dev);
 unsigned char mount_geometry(unsigned char dev);
 void mountcmd(unsigned char unmount);
+void makediskcmd(void);
+unsigned char makedisk_title(const char *label, const char *id, ImageLabel *title);
+unsigned char softiec_makedisk(const Path *p, unsigned char kind, const ImageLabel *label);
+unsigned int image_metadata(unsigned char kind, unsigned char index,
+                            const ImageLabel *label, unsigned char *data);
 unsigned char mount_select(unsigned char dev, const char *dir);
 void mount_invalidate(void);
 void mount_reset(void);

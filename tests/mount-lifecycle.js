@@ -26,7 +26,7 @@ static const char *args[4];
 static unsigned char redirected;
 static Path outputpath,p1;
 #define mount_confirm() yesno(SYSOUT_REPLACE_MOUNT)
-static unsigned char image_entry(unsigned char dev,const char *name,unsigned char directory);
+static unsigned char image_entry(unsigned char dev,char *name,unsigned char directory);
 static unsigned char ultimate,ultcalls,ultdev,ulteject,readat,fail_ambiguous,fail_native;
 static unsigned char drivemodel(unsigned char d,unsigned char r){return d==9?DRIVE_SD2IEC:d==11?DRIVE_SOFTIEC:DRIVE_1541;}
 static unsigned char location_index(unsigned char d){return d?d-7:0;}
@@ -48,6 +48,19 @@ static unsigned char yesno(const char *s){++prompts;return answer;}
 static void channel_close(unsigned char n){++closed;}
 static void channel_buffer(unsigned char n,unsigned char active){}
 static unsigned char command(unsigned char d,const char *s){++commands;strcpy(last,s);if(failnew&&!strcmp(s,"cd:BAD.D64")){failnew=0;return 0;}return 1;}
+#define POKE(a,b) ((void)0)
+typedef struct {unsigned char type;} PartitionInfo;
+static unsigned char parent_status, partition_type=1;
+static unsigned char partition_info(unsigned char d,unsigned char n,PartitionInfo *info){
+    info->type=partition_type;return n==255;
+}
+static unsigned char statuschannel(unsigned char d){return 15;}
+static int channel_write(unsigned char lfn,const void *data,unsigned int length){
+    static const unsigned char parent[]={0x43,0x44,':',0x5f};
+    ++commands;
+    return lfn==15&&length==sizeof(parent)&&!memcmp(data,parent,length)?length:0;
+}
+static unsigned char diskstatus(unsigned char d,unsigned char report){return parent_status;}
 static unsigned char host_select(unsigned char d,const char *s,unsigned char m){if(!mount_bypass)return 0;strcpy(selected,s);return 1;}
 static void nav_invalidate(void){sd_ready=0;}
 static unsigned char directory_open(unsigned char f,unsigned char d){readat=0;return 0;}
@@ -57,7 +70,8 @@ static unsigned char directory_read(unsigned char f,struct DirectoryEntry *e){
     if(readat==3){strcpy(e->name,"INNER.D64");e->type=CBM_T_SEQ;return 0;}
     if(readat==4){strcpy(e->name,"GAME.D64");e->type=CBM_T_SEQ;return 0;}
     if(readat==5){strcpy(e->name,"NEXT.D81");e->type=CBM_T_SEQ;return 0;}
-    if(readat==6){strcpy(e->name,"BAD.D64");e->type=CBM_T_SEQ;return 0;}return 2;
+    if(readat==6){strcpy(e->name,"BAD.D64");e->type=CBM_T_SEQ;return 0;}
+    if(readat==7){strcpy(e->name,"NewSD2IECDsk.D64");e->type=CBM_T_SEQ;return 0;}return 2;
 }
 static unsigned char path(const char *text,Path *p){
     char full[128],*slash;const char *q=text;p->dev=drive;
@@ -104,6 +118,16 @@ int main(void){
     mount_reset();if(mount_active(9)||mounts[1].dev||mount_hostdir[0])return 16;
     drive=9;argc=1;n=commands;mountcmd(1);
     if(commands<n+2)return 18;
+    parent_status=62;invoke("\\\\@1\\\\NEWSD2IECDSK.D64");
+    if(mounts[0].dev!=9||strcmp(last,"cd:NewSD2IECDsk.D64")||
+       !strstr(output,"NEWSD2IECDSK.D64 mounted"))return 28;
+    parent_status=0;argc=1;mountcmd(1);
+    if(mounts[0].dev)return 29;
+    parent_status=74;invoke("\\\\@1\\\\NEWSD2IECDSK.D64");
+    if(mounts[0].dev||!strstr(output,"Cannot mount NEWSD2IECDSK.D64"))return 30;
+    parent_status=62;partition_type=2;invoke("\\\\@1\\\\NEWSD2IECDSK.D64");
+    if(mounts[0].dev||!strstr(output,"Cannot mount NEWSD2IECDSK.D64"))return 31;
+    parent_status=0;partition_type=1;
     ultimate=1;drive=0;argc=3;args[1]="11:\\\\USB1\\\\FUN.D64";args[2]="8:";
     fail_ambiguous=1;output[0]=0;mountcmd(0);
     if(mounts[1].dev||!strstr(output,SYSOUT_AMBIGUOUS_FILE_NAME)||strstr(output,"Cannot mount"))return 21;

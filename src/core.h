@@ -104,7 +104,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators;
-#define COMMANDCOUNT 38
+#define COMMANDCOUNT 39
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */

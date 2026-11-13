@@ -469,6 +469,10 @@ __noinline void bank_labelcmd(void)
  * FD extensions are explicit: bare NEW could erase only one CMD partition. */
 #pragma code(storage_code)
 #pragma data(storage_data)
+static unsigned char format_label_valid(const char *label);
+static unsigned char format_label(const char *label, char *name);
+static unsigned char format_id(const char *diskid, char *id);
+
 __noinline void bank_formatcmd(void)
 {
     static const char *const formats[] = {"81", "DD8", "HD8", "ED8", "DDN", "HDN", "EDN", "S8", "SN"};
@@ -551,57 +555,20 @@ __noinline void bank_formatcmd(void)
             return;
     }
     /* Reject supplied values before confirmation or any drive mutation. */
-    if (label && (strlen(label) > 16 || strchr(label, ','))) {
-        error(strlen(label) > 16 ? SYSOUT_VOLUME_LABEL_TOO_LONG : SYSOUT_FORMAT_INVALID_LABEL);
+    if (label && !format_label_valid(label))
         return;
-    }
-    if (diskid && !quick) {
-        if (strlen(diskid) != 2) {
-            error(SYSOUT_DISK_ID_FORMAT);
-            return;
-        }
-        filename(diskid, id);
-        if (!isalnum(id[0]) || !isalnum(id[1])) {
-            error(SYSOUT_DISK_ID_FORMAT);
-            return;
-        }
-    }
+    if (diskid && !quick && !format_id(diskid, id))
+        return;
     print(SYSOUT_INSERT_DISK, drivename(p1.dev));
     say(SYSOUT_ALL_DATA_LOST);
     if (format)
         print(SYSOUT_FORMAT_TYPE, format);
     if (!yesno(SYSOUT_PROCEED_WITH_FORMAT))
         return;
-    if (!label) {
-        outs(SYSOUT_FORMAT_LABEL_PROMPT);
-        if (!input(line, 17, 0))
-            return;
-        label = line;
-    }
-    filename(label, name);
-    if (strchr(name, ',')) {
-        error(SYSOUT_FORMAT_INVALID_LABEL);
+    if (!format_label(label, name))
         return;
-    }
-    if (!*name)
-        strcpy(name, SYSOUT_FORMAT_DEFAULT_LABEL);
-    if (!diskid && !quick) {
-        outs(SYSOUT_DISK_ID_PROMPT);
-        if (!input(line, LINE, 0))
-            return;
-        diskid = line;
-    }
-    if (!quick) {
-        if (strlen(diskid) != 2) {
-            error(SYSOUT_DISK_ID_FORMAT);
-            return;
-        }
-        filename(diskid, id);
-        if (!isalnum(id[0]) || !isalnum(id[1])) {
-            error(SYSOUT_DISK_ID_FORMAT);
-            return;
-        }
-    }
+    if (!diskid && !quick && !format_id(0, id))
+        return;
     /* Establish physical root only after confirmation and value validation. */
     if (model == DRIVE_1581 || model == DRIVE_CMD_FD || mount_active(p1.dev)) {
         nav_invalidate();
@@ -810,6 +777,64 @@ __noinline void bank_diskcopycmd(void)
     command(p2.dev, "i0");
     cachevalid = 0;
     say(ok ? SYSOUT_COPY_COMPLETE : SYSOUT_DISK_COPY_NOT_COMPLETED);
+}
+
+#pragma code(storage_code)
+#pragma data(storage_data)
+
+/* FORMAT and MAKEDISK use the same native label and ID rules. */
+static unsigned char format_label_valid(const char *label)
+{
+    if (strlen(label) > 16) {
+        error(SYSOUT_VOLUME_LABEL_TOO_LONG);
+        return 0;
+    }
+    if (strchr(label, ',')) {
+        error(SYSOUT_FORMAT_INVALID_LABEL);
+        return 0;
+    }
+    return 1;
+}
+
+static unsigned char format_label(const char *label, char *name)
+{
+    if (!label) {
+        outs(SYSOUT_FORMAT_LABEL_PROMPT);
+        if (!input(line, 17, 0))
+            return 0;
+        label = line;
+    }
+    if (!format_label_valid(label))
+        return 0;
+    filename(label, name);
+    if (!*name)
+        strcpy(name, SYSOUT_FORMAT_DEFAULT_LABEL);
+    return 1;
+}
+
+static unsigned char format_id(const char *diskid, char *id)
+{
+    if (!diskid) {
+        outs(SYSOUT_DISK_ID_PROMPT);
+        if (!input(line, LINE, 0))
+            return 0;
+        diskid = line;
+    }
+    if (strlen(diskid) == 2) {
+        filename(diskid, id);
+        if (isalnum(id[0]) && isalnum(id[1]))
+            return 1;
+    }
+    error(SYSOUT_DISK_ID_FORMAT);
+    return 0;
+}
+
+__noinline unsigned char bank_makedisk_title(const char *label, const char *id, ImageLabel *title)
+{
+    if ((label && !format_label_valid(label)) || (id && !format_id(id, title->id)) ||
+        !format_label(label, title->name) || (!id && !format_id(0, title->id)))
+        return 0;
+    return 1;
 }
 
 #pragma code(code)

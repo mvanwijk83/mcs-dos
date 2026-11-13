@@ -44,7 +44,7 @@ static int channel_write(unsigned char l,const char *s,unsigned int n) {
 }
 static unsigned char diskstatus(unsigned char d,unsigned char r) {++statuses;return 30;}
 static unsigned char command(unsigned char dev,const char *s) {++commands;return commandok;}
-${functions('formatcmd')}
+${functions('format_label_valid', 'format_label', 'format_id', 'formatcmd')}
 static void reset(void) {
     inputs=commands=errors=modes=confirmations=selects=writes=statuses=invalidations=typecalls=0;
     accept=rootok=writeok=commandok=1;model=DRIVE_1581;geometry=3;

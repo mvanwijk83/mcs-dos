@@ -254,7 +254,7 @@ __noinline void bank_makediskcmd(void)
         error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
         return;
     }
-    if (mount_active(p1.dev) || (redirected && outputpath.dev == p1.dev)) {
+    if (mount_active(p1.dev) || (outputkind == OUTPUT_FILE && outputpath.dev == p1.dev)) {
         error(SYSOUT_MOUNT_IN_USE);
         return;
     }
@@ -430,7 +430,7 @@ __noinline void bank_mountcmd(unsigned char unmount)
         uppername(shown, shown);
     }
     if (argc == (unmount ? 2 : 3) && !target_device(args[argc - 1], &dev)) goto syntax;
-    if (redirected && outputpath.dev == dev) goto unavailable;
+    if (outputkind == OUTPUT_FILE && outputpath.dev == dev) goto unavailable;
     model = drivemodel(dev, 0);
     if (model == DRIVE_SD2IEC) {
         if (dev != drive || (mounts[0].dev && mounts[0].dev != dev)) {

@@ -147,6 +147,9 @@ function diskFile(file, name) {
         fs.writeFileSync(crt, bytes);
     }
     const disk = root + '/build/easyflash/test-v2.d64';
+    const printer = root + '/build/easyflash/redirect-prn.txt';
+    if (process.argv.includes('--redirection'))
+        fs.rmSync(printer, {force: true});
     fs.writeFileSync(
         'build/easyflash/external.bat', Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\r'));
     const blob = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
@@ -171,6 +174,10 @@ function diskFile(file, name) {
     child = spawn(tool('vice', process.argv.includes('--c128') ? 'x128' : 'x64sc'),
         [
             '-logfile', 'build/easyflash/vice-debug.log', '-console', '-default',
+            ...(process.argv.includes('--redirection') ? [
+                '-devicebackend4', '1', '-busdevice4', '-pr4drv', 'raw', '-pr4output', 'text',
+                '-pr4txtdev', '0', '-prtxtdev1', printer
+            ] : []),
             ...(process.argv.includes('--sx64') ? ['-model', 'sx64'] : []),
             ...(kernalRom ? ['-kernal', path.resolve(kernalRom)] : []),
             process.argv.includes('--ntsc') ? '-ntsc' : '-pal', '-sounddev', 'dummy',
@@ -380,7 +387,7 @@ function diskFile(file, name) {
         return;
     }
     if (process.argv.includes('--redirection')) {
-        await require('./scenarios/redirection')({command, enter, check, disk, crt, root});
+        await require('./scenarios/redirection')({command, keys, enter, check, disk, crt, root});
         return;
     }
     if (process.argv.includes('--large-launch')) {

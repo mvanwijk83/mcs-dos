@@ -368,15 +368,76 @@ unsigned char entrytrack, entrysector, entryoffset;
 
 #pragma code(transfer_code)
 #pragma data(transfer_data)
+/* Resolve traditional printer aliases and the explicit IEC spellings used by PRINT. */
+__noinline unsigned char bank_printer_device(const char *name)
+{
+    if (!stricmp(name, "PRN") || !stricmp(name, "LPT1") || !strcmp(name, "4:"))
+        return 4;
+    if (!stricmp(name, "LPT2") || !strcmp(name, "5:"))
+        return 5;
+    return 0;
+}
+
+/* Open a printer channel using the same secondary address as PRINT. */
+__noinline unsigned char bank_printer_open(unsigned char channel, unsigned char device)
+{
+    if (!channel_open(channel, device, 7, ""))
+        return 1;
+    channel_close(channel);
+    error(SYSOUT_PRINTER_NOT_READY);
+    return 0;
+}
+
+/* Bind a named output stream after the runner validates the command. The file
+ * path has already been resolved. IEC file writers open per chunk. */
+__noinline unsigned char bank_output_open(unsigned char kind, unsigned char append)
+{
+    int entry;
+    if (kind == OUTPUT_FILE) {
+        cachevalid = 0;
+        entry = findfile(&outputpath);
+        if (entry == -2)
+            return 0;
+        if (entry >= 0 && directory_entries[entry].type != CBM_T_SEQ) {
+            error(SYSOUT_DEST_MUST_BE_SEQ);
+            return 0;
+        }
+        if (!statuschannel(outputpath.dev)) {
+            error(SYSOUT_DRIVE_NOT_READY);
+            return 0;
+        }
+        if (!location_file(outputpath.dev, outputpath.dir))
+            return 0;
+        outputmode = append && entry >= 0 ? 'a' : 'w';
+        if (outputpath.dev) {
+            if (entry >= 0 && !append && !scratch(&outputpath))
+                return 0;
+        } else {
+            snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, outputmode);
+            if (channel_open(OUTPUT_CHANNEL, 0, 5, diskcmd) || diskstatus(0, 1) >= 20) {
+                channel_close(OUTPUT_CHANNEL);
+                error(SYSOUT_WRITE_FAULT_ERR);
+                return 0;
+            }
+        }
+    } else if (kind != OUTPUT_CONSOLE && !bank_printer_open(OUTPUT_CHANNEL, kind))
+        return 0;
+    outputstarted = outputused = outputfailed = outputcol = 0;
+    outputkind = kind;
+    return 1;
+}
+
 /* Redirected output is committed in closed chunks, so a directory listing or
  * source reader can switch locations without a live destination writer. */
 __noinline unsigned char bank_output_append(void)
 {
     unsigned char ok;
     char command[24];
+    if (outputkind != OUTPUT_FILE)
+        return channel_write(OUTPUT_CHANNEL, outputbuf, outputused) == outputused;
     if (!mount_guard(&outputpath)) return 0;
     if (!outputpath.dev)
-        return channel_write(5, outputbuf, outputused) == outputused;
+        return channel_write(OUTPUT_CHANNEL, outputbuf, outputused) == outputused;
     if (!location_file(outputpath.dev, outputpath.dir))
         return 0;
     if (!outputused && outputmode == 'a') {
@@ -385,14 +446,42 @@ __noinline unsigned char bank_output_append(void)
     }
     /* A flush can interrupt print() while it is reading fmtbuf/diskcmd. */
     snprintf(command, sizeof(command), "0:%s,s,%c", outputpath.name, outputmode);
-    if (channel_open(5, outputpath.dev, 5, command) || diskstatus(outputpath.dev, 1) >= 20) {
-        channel_close(5); return 0;
+    if (channel_open(OUTPUT_CHANNEL, outputpath.dev, 5, command) ||
+        diskstatus(outputpath.dev, 1) >= 20) {
+        channel_close(OUTPUT_CHANNEL);
+        return 0;
     }
-    ok = channel_write(5, outputbuf, outputused) == outputused;
-    channel_close(5);
+    ok = channel_write(OUTPUT_CHANNEL, outputbuf, outputused) == outputused;
+    channel_close(OUTPUT_CHANNEL);
     outputmode = 'a';
     outputstarted = 1;
     return diskstatus(outputpath.dev, 1) < 20 && ok;
+}
+
+/* Finalize even an empty IEC file, then restore console output. */
+__noinline void bank_output_finish(void)
+{
+    if (!redirected)
+        return;
+    outputflush();
+    if (outputkind == OUTPUT_FILE) {
+        if (outputpath.dev) {
+            /* Opening an empty writer before the first chunk adds a spurious CR on IEC. */
+            if (!outputstarted && !outputfailed && !bank_output_append()) {
+                aborted = 1;
+                error(SYSOUT_WRITE_FAULT_ERR);
+            }
+        } else if (outputfailed)
+            channel_abort(OUTPUT_CHANNEL);
+        else {
+            channel_close(OUTPUT_CHANNEL);
+            if (diskstatus(0, 1) >= 20)
+                aborted = 1;
+        }
+        cachevalid = 0;
+    } else
+        channel_close(OUTPUT_CHANNEL);
+    outputkind = OUTPUT_CONSOLE;
 }
 #pragma code(code)
 #pragma data(data)

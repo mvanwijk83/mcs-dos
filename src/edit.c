@@ -725,16 +725,46 @@ __noinline int bank_commandid(const char *s)
     return -1;
 }
 
-/* One destination per built-in command. Keep the wrapper responsible for
- * closing output even when command handlers return early.
- *
- * Separate output redirection, execute the command, then close and finalize its output.
+/* Commands that transfer control or change media need special ownership.
+ * Keep file-mutating operations out of file streams until they can check
+ * their operands against the active destination. Help bypasses these checks. */
+static unsigned char can_redirect(int id, unsigned char kind)
+{
+    switch (id) {
+    case -1: /* Implicit RUN */
+    case 19: /* RUN */
+        return 0;
+    case 8:  /* EDIT */
+    case 10: /* FORMAT */
+    case 12: /* LABEL */
+    case 16: /* PRINT already owns a printer stream */
+    case 23: /* DISKID */
+    case 27: /* SPLASH */
+    case 30: /* TAPECOPY */
+    case 34: /* MD can ask for a partition size */
+    case 36: /* MOUNT */
+    case 38: /* MAKEDISK */
+        return kind == OUTPUT_CONSOLE;
+    case 3:  /* COPY */
+    case 4:  /* DEL */
+    case 6:  /* DISKCOPY */
+    case 14: /* MOVE */
+    case 18: /* REN */
+    case 29: /* DISKINIT */
+    case 35: /* RD */
+    case 37: /* UNMOUNT */
+        return kind != OUTPUT_FILE;
+    }
+    return 1;
+}
+
+/* Own the output stream across all command handler returns.
  *
  * s: Writable command line; redirection markers may be replaced with terminators. */
 __noinline void bank_execute(char *s)
 {
     char *r, *op = 0, *target, *end;
-    unsigned char quote = 0, append = 0, helping;
+    unsigned char quote = 0, append = 0, helping, kind, modifies = 0;
     int id, i;
     aborted = 0;
     /* KEY stores redirection text rather than opening its future destination. */
@@ -746,6 +776,8 @@ __noinline void bank_execute(char *s)
         return;
     }
     for (r = s; *r; ++r) {
+        if (rawget(rawline, r - line))
+            continue;
         if (*r == '"')
             quote = !quote;
         else if (*r == '>' && !quote) {
@@ -783,15 +815,15 @@ __noinline void bank_execute(char *s)
     if (!stricmp(args[0], "ECHO."))
         id = 7;
     helping = id == 11;
-    for (i = 1; i < argc; ++i)
+    for (i = 1; i < argc; ++i) {
         if (!argquoted[i] && !strcmp(args[i], "/?"))
             helping = 1;
-    if (helping || (id != 1 && id != 5 && id != 7 && id != 13 && id != 20 && id != 28)) {
-        error(SYSOUT_REDIR_NOT_SUPPORTED);
-        return;
+        if ((id == 1 && (!stricmp(args[i], "/V") || !stricmp(args[i], "/C"))) ||
+            (id == 26 && (!stricmp(args[i], "+L") || !stricmp(args[i], "-L"))))
+            modifies = 1;
     }
     /* Resolve file inputs before opening/truncating any destination. */
-    if (id == 20 || id == 28) {
+    if (!helping && (id == 20 || id == 28)) {
         unsigned char mode;
         unsigned long limit;
         char *needle;
@@ -822,64 +854,38 @@ __noinline void bank_execute(char *s)
         error(SYSOUT_INVALID_DEST);
         return;
     }
-    if (!stricmp(args[0], "LPT1") || !stricmp(args[0], "LPT2")) {
-        error(SYSOUT_PRINTER_REDIR);
+    if (!stricmp(args[0], "CON"))
+        kind = OUTPUT_CONSOLE;
+    else {
+        kind = printer_device(args[0]);
+        if (!kind)
+            kind = OUTPUT_FILE;
+    }
+    if (kind != OUTPUT_FILE && append) {
+        error(SYSOUT_DEVICE_APPEND);
         return;
     }
-    if (!path(args[0], &outputpath))
-        return;
-    if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
-        error(SYSOUT_INVALID_DEST);
+    if (!helping && (!can_redirect(id, kind) || (modifies && kind == OUTPUT_FILE))) {
+        error(SYSOUT_REDIR_NOT_SUPPORTED);
         return;
     }
-    if ((id == 20 || id == 28) && sameplace(&p1, &outputpath) && !strcmp(p1.name, outputpath.name)) {
-        error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
-        return;
-    }
-    cachevalid = 0;
-    i = findfile(&outputpath);
-    if (i == -2)
-        return;
-    if (i >= 0 && directory_entries[i].type != CBM_T_SEQ) {
-        error(SYSOUT_DEST_MUST_BE_SEQ);
-        return;
-    }
-    /* Delay truncation until syntax, source type and self-redirection checks have all passed. */
-    if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
-        return;
-    if (!statuschannel(outputpath.dev)) {
-        error(SYSOUT_DRIVE_NOT_READY);
-        return;
-    }
-    if (!location_file(outputpath.dev, outputpath.dir))
-        return;
-    outputmode = append && i >= 0 ? 'a' : 'w';
-    outputstarted = 0;
-    /* Disk writers open only when their first output chunk is ready. Closing
-     * an empty SEQ writer first would insert DOS's implicit CR before data. */
-    if (!outputpath.dev) {
-        snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, outputmode);
-        if (channel_open(5, outputpath.dev, 5, diskcmd) || diskstatus(outputpath.dev, 1) >= 20) {
-            channel_close(5);
-            error(SYSOUT_WRITE_FAULT_ERR);
+    if (kind == OUTPUT_FILE) {
+        if (!path(args[0], &outputpath))
+            return;
+        if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
+            error(SYSOUT_INVALID_DEST);
+            return;
+        }
+        if (!helping && (id == 20 || id == 28) && sameplace(&p1, &outputpath) &&
+            !strcmp(p1.name, outputpath.name)) {
+            error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
             return;
         }
     }
-    outputused = outputfailed = outputcol = 0;
-    redirected = 1;
-    executecommand(s);
-    /* Command handlers may return early; this outer path still flushes and closes their output. */
-    outputflush();
-    if (outputpath.dev && !outputstarted && !outputfailed && !output_append())
-        outputfailed = aborted = 1;
-    redirected = 0;
-    if (!outputpath.dev) {
-        if (outputfailed)
-            channel_abort(5);
-        channel_close(5);
+    if (output_open(kind, append)) {
+        executecommand(s);
+        output_finish();
     }
-    cachevalid = 0;
-    diskstatus(outputpath.dev, 1);
 }
 
 #pragma code(code)

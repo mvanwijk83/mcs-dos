@@ -23,7 +23,9 @@ static unsigned char mount_bypass,sd_ready,drive=9,argc,optionalheader,answer=1,
 static char mount_hostdir[128],working[24][128],output[1024],last[40],selected[128],statusbuf[64];
 static char io[256];
 static const char *args[4];
-static unsigned char redirected;
+#define OUTPUT_FILE 1
+static unsigned char outputkind;
+#define redirected outputkind
 static Path outputpath,p1;
 #define mount_confirm() yesno(SYSOUT_REPLACE_MOUNT)
 static unsigned char image_entry(unsigned char dev,char *name,unsigned char directory);

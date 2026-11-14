@@ -124,6 +124,7 @@ static int readio(int a, void *b, unsigned int size)
     return n;
 }
 
+${require('./source').functions('printer_device', 'printer_open')}
 ${type}
 /* Reset observable state and load fixture inputs before an independent case. */
 static void reset(void)

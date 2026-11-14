@@ -16,7 +16,9 @@ ${layouts}
 typedef struct { unsigned char dev; char name[17], dir[128]; } Path;
 typedef struct { unsigned char number, type; } PartitionInfo;
 static Path p1, outputpath;
-static unsigned char argc, model, redirected, cachevalid, aborted;
+#define OUTPUT_FILE 1
+static unsigned char argc, model, outputkind, cachevalid, aborted;
+#define redirected outputkind
 static const char *args[6], *answers[2], *message;
 static char line[LINE], working[24][128];
 static unsigned char io[256], prompts, inputs, creates, scratches, fail_write;

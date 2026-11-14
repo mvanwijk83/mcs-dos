@@ -125,6 +125,8 @@ static int readio(int a, void *b, unsigned int size)
     return n;
 }
 
+#define printer_device(name) 0
+#define printer_open(channel, device) 0
 ${functions('typeoptions', 'typehex', 'typecmd')}
 /* Prepare fixture arguments and observable state, then call the production handler.
  *

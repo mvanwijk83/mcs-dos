@@ -14,14 +14,18 @@ static const char *const commands[] = {${commands.map(name => JSON.stringify(nam
 #define CBM_T_SEQ 16
 #define CBM_T_PRG 17
 #define CBM_T_USR 18
+#define OUTPUT_CONSOLE 0
+#define OUTPUT_FILE 1
+#define OUTPUT_CHANNEL 5
 
 typedef struct {
     unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 static Path p1, outputpath;
-static unsigned char argc, argquoted[MAXARGS], aborted, redirected, outputused, outputfailed,
+static unsigned char argc, argquoted[MAXARGS], aborted, outputkind, outputused, outputfailed,
     outputcol, cachevalid, drive = 8;
+#define redirected (outputkind != OUTPUT_CONSOLE)
 static char line[160], parsebuf[160], rawparse[160], rawline[160], diskcmd[160], *args[MAXARGS];
 
 static struct {
@@ -140,7 +144,8 @@ static void executecommand(char *s)
     ++executed;
 }
 
-${functions('path', 'typeoptions', 'findoptions', 'tokenize', 'execute')}
+${functions('printer_device', 'printer_open', 'output_open', 'output_finish',
+    'path', 'typeoptions', 'findoptions', 'tokenize', 'can_redirect', 'execute')}
 /* Prepare fixture arguments and observable state, then call the production handler.
  *
  * s: Command line dispatched through the production command parser. */
@@ -164,8 +169,8 @@ static int rejected(const char *s)
 /* Run the independent fixture cases; failure results identify the violated invariant. */
 int main(void)
 {
-    if (!rejected("HELP >out") || !rejected("HELP FIND >>out") || !rejected("FIND /? >out") ||
-        !rejected("DIR /? >out"))
+    if (!rejected("RUN input >out") || !rejected("DEL * >out") || !rejected("FORMAT 8: >PRN") ||
+        !rejected("CHKDSK /V >out") || !rejected("FIND /? >>PRN"))
         return 1;
     if (!rejected("FIND \\"word\\" input >input") ||
         strcmp(message, SYSOUT_CANNOT_REDIR_FIND_ON_SELF))
@@ -194,10 +199,13 @@ int main(void)
     run("HELP FIND");
     if (errors || opened || executed != 1)
         return 11;
+    run("FIND /? >out");
+    if (errors || opened != 1 || executed != 1 || redirected)
+        return 12;
     return 0;
 }
 `;
 fs.writeFileSync('build/test-find-redirection.c', harness);
 require('./simulator')('build/test-find-redirection.c');
 console.log(
-    'PASS FIND redirection validation, append, input protection, quoted help/redirect characters and HELP rejection');
+    'PASS FIND validation, append, input protection, quoted operators and help redirection');

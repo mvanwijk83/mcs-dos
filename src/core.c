@@ -53,7 +53,7 @@ unsigned char argc;
 unsigned char argquoted[MAXARGS];
 Path p1, p2;
 Path outputpath;
-unsigned char redirected, outputfailed, outputused, outputcol, outputmode, outputstarted;
+unsigned char outputkind, outputfailed, outputused, outputcol, outputmode, outputstarted;
 unsigned char outputbuf[128];
 /* Loader parameters consumed before the shell is overwritten. */
 char launchname[17];
@@ -88,14 +88,9 @@ void clear(void)
     ox = oy = 0;
 }
 
-/* Start a new output line, scrolling the screen or writing a redirected newline. */
-void newline(void)
+/* Advance the screen cursor, scrolling if needed. */
+void consoleline(void)
 {
-    if (redirected) {
-        outputbyte(13);
-        outputcol = 0;
-        return;
-    }
     ox = 0;
     if (oy < 24)
         ++oy;
@@ -111,6 +106,16 @@ void newline(void)
     gotoxy(ox, oy);
 }
 
+/* End a text line on the current standard output. */
+void newline(void)
+{
+    if (redirected) {
+        outputbyte(13);
+        outputcol = 0;
+    } else
+        consoleline();
+}
+
 /* Screen-only compatibility: external byte 96 remains an ordinary space.
  * PETSCII $5c (the pound key) displays backslash at screen slot 28.
  *
@@ -122,22 +127,11 @@ void displayc(unsigned char c)
     screen_putc(c == 96 ? ' ' : c);
 }
 
-/* Write one character to the current output, wrapping screen lines at 40 columns.
- *
- * c: Character to write; control bytes in file text are shown as dots. */
-void outc(unsigned char c)
+/* Render one console character and wrap at 40 columns. */
+static void consolec(unsigned char c)
 {
-    if (redirected) {
-        if (c == 10 || c == 13)
-            newline();
-        else {
-            outputbyte(c);
-            outputcol = 1;
-        }
-        return;
-    }
     if (c == 10 || c == 13) {
-        newline();
+        consoleline();
         return;
     }
     /* File contents may not issue arbitrary PETSCII screen controls. */
@@ -146,7 +140,27 @@ void outc(unsigned char c)
     gotoxy(ox, oy);
     displayc(c);
     if (++ox == 40)
+        consoleline();
+}
+
+/* Write a prompt or other text directly to the screen. */
+void consoleout(const char *s)
+{
+    while (*s)
+        consolec(*s++);
+}
+
+/* Write text to standard output, normalizing newlines for stream destinations. */
+void outc(unsigned char c)
+{
+    if (!redirected)
+        consolec(c);
+    else if (c == 10 || c == 13)
         newline();
+    else {
+        outputbyte(c);
+        outputcol = 1;
+    }
 }
 
 /* Write a terminated string through the current output destination.
@@ -158,17 +172,11 @@ void outs(const char *s)
         outc(*s++);
 }
 
-/* Write a message and newline, leaving the editor status area when necessary.
+/* Write a message and newline to standard output.
  *
  * s: Message text. */
 void say(const char *s)
 {
-    /* Save errors leave EDIT visibly, retaining the error on the clean screen. */
-    if (editprompt) {
-        editprompt = 0;
-        screen_reverse(0);
-        clear();
-    }
     outs(s);
     newline();
 }
@@ -180,11 +188,13 @@ void error(const char *s)
 {
     if (optionalheader)
         return;
-    /* Errors must remain visible even if the output file is full or its write failed. */
-    unsigned char saved = redirected;
-    redirected = 0;
-    say(s);
-    redirected = saved;
+    if (editprompt) {
+        editprompt = 0;
+        screen_reverse(0);
+        clear();
+    }
+    consoleout(s);
+    consoleline();
 }
 
 /* Write buffered redirected output; a short write aborts the current command. */
@@ -332,16 +342,16 @@ unsigned char yesno(const char *s)
     unsigned char c;
     if (editprompt)
         editstatus();
-    outs(s);
-    outs(SYSOUT_YES_NO_SUFFIX);
+    consoleout(s);
+    consoleout(SYSOUT_YES_NO_SUFFIX);
     do {
         c = getch();
     } while (toupper(c) != 'Y' && toupper(c) != 'N' && c != CH_STOP);
     if (c == CH_STOP)
         c = 'N';
-    outc(toupper(c));
+    consolec(toupper(c));
     if (!editprompt)
-        newline();
+        consoleline();
     return toupper(c) == 'Y';
 }
 
@@ -629,7 +639,8 @@ int readio(unsigned char lfn, void *buf, unsigned int size)
         return 0;
     if (!rawreading && lfn >= 2 && lfn <= 3 && (rawreadmask & (1 << lfn)))
         return raw_reader_read(lfn, buf, size);
-    if (!rawreading && redirected && (lfn == 2 || lfn == 3) && !location_select(p1.dev, p1.dir))
+    if (!rawreading && outputkind == OUTPUT_FILE && (lfn == 2 || lfn == 3) &&
+        !location_select(p1.dev, p1.dir))
         return -1;
     POKE(144, 0);
     n = channel_read(lfn, buf, size);
@@ -804,9 +815,9 @@ __noinline void bank_executecommand(char *s)
             if (id == 15) {
                 while (*tail == ' ')
                     ++tail;
-                outs(*tail ? tail : SYSOUT_PRESS_ANY_KEY);
+                consoleout(*tail ? tail : SYSOUT_PRESS_ANY_KEY);
                 getch();
-                newline();
+                consoleline();
                 return;
             }
             if (id == 24) {
@@ -834,7 +845,7 @@ __noinline void bank_executecommand(char *s)
         }
     }
     if (!tokenize(s)) {
-        say(SYSOUT_SYNTAX_ERR);
+        error(SYSOUT_SYNTAX_ERR);
         return;
     }
     if (!argc)
@@ -949,9 +960,9 @@ __noinline void bank_executecommand(char *s)
         copycmd(1);
         break;
     case 15:
-        outs(SYSOUT_PRESS_ANY_KEY);
+        consoleout(SYSOUT_PRESS_ANY_KEY);
         getch();
-        newline();
+        consoleline();
         break;
     case 16:
         typecmd(1);

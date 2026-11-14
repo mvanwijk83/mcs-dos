@@ -1171,6 +1171,41 @@ __noinline unsigned char output_append(void)
     return result;
 }
 
+__noinline unsigned char bank_output_open(unsigned char kind, unsigned char append);
+__noinline unsigned char output_open(unsigned char kind, unsigned char append)
+{
+    BANK_PUSH(BANK_TRANSFER);
+    unsigned char result = bank_output_open(kind, append);
+    BANK_POP();
+    return result;
+}
+
+__noinline void bank_output_finish(void);
+__noinline void output_finish(void)
+{
+    BANK_PUSH(BANK_TRANSFER);
+    bank_output_finish();
+    BANK_POP();
+}
+
+__noinline unsigned char bank_printer_device(const char *name);
+__noinline unsigned char printer_device(const char *name)
+{
+    BANK_PUSH(BANK_TRANSFER);
+    unsigned char result = bank_printer_device(name);
+    BANK_POP();
+    return result;
+}
+
+__noinline unsigned char bank_printer_open(unsigned char channel, unsigned char device);
+__noinline unsigned char printer_open(unsigned char channel, unsigned char device)
+{
+    BANK_PUSH(BANK_TRANSFER);
+    unsigned char result = bank_printer_open(channel, device);
+    BANK_POP();
+    return result;
+}
+
 __noinline unsigned char cmd_partition(unsigned char dev, unsigned char number, PartitionInfo *info);
 __noinline unsigned char partition_info(unsigned char dev, unsigned char number, PartitionInfo *info)
 {

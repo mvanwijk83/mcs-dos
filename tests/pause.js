@@ -22,6 +22,8 @@ static int path(const char *s,void *p) {return 0;}
 static void outs(const char *s) {strcat(output,s);}
 static void say(const char *s) {strcat(output,s);strcat(output,"\\n");}
 static void newline(void) {strcat(output,"\\n");}
+#define consoleout outs
+#define consoleline newline
 static void error(const char *s) {strcat(output,"ERROR");}
 static int getch(void) {++reads;return 'X';}
 static void help(int id) {helpid=id;}

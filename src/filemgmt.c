@@ -755,7 +755,8 @@ __noinline unsigned char bank_openreadtype(const Path *p, unsigned char lfn, uns
     }
     if (!location_file(p->dev, p->dir))
         return 0;
-    if (redirected && p->dev && p->dev == outputpath.dev && strcmp(p->dir, outputpath.dir) &&
+    if (outputkind == OUTPUT_FILE && p->dev && p->dev == outputpath.dev &&
+        strcmp(p->dir, outputpath.dir) &&
         location_kind() == 4)
         return raw_reader_open(p, lfn);
     rawreadmask &= ~(1 << lfn);

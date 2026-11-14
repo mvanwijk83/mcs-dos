@@ -4,6 +4,9 @@ fs.writeFileSync('build/test-output-flush.c',`
 #include <stdio.h>
 #include <string.h>
 #undef mount_guard
+#define OUTPUT_FILE 1
+#define OUTPUT_CHANNEL 5
+static unsigned char outputkind=OUTPUT_FILE;
 typedef struct Path {unsigned char dev;char name[17],dir[128];} Path;
 static Path outputpath={11,"MCSNOPT","TEMP"};
 static char fmtbuf[160],outputbuf[128];

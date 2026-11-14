@@ -6,7 +6,7 @@ const {tool} = require('../setup');
 const {files} = require('../disk-image');
 const {readImage} = require('../easyflash-image');
 const messages = require('../output');
-module.exports = async function({command, enter, check, disk, crt, root}) {
+module.exports = async function({command, keys, enter, check, disk, crt, root}) {
     const raw = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
     fs.writeFileSync('build/easyflash/redirect-raw', raw);
     fs.writeFileSync('build/easyflash/redirect.bat',
@@ -34,13 +34,31 @@ module.exports = async function({command, enter, check, disk, crt, root}) {
         await check('type binary >binary', messages.SYSOUT_CANNOT_REDIR_TYPE_ON_SELF);
         await check('type binary >>binary', messages.SYSOUT_CANNOT_REDIR_TYPE_ON_SELF);
         await check('echo bad >one >two', messages.SYSOUT_MULTIPLE_REDIR);
-        await check('echo bad >lpt1', messages.SYSOUT_PRINTER_REDIR);
-        await check('ver >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+        await check('echo bad >>prn', messages.SYSOUT_DEVICE_APPEND);
+        await check('echo bad >>con', messages.SYSOUT_DEVICE_APPEND);
+        await check('run 8:redirect.bat >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+        await check('del * >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+        await enter('ver >version');
+        await enter('type /? >usage');
+        await enter('echo file >' + device + ':prn');
+        await check('echo explicit console >con', 'explicit console');
         await check('echo bad >', messages.SYSOUT_INVALID_DEST);
         await check('type missing >replace', messages.SYSOUT_FILE_NOT_FOUND);
         await enter('echo after-error >recovered');
         await enter('run 8:redirect.bat');
     }
+    await enter('echo printer stream >prn');
+    await enter('echo second printer line >lpt1');
+    await enter('echo redirected payload >printme');
+    await enter('type printme >prn');
+    await enter('print printme prn');
+    await enter('cls');
+    let pause = await keys('pause visible prompt >pauseout\\x0d');
+    for (let i = 0; i < 8 && !/^visible prompt$/m.test(pause); ++i)
+        pause = await keys('');
+    assert.match(pause, /^visible prompt *$/m);
+    await keys('q');
+    await check('echo after pause', 'after pause');
     // One free block cannot hold the binary input. The write failure must leave
     // normal output and subsequent file operations usable.
     const full = root + '/build/easyflash/redirect-full.d64';
@@ -69,6 +87,7 @@ module.exports = async function({command, enter, check, disk, crt, root}) {
     await command('detach $20');
     for (const entries of [files(disk), readImage(crt).files]) {
         const data = name => entries.get(name).data;
+        const text = name => data(name).toString('ascii').toUpperCase();
         assert.equal(data('OUT').toString(), 'FIRST\rSECOND\r');
         assert.equal(data('NOSEPARATOR').toString(), 'JOINED');
         assert.equal(data('SEMICOLON').toString(), 'LINE;\r');
@@ -79,8 +98,15 @@ module.exports = async function({command, enter, check, disk, crt, root}) {
         assert.deepEqual(data('BINARY'), Buffer.concat([raw, raw]));
         assert.equal(data('RECOVERED').toString(), 'AFTER-ERROR\r');
         assert.equal(data('BT').toString(), 'BATCH\rAPPEND\r');
+        assert.ok(text('VERSION').startsWith('MCS-DOS VERSION ' + messages.VERSION));
+        assert.ok(text('USAGE').includes('TYPE [DRIVE:][PATH]FILENAME'));
+        assert.equal(data('PRN').toString(), 'FILE\r');
         assert(!entries.has('UNWANTED'), 'rejected redirection must not create a file');
     }
+    assert.deepEqual(files(disk).get('PAUSEOUT').data, Buffer.from('\r'));
+    const printed = fs.readFileSync('build/easyflash/redirect-prn.txt', 'latin1');
+    assert.match(printed, /PRINTER STREAM\rSECOND PRINTER LINE\r/);
+    assert.match(printed, /REDIRECTED PAYLOAD\rREDIRECTED PAYLOAD\r/);
     console.log(
-        'PASS overwrite, append/create, quoting, ECHO escapes, binary TYPE and error recovery on both media');
+        'PASS SEQ, CON and PRN streams, help and version output, binary TYPE and disk-full recovery');
 };

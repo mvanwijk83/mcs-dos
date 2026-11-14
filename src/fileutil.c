@@ -126,9 +126,8 @@ __noinline void bank_typecmd(unsigned char printer)
         }
         printer = 4;
         if (argc == 3) {
-            if (!strcmp(args[2], "5:") || !stricmp(args[2], "LPT2"))
-                printer = 5;
-            else if (strcmp(args[2], "4:") && stricmp(args[2], "LPT1")) {
+            printer = printer_device(args[2]);
+            if (!printer) {
                 error(SYSOUT_INVALID_PRINTER);
                 return;
             }
@@ -141,10 +140,8 @@ __noinline void bank_typecmd(unsigned char printer)
         return;
     if (!openread(&p1, 2))
         return;
-    if (printer && channel_open(4, printer, 7, "") != 0) {
+    if (printer && !printer_open(4, printer)) {
         channel_close(2);
-        channel_close(4);
-        error(SYSOUT_PRINTER_NOT_READY);
         return;
     }
     pagelines = 0;

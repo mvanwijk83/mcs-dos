@@ -4,9 +4,12 @@ const fs = require('fs'), {functions} = require('./source');
 const harness = `
 static char volume[17]="TEST", diskid[3];
 static unsigned char io[256], idoff=10, ox, optionalheader, redirected;
-static unsigned char ready, ids, errors, failures;
+static unsigned char ready, ids, errors, failures, editprompt;
 static unsigned char rootmetadata(unsigned char d,char *name,char *id) { return 0; }
-static void say(const char *s) { ++errors; }
+static void consoleout(const char *s) { ++errors; }
+static void consoleline(void) {}
+static void screen_reverse(int enable) {}
+static void clear(void) {}
 static void outs(const char *s) {}
 static void newline(void) {}
 static void uppername(const char *s,char *d) { strcpy(d,s); }

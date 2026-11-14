@@ -56,7 +56,7 @@
 #define SYSOUT_FILE_NOT_FOUND "File not found"
 #define SYSOUT_UNSUPPORTED_FILE_TYPE "Unsupported file type"
 #define SYSOUT_INVALID_DEST "Invalid destination"
-#define SYSOUT_PRINTER_REDIR "Printer redirection not supported"
+#define SYSOUT_DEVICE_APPEND "Append requires a file destination"
 #define SYSOUT_CANNOT_REDIR_FIND_ON_SELF "Cannot redirect FIND onto itself"
 #define SYSOUT_CANNOT_REDIR_TYPE_ON_SELF "Cannot redirect TYPE onto itself"
 #define SYSOUT_DEST_MUST_BE_SEQ "Destination must be a SEQ file"

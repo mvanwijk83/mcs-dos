@@ -97,8 +97,14 @@ extern char parsebuf[LINE + MAXARGS];
 extern unsigned char argc;
 extern unsigned char argquoted[MAXARGS];
 extern Path p1, p2;
+#define OUTPUT_CONSOLE 0
+#define OUTPUT_FILE 1
+#define OUTPUT_CHANNEL 5
+/* Printer streams use their IEC device number as the kind. */
+extern unsigned char outputkind;
+#define redirected (outputkind != OUTPUT_CONSOLE)
 extern Path outputpath;
-extern unsigned char redirected, outputfailed, outputused, outputcol, outputmode, outputstarted;
+extern unsigned char outputfailed, outputused, outputcol, outputmode, outputstarted;
 extern unsigned char outputbuf[128];
 extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
@@ -117,6 +123,8 @@ void charset_scroll(void);
 unsigned int splash_nmi_address(void);
 void clear(void);
 void newline(void);
+void consoleline(void);
+void consoleout(const char *s);
 void displayc(unsigned char c);
 void outc(unsigned char c);
 void outs(const char *s);
@@ -152,6 +160,10 @@ unsigned char dirdefaults(const char *s, unsigned char *flags);
 unsigned char charsetname(const char *s);
 void setcmd(const char *s);
 unsigned char output_append(void);
+unsigned char output_open(unsigned char kind, unsigned char append);
+void output_finish(void);
+unsigned char printer_device(const char *name);
+unsigned char printer_open(unsigned char channel, unsigned char device);
 extern unsigned char rawreadmask, rawreading;
 unsigned char raw_reader_open(const Path *p, unsigned char lfn);
 int raw_reader_read(unsigned char lfn, void *buffer, unsigned int size);

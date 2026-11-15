@@ -110,6 +110,8 @@
 #define SYSOUT_COPY_NOT_COMPLETED "Copy not completed"
 #define SYSOUT_SYNTAX_MOVE "Syntax: MOVE source destination [/P]"
 #define SYSOUT_SYNTAX_COPY "Syntax: COPY source [destination] [/P]"
+#define SYSOUT_SYNTAX_COPY_CON "Syntax: COPY CON filename [/P]"
+#define SYSOUT_COPY_CON_RECOVER "Original: %s\nNew text: %s\n"
 #define SYSOUT_WILDCARDS_DEST_DRV "Wildcards require a destination drive"
 #define SYSOUT_FILES_COPIED "        %u file(s) copied.\n"
 #define SYSOUT_ONE_FILE_MOVED "        1 file(s) moved."

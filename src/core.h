@@ -11,6 +11,7 @@
 #include "host.h"
 #include "mount.h"
 #include "dir-filter.h"
+#include "device-name.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
@@ -22,6 +23,7 @@ extern unsigned char resume_requested;
 
 /* Classic DOS limits include the terminating byte. */
 #define LINE 128
+#define INPUT_COPY_CON 2
 #define PATHSIZE 128
 #define LOCATIONCOUNT 24
 #define MAXARGS 33
@@ -102,6 +104,7 @@ extern Path p1, p2;
 #define OUTPUT_CHANNEL 5
 /* Printer streams use their IEC device number as the kind. */
 extern unsigned char outputkind;
+extern unsigned char default_printer;
 #define redirected (outputkind != OUTPUT_CONSOLE)
 extern Path outputpath;
 extern unsigned char outputfailed, outputused, outputcol, outputmode, outputstarted;
@@ -189,7 +192,7 @@ unsigned char preparewrite(const Path *p);
 unsigned char openreadtype(const Path *p, unsigned char lfn, unsigned char type);
 unsigned char openread(const Path *p, unsigned char lfn);
 unsigned char openwrite(const Path *p, unsigned char type);
-unsigned char input(char *buf, unsigned int max, unsigned char recall);
+unsigned char input(char *buf, unsigned int max, unsigned char mode);
 /* Command entry points consume args/argc and use the shared workspaces. */
 void dircmd(void);
 void copycmd(unsigned char moving);

@@ -120,6 +120,10 @@ __noinline unsigned char bank_path(const char *s, Path *p)
     unsigned int device = 0, n;
     const char *q = s;
     unsigned char trailing;
+    if (reserved_device(s)) {
+        error(SYSOUT_INVALID_FILE_NAME);
+        return 0;
+    }
     p->dev = drive;
     p->name[0] = 0;
     if (toupper(s[0]) >= 'A' && toupper(s[0]) <= 'W' && s[1] == ':') {
@@ -570,6 +574,10 @@ __noinline void bank_navcmd(unsigned char operation)
     }
     if (!navpath.name[0] || strpbrk(navpath.name, "*?")) {
         error(SYSOUT_INVALID_DEST);
+        return;
+    }
+    if (operation == 1 && reserved_device(navpath.name)) {
+        error(SYSOUT_INVALID_FILE_NAME);
         return;
     }
     if (!bank_location_file(navpath.dev, navpath.dir))

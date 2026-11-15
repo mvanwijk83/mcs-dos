@@ -17,7 +17,7 @@ const char *cart_stats(unsigned char line);
 int cart_compact(void);
 unsigned char cart_command(const char *text);
 unsigned char cart_directory(char f, unsigned char first, struct DirectoryEntry *entry);
-unsigned char cart_config(unsigned char *devices);
+unsigned char cart_config(unsigned char *devices, unsigned char *printer);
 unsigned char cart_attribute(const char *name, unsigned char mode);
 unsigned char cart_launch(const char *name, unsigned char absolute, unsigned int address);
 extern unsigned char cart_channels[CART_CHANNEL_COUNT];

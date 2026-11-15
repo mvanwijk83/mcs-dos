@@ -148,8 +148,11 @@ function diskFile(file, name) {
     }
     const disk = root + '/build/easyflash/test-v2.d64';
     const printer = root + '/build/easyflash/redirect-prn.txt';
-    if (process.argv.includes('--redirection'))
+    const printer2 = root + '/build/easyflash/redirect-lpt2.txt';
+    if (process.argv.includes('--redirection')) {
         fs.rmSync(printer, {force: true});
+        fs.rmSync(printer2, {force: true});
+    }
     fs.writeFileSync(
         'build/easyflash/external.bat', Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\r'));
     const blob = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
@@ -176,7 +179,9 @@ function diskFile(file, name) {
             '-logfile', 'build/easyflash/vice-debug.log', '-console', '-default',
             ...(process.argv.includes('--redirection') ? [
                 '-devicebackend4', '1', '-busdevice4', '-pr4drv', 'raw', '-pr4output', 'text',
-                '-pr4txtdev', '0', '-prtxtdev1', printer
+                '-pr4txtdev', '0', '-prtxtdev1', printer,
+                '-devicebackend5', '1', '-busdevice5', '-pr5drv', 'raw', '-pr5output', 'text',
+                '-pr5txtdev', '1', '-prtxtdev2', printer2
             ] : []),
             ...(process.argv.includes('--sx64') ? ['-model', 'sx64'] : []),
             ...(kernalRom ? ['-kernal', path.resolve(kernalRom)] : []),

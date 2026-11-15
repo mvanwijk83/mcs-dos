@@ -3,7 +3,7 @@
 #include "core.h"
 #pragma code(edit_code)
 #pragma data(edit_data)
-__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall);
+__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char mode);
 __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char deleting);
 __noinline void bank_editstatus(void);
 __noinline void bank_editsaving(void);
@@ -163,6 +163,16 @@ __noinline void bank_renderedit(void)
     }
 }
 
+/* Treat a device as an existing target without opening a disk file. */
+static unsigned char editpath(const char *name)
+{
+    unsigned char device = reserved_device(name);
+    if (!device)
+        return path(name, &p1);
+    strcpy(p1.name, device == DEVICE_CON ? "CON" : "PRN");
+    return 1;
+}
+
 /* Run EDIT: load bounded text, handle editing keys, and save only after confirmation. */
 __noinline void bank_editcmd(void)
 {
@@ -180,11 +190,11 @@ __noinline void bank_editcmd(void)
         } else if (p1.name[0]) {
             say(SYSOUT_TOO_MANY_PARAMS);
             return;
-        } else if (!path(args[i], &p1))
+        } else if (!editpath(args[i]))
             return;
     }
     memset(editbuf, ' ', sizeof(editbuf));
-    if (p1.name[0]) {
+    if (p1.name[0] && !reserved_device(p1.name)) {
         cachevalid = 0;
         exists = findfile(&p1);
         if (exists == -2)
@@ -359,8 +369,13 @@ __noinline void bank_editcmd(void)
     if (!p1.name[0]) {
         bank_editstatus();
         outs(SYSOUT_FILE_NAME);
-        if (!bank_input(line, LINE, 0) || !path(line, &p1) || !p1.name[0])
+        if (!bank_input(line, LINE, 0) || !editpath(line) || !p1.name[0])
             goto done;
+    }
+    if (reserved_device(p1.name)) {
+        if (yesno(SYSOUT_OVERWRITE_FILE))
+            error(SYSOUT_INVALID_FILE_NAME);
+        goto done;
     }
     bank_editsaving();
     if (!preparewrite(&p1) || !openwrite(&p1, CBM_T_SEQ))
@@ -421,13 +436,12 @@ __noinline unsigned char bank_controlkey(void)
 
 /* One-row horizontal viewport, with a 127-character command behind it.
  *
- * Read an editable command line with completion and optional history; return zero on
- * cancellation.
+ * Read an editable line; return nonzero on RETURN or zero on RUN/STOP.
  *
  * buf: Destination buffer, including space for a terminator.
  * max: Total buffer capacity.
- * recall: Nonzero enables command history and raw filename tracking. */
-__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall)
+ * mode: 1 enables history and completion, INPUT_COPY_CON keeps text on RUN/STOP. */
+__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char mode)
 {
     unsigned int len = 0, pos = 0, view = 0, start = 0, i, n;
     unsigned char x = ox, y = oy, w = 39 - ox, c, oldmod = 0;
@@ -438,7 +452,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
     unsigned char mod, quoted;
     Path cp;
     clock_t blink;
-    unsigned char visible = 1, accept = 0, control;
+    unsigned char visible = 1, accept = 0, control, recall = mode == 1;
     /* Leave room for one bank_input character and its caret after a long prompt. */
     if (!w) {
         newline();
@@ -623,10 +637,13 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
             caret_hide();
             ox = 0;
             oy = y;
-            if (!editprompt)
+            if (mode == INPUT_COPY_CON)
+                consoleline();
+            else if (!editprompt)
                 newline();
             if (c == CH_STOP) {
-                buf[0] = 0;
+                if (mode != INPUT_COPY_CON)
+                    buf[0] = 0;
                 return 0;
             }
             return 1;
@@ -758,12 +775,20 @@ static unsigned char can_redirect(int id, unsigned char kind)
     return 1;
 }
 
+/* Separate a redirection suffix and remove the spaces before it. */
+static void trim_redirect(char *s, char *op)
+{
+    *op = 0;
+    while (op > s && op[-1] == ' ')
+        *--op = 0;
+}
+
 /* Own the output stream across all command handler returns.
  *
  * s: Writable command line; redirection markers may be replaced with terminators. */
 __noinline void bank_execute(char *s)
 {
-    char *r, *op = 0, *target, *end;
+    char *r, *op = 0, *input_op = 0, *target, *end;
     unsigned char quote = 0, append = 0, helping, kind, modifies = 0;
     int id, i;
     aborted = 0;
@@ -790,6 +815,23 @@ __noinline void bank_execute(char *s)
                 append = 1;
                 ++r;
             }
+        } else if (*r == '<' && !quote && !input_op)
+            input_op = r;
+    }
+    /* CON is already the input device. Accept it explicitly alongside an
+     * output redirect, with either operator first. */
+    if (input_op) {
+        end = op && input_op < op ? op : (char *)0;
+        if (end)
+            *end = 0;
+        kind = tokenize(input_op + 1) && argc == 1 ? reserved_device(args[0]) : 0;
+        if (end)
+            *end = '>';
+        if (kind == DEVICE_CON)
+            trim_redirect(s, input_op);
+        else if (kind == DEVICE_PRN) {
+            error(SYSOUT_INVALID_FILE_NAME);
+            return;
         }
     }
     if (!op) {
@@ -801,10 +843,7 @@ __noinline void bank_execute(char *s)
         return;
     }
     target = op + 1 + append;
-    *op = 0;
-    end = op;
-    while (end > s && end[-1] == ' ')
-        *--end = 0;
+    trim_redirect(s, op);
     while (*s == ' ' || *s == '@')
         ++s;
     if (!tokenize(s) || !argc) {
@@ -854,7 +893,7 @@ __noinline void bank_execute(char *s)
         error(SYSOUT_INVALID_DEST);
         return;
     }
-    if (!stricmp(args[0], "CON"))
+    if (reserved_device(args[0]) == DEVICE_CON)
         kind = OUTPUT_CONSOLE;
     else {
         kind = printer_device(args[0]);

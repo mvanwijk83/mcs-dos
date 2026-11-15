@@ -5,6 +5,7 @@ const {functions, commands, header} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../src/device-name.h"
 #include "../tests/location-fixture.h"
 #include <stdio.h>
 #include <ctype.h>
@@ -25,6 +26,7 @@ typedef struct {
 static Path p1, outputpath;
 static unsigned char argc, argquoted[MAXARGS], aborted, outputkind, outputused, outputfailed,
     outputcol, cachevalid, drive = 8;
+static unsigned char default_printer = 4;
 #define redirected (outputkind != OUTPUT_CONSOLE)
 static char line[160], parsebuf[160], rawparse[160], rawline[160], diskcmd[160], *args[MAXARGS];
 
@@ -35,6 +37,7 @@ static struct {
 static unsigned char outputmode, outputstarted;
 static int errors, opened, deleted, executed;
 static const char *message;
+static char command_text[160];
 
 /* Ignore raw-byte annotations here; exact PETSCII filename handling has integration coverage.
  *
@@ -142,10 +145,11 @@ static int output_append(void) {
 static void executecommand(char *s)
 {
     ++executed;
+    strcpy(command_text, s);
 }
 
 ${functions('printer_device', 'printer_open', 'output_open', 'output_finish',
-    'path', 'typeoptions', 'findoptions', 'tokenize', 'can_redirect', 'execute')}
+    'path', 'typeoptions', 'findoptions', 'tokenize', 'can_redirect', 'trim_redirect', 'execute')}
 /* Prepare fixture arguments and observable state, then call the production handler.
  *
  * s: Command line dispatched through the production command parser. */
@@ -202,6 +206,18 @@ int main(void)
     run("FIND /? >out");
     if (errors || opened != 1 || executed != 1 || redirected)
         return 12;
+    run("ECHO foo < CON");
+    if (errors || opened || executed != 1 || strcmp(command_text, "ECHO foo"))
+        return 13;
+    run("ECHO foo < CON: >out");
+    if (errors || opened != 1 || executed != 1 || strcmp(command_text, "ECHO foo"))
+        return 14;
+    run("ECHO foo >CON: < CON");
+    if (errors || opened || executed != 1 || strcmp(command_text, "ECHO foo"))
+        return 15;
+    if (!rejected("ECHO foo >8:CON") || !rejected("ECHO foo >>0:PRN") ||
+        !rejected("ECHO foo <PRN") || strcmp(message, SYSOUT_INVALID_FILE_NAME))
+        return 16;
     return 0;
 }
 `;

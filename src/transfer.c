@@ -371,7 +371,9 @@ unsigned char entrytrack, entrysector, entryoffset;
 /* Resolve traditional printer aliases and the explicit IEC spellings used by PRINT. */
 __noinline unsigned char bank_printer_device(const char *name)
 {
-    if (!stricmp(name, "PRN") || !stricmp(name, "LPT1") || !strcmp(name, "4:"))
+    if (reserved_device(name) == DEVICE_PRN)
+        return default_printer;
+    if (!stricmp(name, "LPT1") || !strcmp(name, "4:"))
         return 4;
     if (!stricmp(name, "LPT2") || !strcmp(name, "5:"))
         return 5;
@@ -394,6 +396,10 @@ __noinline unsigned char bank_output_open(unsigned char kind, unsigned char appe
 {
     int entry;
     if (kind == OUTPUT_FILE) {
+        if (reserved_device(outputpath.name)) {
+            error(SYSOUT_INVALID_FILE_NAME);
+            return 0;
+        }
         cachevalid = 0;
         entry = findfile(&outputpath);
         if (entry == -2)

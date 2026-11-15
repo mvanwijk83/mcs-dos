@@ -10,6 +10,7 @@ const layouts = fs.readFileSync('src/mount.c', 'utf8')
 fs.writeFileSync('build/test-makedisk.c', `
 #include <ctype.h>
 #include <string.h>
+#include "../src/device-name.h"
 #define LINE 128
 ${imageTypes}
 ${layouts}

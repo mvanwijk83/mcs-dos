@@ -40,18 +40,21 @@ module.exports = async function({command, keys, enter, check, disk, crt, root}) 
         await check('del * >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
         await enter('ver >version');
         await enter('type /? >usage');
-        await enter('echo file >' + device + ':prn');
+        await check('echo file >' + device + ':prn', messages.SYSOUT_INVALID_FILE_NAME);
+        await check('echo file >' + device + ':con', messages.SYSOUT_INVALID_FILE_NAME);
         await check('echo explicit console >con', 'explicit console');
+        const consoleInput = await check('echo from console < con', '\nfrom console\n');
+        assert(!consoleInput.includes('\nfrom console <'), consoleInput);
         await check('echo bad >', messages.SYSOUT_INVALID_DEST);
         await check('type missing >replace', messages.SYSOUT_FILE_NOT_FOUND);
         await enter('echo after-error >recovered');
         await enter('run 8:redirect.bat');
     }
-    await enter('echo printer stream >prn');
+    await enter('echo printer stream >prn:');
     await enter('echo second printer line >lpt1');
-    await enter('echo redirected payload >printme');
-    await enter('type printme >prn');
-    await enter('print printme prn');
+    await enter('echo redirected payload >0:printme');
+    await enter('type 0:printme >prn');
+    await enter('print 0:printme prn');
     await enter('cls');
     let pause = await keys('pause visible prompt >pauseout\\x0d');
     for (let i = 0; i < 8 && !/^visible prompt$/m.test(pause); ++i)
@@ -82,6 +85,21 @@ module.exports = async function({command, keys, enter, check, disk, crt, root}) 
                failure.includes(messages.SYSOUT_DISK_ERR),
         failure);
     assert((await enter('echo recovered after full disk')).includes('recovered after full disk'));
+    await enter('echo ldautoex=0 >0:config.sys');
+    await enter('echo PrN=LpT2 >>0:config.sys');
+    await enter('echo prn=lpt3 >>0:config.sys');
+    const invalid = await enter('reboot');
+    assert(invalid.includes(messages.SYSOUT_INVALID_DIRECTIVE), invalid);
+    await enter('echo configured alias >prn');
+    await enter('print 0:printme');
+    await enter('copy 0:printme prn:');
+    await enter('echo explicit override >lpt1');
+    await enter('echo prn=5: >0:config.sys');
+    await enter('reboot');
+    await enter('echo configured number >prn');
+    await enter('echo prn=4: >0:config.sys');
+    await enter('reboot');
+    await enter('echo reset to first port >prn');
     // Detaching flushes the emulated drives and writable CRT to their host files.
     await command('detach 8');
     await command('detach $20');
@@ -100,13 +118,16 @@ module.exports = async function({command, keys, enter, check, disk, crt, root}) 
         assert.equal(data('BT').toString(), 'BATCH\rAPPEND\r');
         assert.ok(text('VERSION').startsWith('MCS-DOS VERSION ' + messages.VERSION));
         assert.ok(text('USAGE').includes('TYPE [DRIVE:][PATH]FILENAME'));
-        assert.equal(data('PRN').toString(), 'FILE\r');
+        assert(!entries.has('PRN') && !entries.has('CON'));
         assert(!entries.has('UNWANTED'), 'rejected redirection must not create a file');
     }
     assert.deepEqual(files(disk).get('PAUSEOUT').data, Buffer.from('\r'));
     const printed = fs.readFileSync('build/easyflash/redirect-prn.txt', 'latin1');
     assert.match(printed, /PRINTER STREAM\rSECOND PRINTER LINE\r/);
     assert.match(printed, /REDIRECTED PAYLOAD\rREDIRECTED PAYLOAD\r/);
+    assert.match(printed, /EXPLICIT OVERRIDE\rRESET TO FIRST PORT\r/);
+    assert.equal(fs.readFileSync('build/easyflash/redirect-lpt2.txt', 'latin1'),
+        'CONFIGURED ALIAS\rREDIRECTED PAYLOAD\rREDIRECTED PAYLOAD\rCONFIGURED NUMBER\r');
     console.log(
-        'PASS SEQ, CON and PRN streams, help and version output, binary TYPE and disk-full recovery');
+        'PASS SEQ, CON and configurable PRN streams, help output, binary TYPE and disk-full recovery');
 };

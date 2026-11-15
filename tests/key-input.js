@@ -8,6 +8,7 @@ const harness = `
 #include <ctype.h>
 #include <time.h>
 #define LINE 128
+#define INPUT_COPY_CON 2
 #define RAWMAP 16
 #define KEYBUFSIZE 256
 #define CH_ENTER 13
@@ -39,6 +40,7 @@ static void caret_show(unsigned char x,unsigned char y) {}
 static void caret_hide(void) {}
 static void gotoxy(unsigned char x,unsigned char y) {}
 static void newline(void) {++newlines;}
+#define consoleline newline
 static void screen_puts(const char *s) {strcpy(shownline,s);}
 static int commandid(const char *s) {return -1;}
 static int path(const char *s,Path *p) {return 0;}
@@ -81,6 +83,10 @@ int main(void) {
     scan=3;held=5;if(controlkey()!=140)return 33;
     prepare(13,4,1);used=0;held=4;scan=4;
     if(!input(buf,65,1) || strcmp(buf,"HELP") || reads || newlines!=1)return 34;
+    prepare('X',0,0);events[1]=CH_STOP;
+    if(input(buf,65,INPUT_COPY_CON) || strcmp(buf,"X") || newlines!=1)return 35;
+    prepare('X',0,0);events[1]=CH_STOP;
+    if(input(buf,65,0) || *buf || newlines!=1)return 36;
     return 0;
 }
 `;

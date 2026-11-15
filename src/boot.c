@@ -604,11 +604,12 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
     screenbase = 0xe000;
     gotoxy(ox, oy);
     c = cart_init();
+    default_printer = 4;
     if (c)
         error(SYSOUT_CRT_FS_UNAVAILABLE);
     /* A restored session bypasses startup files, retaining the saved environment and history. */
     if (!c && !skipautoexec && !resume_requested) {
-        unsigned char bootdevs[24], bi, bn = cart_config(bootdevs);
+        unsigned char bootdevs[24], bi, bn = cart_config(bootdevs, &default_printer);
         if (cart_status())
             error(SYSOUT_INVALID_DIRECTIVE);
         startdrive = drive = 0;

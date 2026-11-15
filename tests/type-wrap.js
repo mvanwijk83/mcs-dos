@@ -133,6 +133,7 @@ static int readio(int a, void *b, unsigned int size)
 
 #define printer_device(name) 0
 #define printer_open(channel, device) 0
+#define default_printer 4
 ${type}
 /* Compare the current fixture result with its expected output or state.
  *

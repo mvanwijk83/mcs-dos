@@ -54,6 +54,7 @@ unsigned char argquoted[MAXARGS];
 Path p1, p2;
 Path outputpath;
 unsigned char outputkind, outputfailed, outputused, outputcol, outputmode, outputstarted;
+unsigned char default_printer;
 unsigned char outputbuf[128];
 /* Loader parameters consumed before the shell is overwritten. */
 char launchname[17];

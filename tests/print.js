@@ -7,10 +7,12 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../src/device-name.h"
 static unsigned char rawreadmask;
 #define raw_reader_clone() ((void)0)
 #include <ctype.h>
 static unsigned char io[256], ox, aborted, pagelines, redirected;
+static unsigned char default_printer = 4;
 static int argc, p1, pos, length, device, secondary, opened, closed, errors, failopen, failwrite,
     written;
 static const char *args[4];
@@ -160,6 +162,18 @@ int main(void)
     typecmd(1);
     if (device != 4 || written != length)
         return 2;
+    default_printer = 5;
+    reset();
+    typecmd(1);
+    if (device != 5 || written != length)
+        return 9;
+    argc = 3;
+    args[2] = "PRN";
+    reset();
+    typecmd(1);
+    if (device != 5 || written != length)
+        return 10;
+    default_printer = 4;
     reset();
     argc = 3;
     args[2] = names[4];

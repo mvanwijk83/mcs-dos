@@ -52,6 +52,8 @@ static unsigned char statebyte(unsigned int i)
             return envused >> 8;
         case 9:
             return envready;
+        case 10:
+            return default_printer;
         default:
             return 0;
         }
@@ -106,6 +108,10 @@ static void stateput(unsigned int i, unsigned char value)
             break;
         case 9:
             envready = value;
+            break;
+        case 10:
+            /* Older sessions store zero in this reserved byte. */
+            default_printer = value == 5 ? 5 : 4;
             break;
         }
     } else if (i < SESSION_HISTORY_OFFSET)

@@ -3,6 +3,7 @@ require('./setup');
 const fs=require('fs'),{functions}=require('./source');
 fs.writeFileSync('build/test-rename-dispatch.c',`
 #include <string.h>
+#include "../src/device-name.h"
 #include "../src/storage.h"
 #define CBM_T_SEQ 16
 #define CBM_T_DIR 20
@@ -32,6 +33,8 @@ int main(void){
     reset(DRIVE_CMD_FD,CBM_T_DIR,1);renamecmd();if(uci||strcmp(sent,"r0:NEW=OLD;r-h/NEW/:NEW;")||errors)return 4;
     reset(DRIVE_SOFTIEC,CBM_T_DIR,5);allowed=0;renamecmd();if(uci||sent[0])return 5;
     reset(DRIVE_SOFTIEC,CBM_T_DIR,5);exists=1;renamecmd();if(uci||sent[0]||errors!=1)return 6;
+    reset(DRIVE_SD2IEC,CBM_T_DIR,5);strcpy(args[2],"CON");
+    renamecmd();if(uci||sent[0]||errors!=1)return 7;
     return 0;
 }
 `);

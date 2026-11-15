@@ -239,6 +239,10 @@ __noinline void bank_makediskcmd(void)
         return;
     }
     if (!path(target, &p1)) return;
+    if (reserved_device(p1.name)) {
+        error(SYSOUT_INVALID_FILE_NAME);
+        return;
+    }
     kind = imagekind(p1.name);
     if (!kind || kind > 3) {
         error(SYSOUT_MAKEDISK_INVALID_FORMAT);

@@ -737,7 +737,7 @@ __noinline void bootsplash(unsigned char wait)
     BANK_POP();
 }
 
-__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall);
+__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char mode);
 
 /* Read an editable command line with completion and optional history; return zero on
  * cancellation.
@@ -745,11 +745,11 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
  *
  * buf: Destination buffer, including space for a terminator.
  * max: Total buffer capacity.
- * recall: Nonzero enables command history and raw filename tracking. */
-__noinline unsigned char input(char *buf, unsigned int max, unsigned char recall)
+ * mode: 1 enables history and completion, INPUT_COPY_CON keeps text on RUN/STOP. */
+__noinline unsigned char input(char *buf, unsigned int max, unsigned char mode)
 {
     BANK_PUSH(BANK_EDIT);
-    unsigned char result = bank_input(buf, max, recall);
+    unsigned char result = bank_input(buf, max, mode);
     BANK_POP();
     return result;
 }

@@ -4,6 +4,7 @@ const {functions} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../src/device-name.h"
 #include "../tests/location-fixture.h"
 #include <ctype.h>
 

@@ -20,6 +20,7 @@ __noinline void bank_delcmd(void);
 __noinline void bank_attribcmd(void);
 __noinline void bank_concatcmd(void);
 __noinline void bank_renamecmd(void);
+static int write_target(const Path *p);
 
 #pragma code(ultdir_code)
 #pragma data(ultdir_data)
@@ -243,11 +244,154 @@ __noinline void bank_dircmd(void)
         dirfooter(total, dirs, usedblocks, soft);
 }
 
+#pragma code(filemgmt_code)
+#pragma data(filemgmt_data)
+/* Pick an unused filename in the destination directory. */
+static unsigned char console_temp(Path *p)
+{
+    int found;
+    unsigned char i;
+    for (i = 0; i < 100; ++i) {
+        snprintf(p->name, sizeof(p->name), "copycon%02u.tmp", (unsigned int)i);
+        found = bank_findfile(p);
+        if (found < 0)
+            return found == -1;
+    }
+    error(SYSOUT_COPY_NOT_COMPLETED);
+    return 0;
+}
+
+/* Rename an exact file in the directory already selected by COPY CON. */
+static unsigned char console_rename(const char *from, const char *to)
+{
+    snprintf(diskcmd, sizeof(diskcmd), "r0:%s=%s", to, from);
+    return command(p2.dev, diskcmd);
+}
+
+/* Publish the staged file. Keep the original under a spare name until the
+ * new file is in place, and restore it if publication fails. */
+static unsigned char console_replace(void)
+{
+    char staged[17], backup[17];
+    strcpy(staged, p1.name);
+    if (!bank_deletable(&p2) || !console_temp(&p1)) {
+        strcpy(p1.name, staged);
+        bank_scratch(&p1);
+        return 0;
+    }
+    strcpy(backup, p1.name);
+    if (console_rename(p2.name, backup)) {
+        if (console_rename(staged, p2.name))
+            return bank_scratch(&p1);
+        if (!console_rename(backup, p2.name)) {
+            print(SYSOUT_COPY_CON_RECOVER, backup, staged);
+            return 0;
+        }
+    }
+    strcpy(p1.name, staged);
+    bank_scratch(&p1);
+    return 0;
+}
+
+/* Start writing a long entry. Only an existing disk file needs a staging
+ * name because cartridge writers remain unpublished until close. */
+static const Path *console_spill(unsigned char replacing)
+{
+    const Path *out = &p2;
+    if (replacing && p2.dev) {
+        if (strchr(p2.name, '=')) {
+            error(SYSOUT_INVALID_DEST);
+            return 0;
+        }
+        p1 = p2;
+        if (!console_temp(&p1))
+            return 0;
+        out = &p1;
+    }
+    return bank_openwrite(out, CBM_T_SEQ) ? out : (const Path *)0;
+}
+
+/* Discard an open, unpublished or failed console copy. */
+static void console_discard(const Path *out)
+{
+    if (!out->dev)
+        channel_abort(3);
+    else {
+        channel_close(3);
+        bank_scratch(out);
+    }
+    cachevalid = 0;
+}
+
+/* Keep short entries in the editor workspace. Stream longer entries in
+ * chunks and defer overwrite confirmation until RUN/STOP. */
+static void copy_console(const char *destination)
+{
+    unsigned char more, device;
+    unsigned int size, used = 0;
+    int found;
+    const Path *out = 0;
+    if (!destination) {
+        error(SYSOUT_SYNTAX_COPY_CON);
+        return;
+    }
+    device = reserved_device(destination);
+    if (device) {
+        error(device == DEVICE_CON ? SYSOUT_FILE_COPY_ON_SELF :
+              SYSOUT_INVALID_FILE_NAME);
+        return;
+    }
+    if (!path(destination, &p2) || (found = write_target(&p2)) == -2)
+        return;
+    do {
+        more = input(line, LINE, INPUT_COPY_CON);
+        size = strlen(line);
+        if (!more && !size)
+            break;
+        line[size++] = 13;
+        if (size > sizeof(workspace) - used) {
+            if (!out && !(out = console_spill(found >= 0)))
+                return;
+            if (channel_write(3, workspace, used) != (int)used)
+                goto write_failed;
+            used = 0;
+        }
+        memcpy(workspace + used, line, size);
+        used += size;
+    } while (more);
+    if (found >= 0 && !copysuppress && !yesno(SYSOUT_OVERWRITE_FILE)) {
+        if (out)
+            console_discard(out);
+        return;
+    }
+    if (!out) {
+        if (p2.dev && found >= 0 && (!bank_deletable(&p2) || !bank_scratch(&p2)))
+            return;
+        if (!bank_openwrite(&p2, CBM_T_SEQ))
+            return;
+        out = &p2;
+    }
+    if (used && channel_write(3, workspace, used) != (int)used)
+        goto write_failed;
+    channel_close(3);
+    cachevalid = 0;
+    if (diskstatus(p2.dev, 1) >= 20) {
+        if (out == &p1)
+            bank_scratch(out);
+        return;
+    }
+    if (out != &p1 || console_replace())
+        say(SYSOUT_ONE_FILE_COPIED);
+    return;
+
+write_failed:
+    console_discard(out);
+    error(SYSOUT_WRITE_FAULT_ERR);
+}
+
 /* Execute COPY or MOVE, including wildcard expansion and concatenation handling.
  *
  * moving: Nonzero selects MOVE; zero selects COPY. */
-#pragma code(filemgmt_code)
-#pragma data(filemgmt_data)
 __noinline void bank_copycmd(unsigned char moving)
 {
     unsigned int i, limit, total = 0;
@@ -267,6 +411,17 @@ __noinline void bank_copycmd(unsigned char moving)
     }
     if (i < argc || !source || (!destination && (moving || strchr(source, '+')))) {
         error(moving ? SYSOUT_SYNTAX_MOVE : SYSOUT_SYNTAX_COPY);
+        return;
+    }
+    if (!moving && reserved_device(source) == DEVICE_CON) {
+        copy_console(destination);
+        return;
+    }
+    if (!moving && destination && reserved_device(destination) == DEVICE_PRN) {
+        args[1] = source;
+        args[2] = destination;
+        argc = 3;
+        typecmd(1);
         return;
     }
     if (!destination) {
@@ -584,8 +739,14 @@ __noinline void bank_renamecmd(void)
 {
     int found;
     unsigned char native_directory, directory;
-    if (argc != 3 || !path(args[1], &p1) || !path(args[2], &p2)) {
+    if (argc != 3) {
         error(SYSOUT_SYNTAX_REN);
+        return;
+    }
+    if (!path(args[1], &p1) || !path(args[2], &p2))
+        return;
+    if (reserved_device(p2.name)) {
+        error(SYSOUT_INVALID_FILE_NAME);
         return;
     }
     if (!strchr(args[2], ':') && !strchr(args[2], 0x5c)) {
@@ -703,28 +864,39 @@ __noinline int bank_findfile(const Path *p)
     return -1;
 }
 
+/* Resolve a writable file destination, returning -2 on validation failure. */
+static int write_target(const Path *p)
+{
+    int i;
+    if (reserved_device(p->name)) {
+        error(SYSOUT_INVALID_FILE_NAME);
+        return -2;
+    }
+    if (!mount_guard(p)) return -2;
+    if (!p->name[0] || strchr(p->name, '*') || strchr(p->name, '?')) {
+        error(SYSOUT_INVALID_DEST);
+        return -2;
+    }
+    if (!location_file(p->dev, p->dir))
+        return -2;
+    cachevalid = 0;
+    i = bank_findfile(p);
+    if (i >= 0 && (directory_entries[i].type == CBM_T_DIR || directory_entries[i].type == CBM_T_CBM)) {
+        error(SYSOUT_INVALID_DEST);
+        return -2;
+    }
+    return i;
+}
+
 /* Validate a destination and ask before replacement; disks scratch the old file first.
  *
  * p: Exact destination path; return nonzero when writing may proceed. */
 __noinline unsigned char bank_preparewrite(const Path *p)
 {
-    int i;
-    if (!mount_guard(p)) return 0;
-    if (!p->name[0] || strchr(p->name, '*') || strchr(p->name, '?')) {
-        error(SYSOUT_INVALID_DEST);
-        return 0;
-    }
-    if (!location_file(p->dev, p->dir))
-        return 0;
-    cachevalid = 0;
-    i = bank_findfile(p);
+    int i = write_target(p);
     if (i == -2)
         return 0;
     if (i >= 0) {
-        if (directory_entries[i].type == CBM_T_DIR || directory_entries[i].type == CBM_T_CBM) {
-            error(SYSOUT_INVALID_DEST);
-            return 0;
-        }
         if (!copysuppress && !yesno(SYSOUT_OVERWRITE_FILE))
             return 0;
         if (editprompt)

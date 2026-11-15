@@ -124,7 +124,7 @@ __noinline void bank_typecmd(unsigned char printer)
             error(SYSOUT_SYNTAX_PRINT);
             return;
         }
-        printer = 4;
+        printer = default_printer;
         if (argc == 3) {
             printer = printer_device(args[2]);
             if (!printer) {

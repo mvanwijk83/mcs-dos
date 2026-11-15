@@ -21,6 +21,7 @@ paths.forEach(([input, dev, dir, name], i) => {
 });
 const code = `
 #include <string.h>
+#include "../src/device-name.h"
 #include <stdlib.h>
 #include <ctype.h>
 #include "../src/storage.h"
@@ -54,6 +55,7 @@ int main(void) {
     if(!path("9:\\\\work\\\\docs\\\\file",&p)||!path("9:\\\\@13\\\\docs\\\\file",&other)||!sameplace(&p,&other))return 34;
     hostpaths=1;
     if(path("bad/name",&p)||path("bad/name\\\\file",&p)||!path("good\\\\file",&p))return 35;
+    if(path("CON",&p)||path("prn:",&p)||!path("con.txt",&p)||!path("8:prn",&p))return 36;
     return 0;
 }
 `;

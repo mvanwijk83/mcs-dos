@@ -108,7 +108,7 @@ module.exports =
     await enter('reboot', 3500);
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
     for (const cmd of ['set boot=changed', 'set test=preserved', 'set driveids=dos',
-             'set charset=missing', 'set color=1,0,0', 'set prompt=nextboot',
+             'set charset=missing', 'set color=1,0,0', 'set prompt=$p$g',
              'key /f1:help /f4:dir/w /f7:"my program"', 'echo off'])
         await enter(cmd);
     const fields = [
@@ -120,12 +120,12 @@ module.exports =
     assert.equal((await memory(0xd018))[0] & 0xfe, 0x14, 'uppercase ROM font');
     assert.deepEqual(await memory(0x37, 0x38), [0, 0xa0], 'full BASIC RAM');
     assert.deepEqual(
-        await memory(0xd020, 0xd021), [0xf7, 0xf6], 'BASIC preserves border/background');
-    assert.equal((await memory(0x286))[0], 2, 'BASIC preserves foreground');
+        await memory(0xd020, 0xd021), [0xf0, 0xf0], 'BASIC preserves border/background');
+    assert.equal((await memory(0x286))[0], 1, 'BASIC preserves foreground');
     await command(`screenshot "${root}/build/easyflash/session-basic.png" 2`);
     let bytes = await detach(), saved = record(bytes, 0);
     await attach();
-    assert.deepEqual([...saved.subarray(16, 21)], [2, 6, 7, 8, 0]);
+    assert.deepEqual([...saved.subarray(16, 21)], [1, 0, 0, 8, 0]);
     const first = Buffer.from(bytes);
     let s = await keys('print 2+3\\x0d');
     assert(s.includes(' 5'), s);
@@ -146,7 +146,7 @@ module.exports =
             await variable(name, n), saved.subarray(16 + offset, 16 + offset + n), name);
     assert.equal((await variable('histcount'))[0], saved[21]);
     assert.equal((await variable('histnext'))[0], saved[22]);
-    assert.deepEqual(await memory(0xd020, 0xd021), [0xf7, 0xf6]);
+    assert.deepEqual(await memory(0xd020, 0xd021), [0xf0, 0xf0]);
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
     await check('set', 'BOOT=changed');
     await check('echo', messages.SYSOUT_ECHO_IS_OFF.trim());

@@ -56,6 +56,7 @@ int main(void) {
     hostpaths=1;
     if(path("bad/name",&p)||path("bad/name\\\\file",&p)||!path("good\\\\file",&p))return 35;
     if(path("CON",&p)||path("prn:",&p)||!path("con.txt",&p)||!path("8:prn",&p))return 36;
+    if(path("nUl",&p)||!path("NUL.TXT",&p)||!path("8:nul",&p))return 37;
     return 0;
 }
 `;

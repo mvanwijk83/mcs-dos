@@ -426,7 +426,8 @@ __noinline unsigned char bank_output_open(unsigned char kind, unsigned char appe
                 return 0;
             }
         }
-    } else if (kind != OUTPUT_CONSOLE && !bank_printer_open(OUTPUT_CHANNEL, kind))
+    } else if (kind != OUTPUT_CONSOLE && kind != OUTPUT_NUL &&
+               !bank_printer_open(OUTPUT_CHANNEL, kind))
         return 0;
     outputstarted = outputused = outputfailed = outputcol = 0;
     outputkind = kind;
@@ -485,7 +486,7 @@ __noinline void bank_output_finish(void)
                 aborted = 1;
         }
         cachevalid = 0;
-    } else
+    } else if (outputkind != OUTPUT_NUL)
         channel_close(OUTPUT_CHANNEL);
     outputkind = OUTPUT_CONSOLE;
 }

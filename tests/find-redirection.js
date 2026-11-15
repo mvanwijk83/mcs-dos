@@ -17,6 +17,7 @@ static const char *const commands[] = {${commands.map(name => JSON.stringify(nam
 #define CBM_T_USR 18
 #define OUTPUT_CONSOLE 0
 #define OUTPUT_FILE 1
+#define OUTPUT_NUL 2
 #define OUTPUT_CHANNEL 5
 
 typedef struct {
@@ -35,7 +36,8 @@ static struct {
 } files[1] = {{CBM_T_SEQ}};
 
 static unsigned char outputmode, outputstarted;
-static int errors, opened, deleted, executed;
+static unsigned char outputbuf[128], observed_kind, buffered;
+static int errors, opened, closed, deleted, executed;
 static const char *message;
 static char command_text[160];
 
@@ -119,6 +121,7 @@ static int channel_open(int l, int dev, int sa, const char *s)
 static void channel_abort(int l) {}
 static void channel_close(int l)
 {
+    ++closed;
 }
 
 /* Provide the fixture status result without reading a physical drive error channel.
@@ -133,19 +136,28 @@ static int diskstatus(int dev, int report)
 /* Provide the flush hook without performing actual disk output. */
 static void outputflush(void)
 {
+    buffered |= outputused;
+    outputused = 0;
 }
 static int output_append(void) {
     outputstarted=1;snprintf(diskcmd,sizeof(diskcmd),"0:%s,s,%c",outputpath.name,outputmode);
     return !channel_open(5,outputpath.dev,5,diskcmd);
 }
 
+${functions('outputbyte')}
+
 /* Count accepted dispatches without invoking unrelated command handlers.
  *
  * s: Accepted command text; the mock observes dispatch instead of executing it. */
 static void executecommand(char *s)
 {
+    unsigned int i;
     ++executed;
     strcpy(command_text, s);
+    observed_kind = outputkind;
+    if (outputkind == OUTPUT_NUL)
+        for (i = 0; i < 1024; ++i)
+            outputbyte((unsigned char)i);
 }
 
 ${functions('printer_device', 'printer_open', 'output_open', 'output_finish',
@@ -156,7 +168,7 @@ ${functions('printer_device', 'printer_open', 'output_open', 'output_finish',
 static void run(const char *s)
 {
     strcpy(line, s);
-    errors = opened = deleted = executed = 0;
+    errors = opened = closed = deleted = executed = buffered = 0;
     message = "";
     execute(line);
 }
@@ -218,10 +230,18 @@ int main(void)
     if (!rejected("ECHO foo >8:CON") || !rejected("ECHO foo >>0:PRN") ||
         !rejected("ECHO foo <PRN") || strcmp(message, SYSOUT_INVALID_FILE_NAME))
         return 16;
+    run("TYPE input >nul:");
+    if (errors || opened || closed || deleted || buffered || executed != 1 || redirected ||
+        observed_kind != OUTPUT_NUL)
+        return 17;
+    if (!rejected("ECHO foo >>NUL") || strcmp(message, SYSOUT_DEVICE_APPEND) ||
+        !rejected("ECHO foo >8:NUL") || strcmp(message, SYSOUT_INVALID_FILE_NAME) ||
+        !rejected("ECHO foo <NUL") || !rejected("EDIT >NUL"))
+        return 18;
     return 0;
 }
 `;
 fs.writeFileSync('build/test-find-redirection.c', harness);
 require('./simulator')('build/test-find-redirection.c');
 console.log(
-    'PASS FIND validation, append, input protection, quoted operators and help redirection');
+    'PASS FIND validation, device redirection, NUL byte discard and help redirection');

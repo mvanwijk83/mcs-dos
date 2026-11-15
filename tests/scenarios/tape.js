@@ -81,7 +81,7 @@ module.exports = async ({command, memory, screen, keys, enter, root, disk, crt, 
     await command(`attach "${disk}" 8`);
     let s = await enter('tapecopy 8: bad extra');
     assert(s.includes('Syntax: TAPECOPY'), s);
-    for (const cmd of ['tapecopy 8:game', 'tapecopy game invalid', 'tapecopy 8: game']) {
+    for (const cmd of ['tapecopy 8: game']) {
         s = await enter(cmd);
         assert(s.includes('Syntax: TAPECOPY'), s);
     }
@@ -89,6 +89,55 @@ module.exports = async ({command, memory, screen, keys, enter, root, disk, crt, 
     assert(s.includes('Loads and transfers'), s);
     await enter('set tapetest=retained');
     const data = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
+    if (process.argv.includes('--tape-paths')) {
+        const d81 = root + '/build/easyflash/tape-paths.d81';
+        require('child_process').execFileSync(require('../setup').tool('vice', 'c1541'),
+            ['-format', 'tape paths,tp', 'd81', d81], {stdio:'pipe', windowsHide:true});
+        await command('resourceset "Drive8Type" "1581"');
+        await command(`attach "${d81}" 8`);
+        await enter('8:');
+        await enter('md one /size:400');
+        await enter('md two /size:400');
+        await enter('cd one');
+        await enter('md inner /size:120');
+        s = await enter('tapecopy "game" 8:\\x5cmissing');
+        assert(s.includes(messages.SYSOUT_DIRECTORY_NOT_FOUND.trim()), s);
+        async function accept(filename='') {
+            await until(messages.SYSOUT_TAPE_SAVE_TO.trim());
+            await keys('y',100);await until('Filename');await keys(filename+'\\x0d',100);
+            const out = await until('Load next file');
+            assert(out.includes(messages.SYSOUT_TAPE_SAVED.trim()),out);
+        }
+        await attach([{name:'CURRENT',data}, {name:'NEXT',type:4,data:Buffer.from('next data')}]);
+        await keys('tapecopy\\x0d',100);await accept();
+        await keys('y',100);await accept();await keys('n',100);
+        assert((await screen()).includes('8:\\ONE>'),'working directory restored');
+        await attach([{name:'EXPLICIT',data},{name:'SECOND',data}]);
+        await keys('tapecopy "explicit" 8:\\x5ctwo\\x0d',100);await accept();
+        await keys('y',100);await accept();await keys('n',100);
+        assert((await screen()).includes('8:\\ONE>'),'explicit destination does not change cwd');
+        await attach([{name:'RELATIVE',data}]);
+        await keys('tapecopy .\\x5cinner\\x0d',100);await accept();await keys('n',100);
+        await attach([{name:'CURRENT',data}]);
+        await keys('tapecopy 8:\\x0d',100);await until(messages.SYSOUT_TAPE_SAVE_TO.trim());
+        await keys('y',100);await until('Filename');await keys('\\x0d',100);
+        await until(messages.SYSOUT_TAPE_EXISTS.trim());await keys('renamed\\x0d',100);
+        await until('Load next file');await keys('n',100);
+        await attach([{name:'BROKEN',type:4,data:Buffer.alloc(400,65),bad:true}]);
+        await keys('tapecopy "broken" ..\\x5ctwo\\x0d',100);await until(messages.SYSOUT_TAPE_SAVE_TO.trim());
+        await keys('y',100);await until('Filename');await keys('\\x0d',100);
+        await until('Tape read error');
+        await command('detach 8');
+        const decode=require('../directory-image'),bytes=fs.readFileSync(d81),rootdir=decode(bytes,40,40);
+        const one=decode(bytes,40,rootdir.get('ONE').track),two=decode(bytes,40,rootdir.get('TWO').track);
+        const inner=decode(bytes,40,one.get('INNER').track),prg=Buffer.concat([Buffer.from([1,8]),data]);
+        assert.deepEqual(one.get('CURRENT').data,prg);assert.deepEqual(one.get('RENAMED').data,prg);
+        assert.deepEqual(one.get('NEXT').data,Buffer.from('next data'));assert.equal(one.get('NEXT').type,1);
+        assert.deepEqual(two.get('EXPLICIT').data,prg);assert.deepEqual(two.get('SECOND').data,prg);assert(!two.has('BROKEN'));
+        assert.deepEqual(inner.get('RELATIVE').data,prg);assert(!rootdir.has('CURRENT')&&!one.has('EXPLICIT'));
+        console.log('PASS tape current/explicit/relative directories, next file, collision and partial SEQ cleanup');
+        return;
+    }
     if (process.argv.includes('--tape-search')) {
         await attach([
             {name: 'SKIP', data: Buffer.alloc(200, 90)},

@@ -3,7 +3,7 @@ const {tool} = require('./setup');
 const flags = new Set([
     '--commands', '--find-redirection', '--delete', '--diskinit', '--banked', '--journal',
     '--compact', '--session', '--run-return', '--sysinfo', '--ntsc', '--c128', '--sx64',
-    '--boot-info', '--drive-info', '--display', '--display-fonts', '--tape', '--tape-search',
+    '--boot-info', '--drive-info', '--display', '--display-fonts', '--tape', '--tape-search', '--tape-paths',
     '--ultimate-report', '--mega65-report', '--c65-report', '--large-launch', '--redirection'
 ]);
 if (process.argv.includes('--help')) {
@@ -78,12 +78,12 @@ async function keys(s, ms = 550) {
 async function enter(s, ms) {
     let out = await keys(s + '\\x0d', ms);
     if (!/^edit\b/.test(s)) {
-        for (let i = 0; i < 60 && !/(?:^|\n)(?:[0-9A-W]+:\\>|ready\.)$/.test(out); i++) {
+        for (let i = 0; i < 60 && !/(?:^|\n)(?:[0-9A-W]+:\\[^\n>]*>|ready\.)$/.test(out); i++) {
             await command('x');
             await delay(500);
             out = await screen();
         }
-        assert(/(?:^|\n)(?:[0-9A-W]+:\\>|ready\.)$/.test(out),
+        assert(/(?:^|\n)(?:[0-9A-W]+:\\[^\n>]*>|ready\.)$/.test(out),
             'Command did not finish: ' + s + '\n' + out);
     }
     snapshots.push({completed: s, out});

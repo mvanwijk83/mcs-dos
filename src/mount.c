@@ -411,11 +411,7 @@ static unsigned char mount_source(const char *text, Path *p, MountRecord *record
 
 static unsigned char ultimate_insert(MountRecord *record)
 {
-    /* Native mounts share the existing resident gate. This operation carries
-     * a MountRecord pointer; ordinary operations continue to carry a Path. */
-    if (record->type & MOUNT_NATIVE) return softiec_mount((const Path *)record, record->dev, SOFTIEC_MOUNT_NATIVE);
-    p1.dev = record->source; strcpy(p1.dir, record->dir); strcpy(p1.name, record->name);
-    return softiec_mount(&p1, record->dev, 0);
+    return softiec_mount((const Path *)record, record->dev, SOFTIEC_MOUNT_NATIVE);
 }
 __noinline void bank_mountcmd(unsigned char unmount)
 {

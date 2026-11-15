@@ -689,39 +689,19 @@ __noinline void diskcopycmd(void)
     BANK_POP();
 }
 
-__noinline void bank_startupprompt(void);
-
-/* Apply the stored PROMPT value after startup batch processing finishes.
- * Resident gate: restore the previous bank after the service returns. */
-__noinline void startupprompt(void)
-{
-    BANK_PUSH(BANK_BOOT);
-    bank_startupprompt();
-    BANK_POP();
-}
-
-__noinline void bank_startupcolor(void);
-
-/* Validate all COLOR components before changing display colors and existing text.
- * Resident gate: restore the previous bank after the service returns. */
-__noinline void startupcolor(void)
-{
-    BANK_PUSH(BANK_BOOT);
-    bank_startupcolor();
-    BANK_POP();
-}
-
-__noinline void bank_startupcharset(unsigned char device);
+__noinline unsigned char bank_setcharset(const char *value, unsigned char device);
 
 /* Validate and stage a .CPI font before replacing the active RAM charset.
  * Resident gate: restore the previous bank after the service returns.
  *
- * device: Startup device from which to load the configured charset. */
-__noinline void startupcharset(unsigned char device)
+ * value: Validated charset stem, or an empty string to restore the default font.
+ * device: Startup device from which to load the font. Return zero on failure. */
+__noinline unsigned char setcharset(const char *value, unsigned char device)
 {
     BANK_PUSH(BANK_STORAGE);
-    bank_startupcharset(device);
+    unsigned char result = bank_setcharset(value, device);
     BANK_POP();
+    return result;
 }
 
 __noinline void bank_bootsplash(unsigned char wait);
@@ -782,18 +762,15 @@ __noinline void setcmd(const char *s)
     BANK_POP();
 }
 
-__noinline unsigned char bank_bootstart(unsigned char startdrive);
+__noinline void bank_bootstart(void);
 
 /* Reset shell state, mount cartridge storage and search configured devices for AUTOEXEC.
- * Resident gate: restore the previous bank after the service returns.
- *
- * startdrive: Initial device; return the device selected for startup. */
-__noinline unsigned char bootstart(unsigned char startdrive)
+ * Resident gate: restore the previous bank after the service returns. */
+__noinline void bootstart(void)
 {
     BANK_PUSH(BANK_BOOT);
-    unsigned char result = bank_bootstart(startdrive);
+    bank_bootstart();
     BANK_POP();
-    return result;
 }
 
 __noinline unsigned char bank_directory(unsigned char dev);

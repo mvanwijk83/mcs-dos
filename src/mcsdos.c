@@ -29,7 +29,7 @@
 /* Initialize the shell, then alternate between batch commands and interactive input until exit. */
 int main(void)
 {
-    unsigned char overflow, startdrive, startup, tape_resume;
+    unsigned char overflow, tape_resume;
     unsigned int n;
 
     /* Keep KERNAL available and read PETSCII without library translation. */
@@ -38,7 +38,6 @@ int main(void)
     giocharmap = IOCHM_TRANSPARENT;
     textcursor(false);
     POKE(207, 0);
-    startdrive = 0;
     tape_resume = RESUME[0] == 0x54 && TAPE_PENDING == 0x54;
     resume_requested = RESUME[0] == 0xa5 || tape_resume;
     RESUME[0] = 0;
@@ -50,28 +49,18 @@ int main(void)
         bootsplash(1);
 restart:
     nav_reset();
-    startdrive = bootstart(startdrive);
-    startup = 1;
+    bootstart();
     if (resume_requested) {
         if (!session_restore()) {
-            bootstart(0);
-            envready = 1;
+            bootstart();
             say(SYSOUT_SHELL_RESTORE_FAILED);
         }
-        startup = 0;
         resume_requested = 0;
         if (tape_resume)
             tapecopy_report();
     }
 again:
     while (!quit) {
-        if (startup && !batching) {
-            startup = 0;
-            envready = 1;
-            startupcharset(startdrive);
-            startupprompt();
-            startupcolor();
-        }
         if (batching) {
             memset(rawline, 0, sizeof(rawline));
             if (stop() || batchpos >= batchlen) {

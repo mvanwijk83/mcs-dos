@@ -28,7 +28,8 @@ __noinline unsigned char bank_ultimate_drive(unsigned char dev)
 
 /* Resolve actual FAT names with the original DOS target, independently of
  * the Software IEC drive's own path. No 3.15-only command is required. */
-static unsigned char softiec_file(const Path *p, const char *name, unsigned char dev, unsigned char unmount)
+static unsigned char softiec_file(const Path *p, const char *name, unsigned char dev,
+                                 unsigned char unmount, MountRecord *record)
 {
     unsigned int length;
     unsigned char more, ok = 0, saved = 0, n;
@@ -66,7 +67,17 @@ static unsigned char softiec_file(const Path *p, const char *name, unsigned char
             ok = 3;
         } else ok = 1;
     } else if (unmount == 2) ok = imagekind(workspace + 512);
-    else ok = softiec_dos(0x23, workspace + 512, 0, io, sizeof(io), &length, &more);
+    else {
+        ok = softiec_dos(0x23, workspace + 512, 0, io, sizeof(io), &length, &more);
+        if (ok && record) {
+            length = strlen(record->dir);
+            if (length + !!length + strlen(workspace + 512) < sizeof(record->dir)) {
+                if (length) record->dir[length++] = 0x5c;
+                strcpy(record->dir + length, workspace + 512);
+                record->type |= MOUNT_NATIVE;
+            }
+        }
+    }
 finished:
     softiec_files = 0;
     /* Restoring the DOS path replaces statusbuf; retain a resolution failure
@@ -79,14 +90,24 @@ finished:
 
 __noinline unsigned char bank_softiec_mount(const Path *p, unsigned char dev, unsigned char unmount)
 {
-    if (unmount == SOFTIEC_MOUNT_NATIVE) return bank_softiec_long_mount((MountRecord *)p);
-    return softiec_file(p, p ? p->name : (const char *)0, dev, unmount);
+    MountRecord *record = 0;
+    if (unmount == SOFTIEC_MOUNT_NATIVE) {
+        /* Resolve old IEC records as aliases before saving the native leaf. */
+        record = (MountRecord *)p;
+        if (record->type & MOUNT_NATIVE) return bank_softiec_long_mount(record);
+        p1.dev = record->source;
+        strcpy(p1.dir, record->dir);
+        strcpy(p1.name, record->name);
+        p = &p1;
+        unmount = 0;
+    }
+    return softiec_file(p, p ? p->name : (const char *)0, dev, unmount, record);
 }
 /* bit 0: resolved native filename; bit 1: exact byte size available. */
 __noinline unsigned char bank_softiec_metadata(const Path *p, const char *name)
 {
     softiec_file_size = 0; softiec_file_kind = 0;
-    return softiec_file(p, name, 0, 3);
+    return softiec_file(p, name, 0, 3, 0);
 }
 
 /* One DOS-target path transaction per DIR. workspace's saved path is owned

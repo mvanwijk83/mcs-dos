@@ -188,6 +188,12 @@ int main(void){
     if(softiec_long_mount(&native)||mountcalls||strcmp(statusbuf,SYSOUT_FILE_NOT_FOUND)||strcmp(path,"/SD/Original/"))return 51;
     reset(17);strcpy(native.dir,"USB1\\\\VERY LONG PARENT\\\\Last Ninja 2, the [Side A].d64");
     if(!softiec_long_mount(&native)||strcmp(mountedname,"Last Ninja 2, the [Side A].d64"))return 52;
+    reset(9);memset(&native,0,sizeof(native));native.dev=8;native.source=11;native.type=1;
+    strcpy(native.dir,"USB1\\\\VERY LONG PARENT");
+    strcpy(native.name,"VERY LONG IMAGE");
+    if(!softiec_mount((const Path *)&native,8,SOFTIEC_MOUNT_NATIVE)||mountcalls!=1||
+       native.type!=(MOUNT_NATIVE|1)||strcmp(native.dir,"USB1\\\\VERY LONG PARENT\\\\Very Long Image Disk File.d64")||
+       strcmp(native.name,"VERY LONG IMAGE"))return 53;
     return 0;
 }
 `);

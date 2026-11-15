@@ -1,7 +1,7 @@
 ; Shell display in VIC bank 3. CPU writes reach RAM beneath KERNAL;
 ; font preparation, commit and scrolling use a temporary CPU mapping.
 ; $e000-$e3ff screen, $e400-$e43f caret, $e800-$efff mixed-case font.
-; $f000-$f7ff stages external fonts until their validation is complete.
+; $f000-$f7ff stages the ROM font and any external patches before commit.
 .export _charset_prepare, _charset_commit, _charset_enable, _charset_default, _charset_scroll
 .segment "CODE"
 
@@ -27,21 +27,17 @@ _charset_prepare:
 @font:
     .repeat 8, page
     lda $d800+page*$100,x
-    sta $e800+page*$100,x
     sta $f000+page*$100,x
     .endrepeat
     inx
     bne @font
     ; Slot 28 replaces the pound sign with a thin, two-pixel diagonal.
-    ; Also stage the fallback for external fonts that omit this slot;
-    ; CPI records with their own backslash replace it during loading.
+    ; CPI records with their own backslash replace this slot during loading.
     ldx #7
 @backslash:
     lda @backslash_glyph,x
-    sta $e8e0,x
     sta $f0e0,x
     eor #$ff
-    sta $ece0,x
     sta $f4e0,x
     dex
     bpl @backslash

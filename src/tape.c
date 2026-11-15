@@ -40,6 +40,18 @@ static void start(void)
         error(SYSOUT_SHELL_SAVE_ERR);
         return;
     }
+    /* Restoration reselects the shell working directories. Replay our target
+     * on every transfer, after session I/O and before suspending the shell. */
+    nav_invalidate();
+    if (!location_file(TAPE_DEVICE, TAPE_DIRECTORY))
+        return;
+    /* Model probing may leave a binary M-R reply on a DOS channel. Close
+     * the shell's channels before CLALL forgets them in the copier startup. */
+    for (i = 0; i < 2; ++i) {
+        if (cmddev[i])
+            channel_close(14 + i);
+        cmddev[i] = 0;
+    }
     TAPE_COLORS[0] = PEEK(0x0286);
     TAPE_COLORS[1] = PEEK(0xd021);
     TAPE_COLORS[2] = PEEK(0xd020);
@@ -64,13 +76,13 @@ __noinline void bank_tapecopycmd(void)
         destination = args[2];
     } else if (argc == 2) {
         n = strlen(args[1]);
-        if (n && args[1][n - 1] == ':')
+        if (strchr(args[1], ':') || strchr(args[1], 0x5c))
             destination = args[1];
         else
             search = args[1];
     }
     n = strlen(destination);
-    if ((argc == 3 && !n) || (n && destination[n - 1] != ':') || strchr(search, ':')) {
+    if ((argc == 3 && !n) || strchr(search, ':')) {
         error(SYSOUT_SYNTAX_TAPECOPY);
         return;
     }
@@ -80,14 +92,17 @@ __noinline void bank_tapecopycmd(void)
     }
     if (!path(destination, &p1))
         return;
-    if (p1.name[0]) {
-        error(SYSOUT_SYNTAX_TAPECOPY);
+    if (!path_directory(&p1)) {
+        error(SYSOUT_DIRECTORY_NOT_FOUND);
         return;
     }
+    if (!location_file(p1.dev, p1.dir))
+        return;
+    strcpy(TAPE_DIRECTORY, p1.dir);
     filename(search, TAPE_SEARCH);
     TAPE_DEVICE = p1.dev;
-    if (n) {
-        --n;
+    if (strchr(destination, ':')) {
+        n = strchr(destination, ':') - destination;
         if (n > 3) {
             error(SYSOUT_INVALID_DRIVE_SPEC);
             return;

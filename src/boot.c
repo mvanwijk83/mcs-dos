@@ -1,14 +1,11 @@
-/* Startup, settings and hardware reporting. Stored SET values are applied
- * after AUTOEXEC finishes; hardware probes restore registers they borrow. */
+/* Startup, settings and hardware reporting. Hardware probes restore registers they borrow. */
 #include "core.h"
 #pragma code(boot_code)
 #pragma data(boot_data)
 #include "bootsplash.h"
 __noinline void bank_setcmd(const char *s);
-__noinline unsigned char bank_bootstart(unsigned char startdrive);
-__noinline void bank_startupprompt(void);
-__noinline void bank_startupcolor(void);
-__noinline void bank_startupcharset(unsigned char device);
+__noinline void bank_bootstart(void);
+__noinline unsigned char bank_setcharset(const char *value, unsigned char device);
 __noinline void bank_bootsplash(unsigned char wait);
 __noinline void bank_sysinfo(unsigned char probe14);
 __noinline const char *bank_kernalname(void);
@@ -17,6 +14,8 @@ __noinline unsigned char bank_romcode(unsigned int address, const char *code);
 __noinline const char *bank_ultimate(void);
 __noinline unsigned char bank_victype(void);
 __noinline unsigned char bank_vicalias(unsigned char first, unsigned char second);
+
+static unsigned char startupdevice;
 
 /* -psci encodes uppercase literals with bit 7 set. ROM banners use $41-$5A.
  * Only compare the short supplied prefix; never search the ROM.
@@ -279,25 +278,14 @@ __noinline void bank_sysinfo(unsigned char probe14)
     }
 }
 
-/* SET only stores the value; startup applies it after AUTOEXEC unwinds.
+/* Apply all three colors after validation and recolor the visible screen.
  *
- * Apply the stored PROMPT value after startup batch processing finishes. */
-__noinline void bank_startupprompt(void)
+ * s: COLOR value, or an empty string for defaults. Return zero on invalid input. */
+static unsigned char setcolor(const char *s)
 {
-    const char *value = envget("PROMPT");
-    if (value)
-        strcpy(prompttext, value);
-}
-
-/* Parse all three colors before changing any display state.
- *
- * Validate all COLOR components before changing display colors and existing text. */
-__noinline void bank_startupcolor(void)
-{
-    const char *s = envget("COLOR");
     unsigned char values[3], i, n;
-    if (!s)
-        return;
+    if (!*s)
+        s = "15,0,0";
     for (i = 0; i < 3; ++i) {
         while (*s == ' ')
             ++s;
@@ -322,44 +310,31 @@ __noinline void bank_startupcolor(void)
     bg = values[1];
     bd = values[2];
     colors();
-    /* Recolor text already printed by AUTOEXEC without changing its glyphs. */
     memset((void *)0xd800, fg, 1000);
-    return;
+    return 1;
 invalid:
     error(SYSOUT_INVALID_COLOR);
+    return 0;
 }
 
-/* Apply once after AUTOEXEC unwinds, always using the startup disk.
- * MCPI v1 patches shared text slots and the backslash slot. Staging beneath
- * KERNAL keeps the default RAM font intact until validation completes.
+/* Stage MCPI v1 patches on a fresh copy of the default font. Commit only after
+ * validation, so switching fonts never carries over glyphs from the previous font.
  *
- * Validate and stage a .CPI font before replacing the active RAM charset.
- *
- * device: Startup device from which to load the configured charset. */
+ * value: Validated charset stem, or an empty string to restore the default font.
+ * device: Startup device from which to load the font. Return zero on failure. */
 #pragma code(storage_code)
 #pragma data(storage_data)
-__noinline void bank_startupcharset(unsigned char device)
+__noinline unsigned char bank_setcharset(const char *value, unsigned char device)
 {
-    char *v = envget("CHARSET");
     char name[17];
     unsigned char count, i, j, code, previous = 0;
     unsigned int sum = 0, address;
-    if (!v)
-        return;
-    while (*v == ' ')
-        ++v;
-    address = strlen(v);
-    while (address && v[address - 1] == ' ')
-        --address;
-    if (!address)
-        return;
-    if (address > 12) {
-        error(SYSOUT_INVALID_CHARSET_NAME);
-        return;
+    if (!*value) {
+        charset_prepare();
+        charset_commit();
+        return 1;
     }
-    memcpy(name, v, address);
-    name[address] = 0;
-    filename(name, name);
+    filename(value, name);
     strcat(name, ".cpi");
     if (!location_file(device, startupdir))
         goto failed;
@@ -372,6 +347,7 @@ __noinline void bank_startupcharset(unsigned char device)
     if (readio(2, io, 6) != 6 || io[0] != 77 || io[1] != 67 || io[2] != 80 || io[3] != 73 ||
         io[4] != 1 || !io[5] || io[5] > 88)
         goto failed;
+    charset_prepare();
     count = io[5];
     for (i = 0; i < count; ++i) {
         if (readio(2, io, 9) != 9)
@@ -394,12 +370,13 @@ __noinline void bank_startupcharset(unsigned char device)
         goto failed;
     channel_close(2);
     charset_commit();
-    return;
+    return 1;
 failed:
     channel_close(2);
     uppername(name, name);
     snprintf(fmtbuf, sizeof(fmtbuf), SYSOUT_CANNOT_LOAD, name);
     error(fmtbuf);
+    return 0;
 }
 
 #pragma code(boot_code)
@@ -555,6 +532,12 @@ __noinline void bank_setcmd(const char *s)
         say(SYSOUT_ENV_FULL);
         return;
     }
+    if (!strcmp(name, "CHARSET") && !setcharset(v, startupdevice))
+        return;
+    if (!strcmp(name, "COLOR") && !setcolor(v))
+        return;
+    if (!strcmp(name, "PROMPT"))
+        strcpy(prompttext, len ? eq + 1 : "$p$g");
     if (old) {
         pos = old - environment - n - 1;
         memmove(environment + pos, environment + pos + size, envused - pos - size);
@@ -568,10 +551,8 @@ __noinline void bank_setcmd(const char *s)
     }
 }
 
-/* Reset shell state, mount cartridge storage and search configured devices for AUTOEXEC.
- *
- * startdrive: Initial device; return the device selected for startup. */
-__noinline unsigned char bank_bootstart(unsigned char startdrive)
+/* Reset shell state, mount cartridge storage and search configured devices for AUTOEXEC. */
+__noinline void bank_bootstart(void)
 {
     unsigned char c, keepinfo = screenbase == 0x0400 && !resume_requested;
     for (c = 0; c < 2; ++c) {
@@ -579,9 +560,9 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
             channel_close(14 + c);
         cmddev[c] = 0;
     }
-    drive = startdrive;
+    drive = startupdevice;
     quit = reboot = batching = aborted = editprompt = pagelines = 0;
-    envready = 0;
+    envready = 1;
     envused = histcount = histnext = cachevalid = count = cmdslot = 0;
     environment[0] = line[0] = 0;
     memset(&history, 0, sizeof(history));
@@ -600,6 +581,7 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
     if (!keepinfo)
         clear();
     charset_prepare();
+    charset_commit();
     charset_enable();
     screenbase = 0xe000;
     gotoxy(ox, oy);
@@ -612,7 +594,7 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
         unsigned char bootdevs[24], bi, bn = cart_config(bootdevs, &default_printer);
         if (cart_status())
             error(SYSOUT_INVALID_DIRECTIVE);
-        startdrive = drive = 0;
+        startupdevice = drive = 0;
         for (bi = 0; bi < bn; ++bi) {
             p1.dev = bootdevs[bi];
             p1.dir[0] = 0;
@@ -624,14 +606,13 @@ __noinline unsigned char bank_bootstart(unsigned char startdrive)
             if (findfile(&p1) >= 0) {
                 strcpy(working[location_index(p1.dev)], p1.dir);
                 strcpy(startupdir, p1.dir);
-                startdrive = drive = p1.dev;
+                startupdevice = drive = p1.dev;
                 runbatch();
                 break;
             }
         }
     }
     skipautoexec = 0;
-    return startdrive;
 }
 
 /* Split command arguments into parsebuf, preserving quoted text and exact filename flags.

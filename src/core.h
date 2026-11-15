@@ -101,6 +101,7 @@ extern unsigned char argquoted[MAXARGS];
 extern Path p1, p2;
 #define OUTPUT_CONSOLE 0
 #define OUTPUT_FILE 1
+#define OUTPUT_NUL 2
 #define OUTPUT_CHANNEL 5
 /* Printer streams use their IEC device number as the kind. */
 extern unsigned char outputkind;
@@ -179,9 +180,7 @@ unsigned char path(const char *s, Path *p);
 unsigned char statuschannel(unsigned char dev);
 unsigned char diskstatus(unsigned char dev, unsigned char report);
 int readio(unsigned char lfn, void *buf, unsigned int size);
-void startupprompt(void);
-void startupcolor(void);
-void startupcharset(unsigned char device);
+unsigned char setcharset(const char *value, unsigned char device);
 unsigned char command(unsigned char dev, const char *s);
 unsigned char directory(unsigned char dev);
 int findfile(const Path *p);
@@ -229,7 +228,7 @@ void renamecmd(void);
 void direntry(unsigned int index, const char *shown, unsigned char soft);
 void dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft);
 
-unsigned char bootstart(unsigned char startdrive);
+void bootstart(void);
 unsigned char findoptions(unsigned char *flags, char **needle);
 unsigned char typeoptions(unsigned char *mode, unsigned long *limit);
 #endif

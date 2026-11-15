@@ -166,10 +166,10 @@ __noinline void bank_renderedit(void)
 /* Treat a device as an existing target without opening a disk file. */
 static unsigned char editpath(const char *name)
 {
-    unsigned char device = reserved_device(name);
-    if (!device)
+    if (!reserved_device(name))
         return path(name, &p1);
-    strcpy(p1.name, device == DEVICE_CON ? "CON" : "PRN");
+    memcpy(p1.name, name, 3);
+    p1.name[3] = 0;
     return 1;
 }
 
@@ -829,7 +829,7 @@ __noinline void bank_execute(char *s)
             *end = '>';
         if (kind == DEVICE_CON)
             trim_redirect(s, input_op);
-        else if (kind == DEVICE_PRN) {
+        else if (kind) {
             error(SYSOUT_INVALID_FILE_NAME);
             return;
         }
@@ -893,8 +893,11 @@ __noinline void bank_execute(char *s)
         error(SYSOUT_INVALID_DEST);
         return;
     }
-    if (reserved_device(args[0]) == DEVICE_CON)
+    kind = reserved_device(args[0]);
+    if (kind == DEVICE_CON)
         kind = OUTPUT_CONSOLE;
+    else if (kind == DEVICE_NUL)
+        kind = OUTPUT_NUL;
     else {
         kind = printer_device(args[0]);
         if (!kind)

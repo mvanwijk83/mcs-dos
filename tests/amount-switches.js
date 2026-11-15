@@ -4,7 +4,7 @@ const fs = require('fs');
 const {functions} = require('./source');
 let code = 'static unsigned char noseparators,validate;\n' +
            functions('decimal', 'allocated', 'reportoptions', 'memcmd', 'deletable',
-               'delcmd', 'driveinfo', 'volcmd');
+               'delcmd', 'mounted_image_info', 'driveinfo', 'volcmd');
 code = code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,
     'static unsigned char deletable(void *p) { return 1; }');
 const harness = `
@@ -14,6 +14,13 @@ const harness = `
 #include "../tests/location-fixture.h"
 #include <ctype.h>
 #include <stdarg.h>
+#define MOUNT_COUNT 3
+#define MOUNT_NATIVE 128
+typedef struct MountRecord {
+    unsigned char dev, source, model, type;
+    char dir[128], name[17];
+} MountRecord;
+static MountRecord mounts[MOUNT_COUNT];
 static int argc, errors, prompts, deleted, answer = 1;
 static char *args[12], argstore[2][20];
 static char out[1000], volume[17] = "TEST", io[256];
@@ -70,6 +77,16 @@ static void say(const char *s)
 static void outs(const char *s)
 {
     strcat(out, s);
+}
+
+static void outc(unsigned char c)
+{
+    unsigned int length = strlen(out);
+    const char *line = strrchr(out, 10);
+    out[length] = c;
+    if (!redirected && length - (line ? line + 1 - out : 0) == 39)
+        out[++length] = 10;
+    out[length + 1] = 0;
 }
 
 /* Provide the newline hook; fixtures capture it when text layout is under test. */
@@ -304,24 +321,24 @@ int main(void)
     drive = 8;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "\\n\\nDrive model is 1541\\nDrive identifier is 8 (CBM) / A (DOS)\\n"))
+    if (!strstr(out, "\\n\\nDrive model: 1541\\nDrive identifier:    8 (IEC), A (DOS)\\n"))
         return 29;
     drive = 9;
     model = 2;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "Drive model is 1571\\nDrive identifier is 9 (CBM) / B (DOS)\\n"))
+    if (!strstr(out, "Drive model: 1571\\nDrive identifier:    9 (IEC), B (DOS)\\n"))
         return 30;
     drive = 30;
     model = 3;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "Drive model is 1581\\nDrive identifier is 30 (CBM) / W (DOS)\\n"))
+    if (!strstr(out, "Drive model: 1581\\nDrive identifier:    30 (IEC), W (DOS)\\n"))
         return 31;
     drive = 0;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "\\n\\nDrive model is EasyFlash\\nDrive identifier is 0\\n"))
+    if (!strstr(out, "\\n\\nDrive model: EasyFlash\\nDrive identifier is 0\\n"))
         return 32;
     drive = 8;
     model = 1;
@@ -383,6 +400,44 @@ int main(void)
     delcmd();
     if (prompts != 1 || deleted)
         return 18;
+    /* A native leaf is ASCII on disk and must retain its case in PETSCII. */
+    {
+        static const char suffix[] = {0x49,0x4d,0xc1,0x47,0x45,0x2e,0x44,0x36,0x34,0};
+        unsigned char i;
+        mounts[2].dev = 9; mounts[2].source = 11; mounts[2].type = MOUNT_NATIVE;
+        strcpy(mounts[2].dir, "USB1\\\\GAMES\\\\");
+        i = strlen(mounts[2].dir);
+        memset(mounts[2].dir + i, 'x', 12);
+        strcpy(mounts[2].dir + i + 12, "imAge.d64");
+        for (i = 0; i < 2; ++i) {
+            redirected = i;
+            out[0] = 0;
+            driveinfo(9);
+            if (!strstr(out, "Disk image:  11:\\\\USB1\\\\GAMES\\\\XXXXXXXXXXXX\\n             "))
+                return 34;
+            if (!strstr(out, suffix)) return 35;
+        }
+        /* A source ending exactly on the right margin advances only once. */
+        memset(mounts[2].dir, 0x58, 23);
+        mounts[2].dir[23] = 0;
+        for (i = 0; i < 2; ++i) {
+            redirected = i;
+            out[0] = 0;
+            driveinfo(9);
+            if (!strstr(out, "Disk image:  11:\\\\") ||
+                out[strlen(out) - 2] != 0xd8 || out[strlen(out) - 1] != 10)
+                return 38;
+        }
+        out[0] = 0;
+        driveinfo(8);
+        if (strstr(out, "Disk image:")) return 36;
+        mounts[2].type = 1;
+        strcpy(mounts[2].dir, "@1");
+        strcpy(mounts[2].name, "GAME.D64");
+        out[0] = 0;
+        driveinfo(9);
+        if (!strstr(out, "Disk image:  11:\\\\@1\\\\GAME.D64\\n")) return 37;
+    }
     return 0;
 }
 `;

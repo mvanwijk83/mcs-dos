@@ -75,9 +75,14 @@ require('./shell')('editor-session', async session => {
     await session.until(text => text.includes(messages.SYSOUT_OVERWRITE_FILE));
     await keys('y');
     await session.until(text => text.includes(messages.SYSOUT_INVALID_FILE_NAME));
+    status((await keys('edit nul:\\x0d'))[24], 'NUL');
+    await keys('do not save\\x03y');
+    await session.until(text => text.includes(messages.SYSOUT_OVERWRITE_FILE));
+    await keys('y');
+    await session.until(text => text.includes(messages.SYSOUT_INVALID_FILE_NAME));
     await command('detach 8');
     const entries = files(session.disk);
-    assert(!entries.has('CON') && !entries.has('PRN'));
+    assert(!entries.has('CON') && !entries.has('PRN') && !entries.has('NUL'));
     console.log(
         'PASS right-aligned status, Untitled and 16-character filename, fixed-cell watchpoints, shell colours/IRQ unchanged, save/reload and cancellation/error paths');
 }).catch(error => {

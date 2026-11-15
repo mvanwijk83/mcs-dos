@@ -210,12 +210,12 @@ void outputflush(void)
     outputused = 0;
 }
 
-/* Queue one redirected byte and flush when the output buffer fills.
+/* Discard NUL output or queue a byte for the file or printer stream.
  *
  * c: Byte to append. */
 void outputbyte(unsigned char c)
 {
-    if (outputfailed)
+    if (outputkind == OUTPUT_NUL || outputfailed)
         return;
     outputbuf[outputused++] = c;
     if (outputused == sizeof(outputbuf))

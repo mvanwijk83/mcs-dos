@@ -35,7 +35,10 @@ static unsigned char location_index(unsigned char d){return d?d-7:0;}
 static unsigned char ultimate_drive(unsigned char d){return ultimate&&d==8;}
 static unsigned char softiec_long_mount(MountRecord *r);
 static unsigned char softiec_mount(const Path *p,unsigned char d,unsigned char u){
-    if(u==SOFTIEC_MOUNT_NATIVE)return softiec_long_mount((MountRecord *)p);
+    if(u==SOFTIEC_MOUNT_NATIVE){
+        if(((const MountRecord *)p)->type&MOUNT_NATIVE)return softiec_long_mount((MountRecord *)p);
+        u=0;
+    }
     ++ultcalls;ultdev=d;ulteject=u;
     if(fail_ambiguous){fail_ambiguous=0;strcpy(statusbuf,SYSOUT_AMBIGUOUS_FILE_NAME);return 0;}
     strcpy(statusbuf,"00,OK");return 1;

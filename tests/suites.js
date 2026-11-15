@@ -40,7 +40,8 @@ const groups = {
     ].map(([model, mode]) => entry('drive-' + model + (mode || '').replace('--', '-'),
               'drive-compat', [String(model), ...(mode ? [mode] : [])])),
     tape:
-        [cartridge('tape-transfer', '--tape'), cartridge('tape-search', '--tape', '--tape-search')]
+        [cartridge('tape-transfer', '--tape'), cartridge('tape-search', '--tape', '--tape-search'),
+         cartridge('tape-paths', '--tape', '--tape-paths')]
 };
 groups.all = Object.values(groups).flat();
 // Private CMD ROM/utilities are optional and are never redistributed.

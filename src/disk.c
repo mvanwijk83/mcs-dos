@@ -157,11 +157,52 @@ __noinline unsigned char bank_bam(unsigned char dev)
  * editbuf is idle during COPY and holds one complete binary record.
  *
  * Copy a REL file record by record from p1 to p2, letting DOS create destination side sectors. */
-/* The preceding space statistics already end with a blank line.
- *
- * Report the detected drive model and its supported disk capacity.
- *
- * dev: Device to inspect. */
+/* Emit the saved source below the drive ID. The native leaf is ASCII, while
+ * the parent path and legacy IEC aliases already use PETSCII. */
+static void mounted_image_info(unsigned char dev)
+{
+    const MountRecord *record;
+    const char *path, *leaf;
+    unsigned int offset, prefix;
+    unsigned char i, c, column, indent = sizeof(SYSOUT_CHKDSK_IMAGE) - 1;
+    for (i = 0; i < MOUNT_COUNT && mounts[i].dev != dev; ++i) {}
+    if (i == MOUNT_COUNT) return;
+    record = &mounts[i];
+    path = record->dir;
+    if (record->type & MOUNT_NATIVE) {
+        leaf = strrchr(path, 0x5c);
+        leaf = leaf ? leaf + 1 : path;
+        prefix = leaf - path;
+    } else {
+        leaf = record->name;
+        prefix = strlen(path);
+        if (prefix) ++prefix;
+    }
+
+    print(SYSOUT_CHKDSK_IMAGE "%u:%c", record->source, 0x5c);
+    column = indent + (record->source < 10 ? 3 : 4);
+    for (offset = 0;; ++offset) {
+        if (offset < prefix)
+            c = path[offset] ? toupper(path[offset]) : 0x5c;
+        else {
+            c = leaf[offset - prefix];
+            if (!c) break;
+            if (record->type & MOUNT_NATIVE) {
+                if (c >= 65 && c <= 90) c += 128;
+                else if (c >= 97 && c <= 122) c -= 32;
+            }
+        }
+        if (column == 40) {
+            if (redirected) newline();
+            for (column = 0; column < indent; ++column) outc(' ');
+        }
+        outc(c);
+        ++column;
+    }
+    if (redirected || column != 40) newline();
+}
+
+/* The preceding space statistics already end with a blank line. */
 __noinline void bank_driveinfo(unsigned char dev)
 {
     unsigned char type, geometry;
@@ -187,6 +228,7 @@ __noinline void bank_driveinfo(unsigned char dev)
                                   : type == 5 ? "1570"
                                               : "Unknown");
         print(SYSOUT_VOL_ID, dev, 'A' + dev - 8);
+        mounted_image_info(dev);
     }
 }
 

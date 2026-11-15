@@ -215,9 +215,10 @@
 #define SYSOUT_COPY_TRACK_PROGRESS "Copying track %u of %u\n"
 #define SYSOUT_COPY_COMPLETE "Copy complete"
 #define SYSOUT_DISK_COPY_NOT_COMPLETED "Disk copy failed"
-#define SYSOUT_DRIVE_MODEL "Drive model is %s\n"
-#define SYSOUT_VOL_ID "Drive identifier is %u (CBM) / %c (DOS)\n"
-#define SYSOUT_VOL_ID_CART "Drive identifier is 0"
+#define SYSOUT_DRIVE_MODEL "Drive model: %s\n"
+#define SYSOUT_VOL_ID "Drive ID:    %u (IEC), %c (DOS)\n"
+#define SYSOUT_VOL_ID_CART "Drive ID:    0"
+#define SYSOUT_CHKDSK_IMAGE "Disk image:  "
 #define SYSOUT_INVALID_PARTITION_ALLOCATION "Invalid partition allocation"
 #define SYSOUT_DISK_DIRECTORIES "%7s bytes in %u directories\n"
 #define SYSOUT_DISK_RESERVED "%7s bytes reserved\n"
@@ -238,7 +239,8 @@
 /* VER banner */
 #define SYSOUT_BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS Labs"
 /* Tape copy */
-#define SYSOUT_SYNTAX_TAPECOPY "Syntax: TAPECOPY [filename] [drive:]"
+#define SYSOUT_SYNTAX_TAPECOPY "Syntax: TAPECOPY [filename] [destination]"
+#define SYSOUT_TAPE_PATH_SEPARATOR ":\\"
 #define SYSOUT_SHELL_SAVE_ERR "Failed saving shell state"
 #define SYSOUT_TAPE_KERNAL "Could not locate standard KERNAL tape\nreader (custom ROM installed?)"
 #define SYSOUT_TAPE_PLAY "Press play on tape"

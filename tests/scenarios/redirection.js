@@ -56,6 +56,20 @@ module.exports = async function({command, keys, enter, check, disk, crt, root}) 
     await enter('type 0:printme >prn');
     await enter('print 0:printme prn');
     await enter('cls');
+    const silent = await enter('ver >nul');
+    assert(!silent.includes('MCS-DOS Version'), silent);
+    await enter('type 8:raw >nul:');
+    await check('type missing >nul', messages.SYSOUT_FILE_NOT_FOUND);
+    await check('echo bad >>nul', messages.SYSOUT_DEVICE_APPEND);
+    await check('echo bad >0:nul', messages.SYSOUT_INVALID_FILE_NAME);
+    await check('echo bad >8:nul', messages.SYSOUT_INVALID_FILE_NAME);
+    await enter('cls');
+    let nulPause = await keys('pause visible prompt >nul\\x0d');
+    for (let i = 0; i < 8 && !/^visible prompt$/m.test(nulPause); ++i)
+        nulPause = await keys('');
+    assert.match(nulPause, /^visible prompt *$/m);
+    await keys('q');
+    await enter('cls');
     let pause = await keys('pause visible prompt >pauseout\\x0d');
     for (let i = 0; i < 8 && !/^visible prompt$/m.test(pause); ++i)
         pause = await keys('');
@@ -118,7 +132,7 @@ module.exports = async function({command, keys, enter, check, disk, crt, root}) 
         assert.equal(data('BT').toString(), 'BATCH\rAPPEND\r');
         assert.ok(text('VERSION').startsWith('MCS-DOS VERSION ' + messages.VERSION));
         assert.ok(text('USAGE').includes('TYPE [DRIVE:][PATH]FILENAME'));
-        assert(!entries.has('PRN') && !entries.has('CON'));
+        assert(!entries.has('PRN') && !entries.has('CON') && !entries.has('NUL'));
         assert(!entries.has('UNWANTED'), 'rejected redirection must not create a file');
     }
     assert.deepEqual(files(disk).get('PAUSEOUT').data, Buffer.from('\r'));
@@ -129,5 +143,5 @@ module.exports = async function({command, keys, enter, check, disk, crt, root}) 
     assert.equal(fs.readFileSync('build/easyflash/redirect-lpt2.txt', 'latin1'),
         'CONFIGURED ALIAS\rREDIRECTED PAYLOAD\rREDIRECTED PAYLOAD\rCONFIGURED NUMBER\r');
     console.log(
-        'PASS SEQ, CON and configurable PRN streams, help output, binary TYPE and disk-full recovery');
+        'PASS SEQ, CON, PRN and NUL output, help, binary TYPE and disk-full recovery');
 };

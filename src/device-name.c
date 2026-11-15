@@ -12,5 +12,7 @@ unsigned char reserved_device(const char *name)
         return DEVICE_CON;
     if (toupper(name[0]) == 'P' && toupper(name[1]) == 'R' && toupper(name[2]) == 'N')
         return DEVICE_PRN;
+    if (toupper(name[0]) == 'N' && toupper(name[1]) == 'U' && toupper(name[2]) == 'L')
+        return DEVICE_NUL;
     return 0;
 }

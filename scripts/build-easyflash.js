@@ -1,6 +1,15 @@
 const fs=require('fs'),path=require('path'),{execFileSync:exec}=require('child_process');
 const {tool,setup}=require('./toolchain'); setup();
 const out='build/easyflash'; fs.mkdirSync(out,{recursive:true});
+const now = new Date();
+const date = now.toISOString().slice(0, 10);
+const year = now.getUTCFullYear();
+const day = 1 + Math.floor((now - Date.UTC(year, 0, 1)) / 86400000);
+const countFile = `build/build-count-${date}`;
+// Each completed build appends one byte to its UTC day's counter.
+const ordinal = fs.statSync(countFile, {throwIfNoEntry: false})?.size ?? 0;
+const buildNumber = `${date.slice(2, 4)}${String(day).padStart(3, '0')}.${ordinal}`;
+fs.writeFileSync(`${out}/build-number.h`, `#define MCS_BUILD_NUMBER "${buildNumber}"\n`);
 const compile=args=>exec(tool('oscar64','oscar64'),args,{stdio:'inherit',windowsHide:true});
 const binary=(name,source=`src/easyflash/${name}.c`,extra=[])=>compile(['-n','-Os','-Oo','-psci','-rt=','-tf=bin',...extra,`-o=${out}/${name}.bin`,source]);
 exec(process.execPath,['scripts/make-hardware.js'],{stdio:'inherit',windowsHide:true});
@@ -125,10 +134,11 @@ for(let bank=0;bank<64;bank++)if(bank<=Math.max(...commandBanks.map(b=>b.bank))|
 fs.writeFileSync(`${out}/MCS-DOS.crt`,Buffer.concat(packets));
 fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').update(Buffer.concat(packets)).digest('hex')+'  MCS-DOS.crt\n');
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
-fs.writeFileSync(`${out}/layout.json`,JSON.stringify({entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
+fs.writeFileSync(`${out}/layout.json`,JSON.stringify({buildNumber,entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
  wedge:wedge.length,sessionBytes:7696,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
  freeRam:0xa000-bssEnd+0x400,freeRanges:[[bssEnd,0xa000],[0xc300,0xc700]],
  helpBank:10,helpBytes:help.length,filesystemVersion:3,used,fileBytes,available},null,2));
-console.log('Built '+out+'/MCS-DOS.crt');
+fs.appendFileSync(countFile, '\n');
+console.log(`Built ${out}/MCS-DOS.crt (build ${buildNumber})`);
 

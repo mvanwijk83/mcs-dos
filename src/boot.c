@@ -3,6 +3,7 @@
 #pragma code(boot_code)
 #pragma data(boot_data)
 #include "bootsplash.h"
+#include "../build/easyflash/build-number.h"
 __noinline void bank_setcmd(const char *s);
 __noinline void bank_bootstart(void);
 __noinline unsigned char bank_setcharset(const char *value, unsigned char device);
@@ -390,6 +391,7 @@ failed:
 __noinline void bank_bootsplash(unsigned char wait)
 {
     static const char product[] = SYSOUT_SPLASH_PRODUCT;
+    static const char build[] = "Build " MCS_BUILD_NUMBER;
     static const char copyright[] = SYSOUT_COPYRIGHT;
     unsigned char x, y, oldlo, oldhi, remaining = 0, seconds;
     clock_t started;
@@ -420,7 +422,11 @@ __noinline void bank_bootsplash(unsigned char wait)
     textcolor(COLOR_WHITE);
     gotoxy((40 - (sizeof(product) - 1)) / 2, 2 + LOGO_ROWS + 3);
     screen_puts(product);
-    gotoxy((40 - (sizeof(copyright) - 1)) / 2, 2 + LOGO_ROWS + 5);
+    textcolor(COLOR_LT_GREY);
+    gotoxy((40 - (sizeof(build) - 1)) / 2, 2 + LOGO_ROWS + 4);
+    screen_puts(build);
+    textcolor(COLOR_WHITE);
+    gotoxy((40 - (sizeof(copyright) - 1)) / 2, 2 + LOGO_ROWS + 6);
     screen_puts(copyright);
     if (wait) {
         skipautoexec = 0;
@@ -457,7 +463,7 @@ __noinline void bank_bootsplash(unsigned char wait)
         colors();
         caret_init();
         ox = 0;
-        oy = 2 + LOGO_ROWS + 7;
+        oy = 2 + LOGO_ROWS + 8;
         gotoxy(ox, oy);
     }
 }

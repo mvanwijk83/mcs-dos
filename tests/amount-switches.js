@@ -321,24 +321,24 @@ int main(void)
     drive = 8;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "\\n\\nDrive model: 1541\\nDrive identifier:    8 (IEC), A (DOS)\\n"))
+    if (!strstr(out, "\\n\\nDrive model: 1541\\nDrive ID:    8 (IEC), A (DOS)\\n"))
         return 29;
     drive = 9;
     model = 2;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "Drive model: 1571\\nDrive identifier:    9 (IEC), B (DOS)\\n"))
+    if (!strstr(out, "Drive model: 1571\\nDrive ID:    9 (IEC), B (DOS)\\n"))
         return 30;
     drive = 30;
     model = 3;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "Drive model: 1581\\nDrive identifier:    30 (IEC), W (DOS)\\n"))
+    if (!strstr(out, "Drive model: 1581\\nDrive ID:    30 (IEC), W (DOS)\\n"))
         return 31;
     drive = 0;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "\\n\\nDrive model: EasyFlash\\nDrive identifier is 0\\n"))
+    if (!strstr(out, "\\n\\nDrive model: EasyFlash\\nDrive ID:    0\\n"))
         return 32;
     drive = 8;
     model = 1;

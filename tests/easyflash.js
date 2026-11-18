@@ -228,7 +228,22 @@ function diskFile(file, name) {
         }
         assert(s.includes(messages.SYSOUT_COPYRIGHT), s);
         assert(!s.includes('KB RAM'), s);
-        const countdown = s.split('\n')[23];
+        const rows = s.split('\n');
+        const {buildNumber} = JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
+        assert.match(buildNumber, /^\d{5}\.\d+$/);
+        const versionRow = rows.findIndex(row => /MCS-DOS Version/i.test(row));
+        assert(versionRow >= 0, s);
+        const buildLine = 'Build ' + buildNumber;
+        const buildColumn = Math.floor((40 - buildLine.length) / 2);
+        assert.equal(rows[versionRow + 1].toLowerCase(),
+            ' '.repeat(buildColumn) + buildLine.toLowerCase(), s);
+        assert.equal(rows[versionRow + 2].trim(), '', s);
+        assert.equal(rows[versionRow + 3].trim(), messages.SYSOUT_COPYRIGHT, s);
+        const buildStart = 0xd800 + (versionRow + 1) * 40 + buildColumn;
+        assert.deepEqual(
+            (await memory(buildStart, buildStart + buildLine.length - 1)).map(c => c & 15),
+            Array(buildLine.length).fill(15), 'build number uses color 15');
+        const countdown = rows[23];
         assert(/^ {4}Press RESTORE for safe boot \([1-5]\)/i.test(countdown), s);
         const seconds = Number(countdown.match(/\(([1-5])\)/)[1]);
         assert.deepEqual((await memory(0xd800 + 23 * 40 + 4, 0xd800 + 23 * 40 + 34)).map(c => c & 15),

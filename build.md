@@ -59,6 +59,14 @@ from executable code and the command help library, the image includes
 documentation text files, sample config files, and alternate character sets
 (CGA.CPI and VGA.CPI).
 
+The build process will generate a build number in `YYDDD.N` format, where `YY`
+is the two-digit year, `DDD` the day of the year starting at 001, and `N` a
+sequence number counting successful builds that day from 0.
+
+Tbe build script also includes an automatic upload to any C64 Ultimate on the
+local network. Remove as necessary, or change the included IP address and/or
+the network password.
+
 ## C source style
 
 C sources use K&R braces, four spaces and a 100-column code limit, configured

@@ -2,6 +2,7 @@
  * call back here for output, parsing and I/O while their ROM bank is visible. */
 #include "core.h"
 #include "memory.h"
+#include "../build/easyflash/build-number.h"
 Entry directory_entries[MAXFILES];
 #pragma bss(dir_cache)
 unsigned char directory_locks[(MAXFILES + 7) / 8];
@@ -983,7 +984,7 @@ __noinline void bank_executecommand(char *s)
         volcmd(0);
         break;
     case 22:
-        say(SYSOUT_BANNER);
+        print(SYSOUT_BANNER, MCS_BUILD_NUMBER);
         break;
     case 23:
         diskidcmd();

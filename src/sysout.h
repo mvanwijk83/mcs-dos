@@ -237,7 +237,7 @@
 /* Cartridge filesystem statistics */
 #define SYSOUT_CRT_VOL "Volume MCS-DOS 2.1\nDisk ID is MC\n\n"
 /* VER banner */
-#define SYSOUT_BANNER "MCS-DOS Version " VERSION "\nCopyright (C) 2026 MCS Labs"
+#define SYSOUT_BANNER "MCS-DOS Version " VERSION " [%s]\nCopyright (C) 2026 MCS Labs\n"
 /* Tape copy */
 #define SYSOUT_SYNTAX_TAPECOPY "Syntax: TAPECOPY [filename] [destination]"
 #define SYSOUT_TAPE_PATH_SEPARATOR ":\\"

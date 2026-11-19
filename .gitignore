@@ -8,6 +8,7 @@ dev/
 docs-design/
 docs-internal/
 examples/
+screenshots/docs
 scripts/*
 !scripts/build.ps1
 !scripts/build.js

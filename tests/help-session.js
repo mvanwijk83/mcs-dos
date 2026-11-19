@@ -7,6 +7,16 @@ require('./shell')('help-session',
     async ({disk, command, keys, enter, until}) => {
         const pager = messages.SYSOUT_PRESS_ANY_KEY;
         await enter('cls');
+        const overview = await enter('help');
+        const expected = [...require('./source').commands,
+            'CHDIR', 'DELETE', 'ERASE', 'MKDIR', 'RENAME', 'RMDIR'].sort();
+        const listed = overview.slice(overview.indexOf('command, type HELP [command].') +
+            'command, type HELP [command].'.length).replace(/8:\\>\s*$/, '').trim().split(/\s+/);
+        assert.deepEqual(listed, expected, 'HELP lists commands and aliases once in alphabetical order');
+        await enter('cls');
+        const removed = await enter('version');
+        assert(removed.includes(messages.SYSOUT_BAD_CMD_OR_FILE_NAME), removed);
+        await enter('cls');
         await keys('help set\\x0d');
         let text = await until(s => s.includes(pager));
         assert(

@@ -556,7 +556,9 @@ __noinline unsigned char bank_diskhelp(unsigned char topic)
  * id: Command index; a negative value selects the overview. */
 __noinline void bank_help(int id)
 {
-    unsigned char i, j, tmp, order[COMMANDCOUNT];
+    static const char *const aliases[] = {"CHDIR", "DELETE", "ERASE", "MKDIR", "RENAME", "RMDIR"};
+    const char *names[COMMANDCOUNT + 6], *tmp;
+    unsigned char i, j;
     if (id >= 0) {
         bank_diskhelp((unsigned char)id);
         return;
@@ -564,23 +566,24 @@ __noinline void bank_help(int id)
     say(SYSOUT_HELP_INTRO);
     newline();
     for (i = 0; i < COMMANDCOUNT; ++i)
-        order[i] = i;
-    for (i = 1; i < COMMANDCOUNT; ++i) {
-        tmp = order[i];
+        names[i] = commands[i];
+    for (i = 0; i < 6; ++i)
+        names[COMMANDCOUNT + i] = aliases[i];
+    for (i = 1; i < COMMANDCOUNT + 6; ++i) {
+        tmp = names[i];
         j = i;
-        while (j && strcmp(commands[order[j - 1]], commands[tmp]) > 0) {
-            order[j] = order[j - 1];
+        while (j && strcmp(names[j - 1], tmp) > 0) {
+            names[j] = names[j - 1];
             --j;
         }
-        order[j] = tmp;
+        names[j] = tmp;
     }
-    for (i = 0; i < COMMANDCOUNT; ++i) {
-        print(SYSOUT_HELP_CMD, commands[order[i]]);
+    for (i = 0; i < COMMANDCOUNT + 6; ++i) {
+        print(SYSOUT_HELP_CMD, names[i]);
         if (i % 3 == 2)
             newline();
     }
     newline();
-    say(SYSOUT_HELP_ALIASES);
 }
 
 #pragma code(code)

@@ -734,8 +734,6 @@ __noinline int bank_commandid(const char *s)
         return 35;
     if (!stricmp(s, "RENAME"))
         return 18;
-    if (!stricmp(s, "VERSION"))
-        return 22;
     for (i = 0; i < COMMANDCOUNT; ++i)
         if (!stricmp(s, commands[i]))
             return i;

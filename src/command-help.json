@@ -21,7 +21,7 @@
   "RUN": "Executes a program.\n\nRUN [drive:][path]filename [/A address]\n\n  /A  Load at and jump to at the decimal\n      address.",
   "TYPE": "Displays the contents of a file.\n\nTYPE [drive:][path]filename\n     [/H[:n] | /T[:n] [/C]] [/HEX]\n\n  /H:n  Shows first n lines of file.\n  /T:n  Shows last n lines of file.\n  /C    Specifies a number of bytes\n        instead of lines.\n  /HEX  Shows a hex view.\n\nn defaults to 10 lines or bytes if not\nspecified.",
   "VOL": "Displays the volume label (disk name)\nand disk ID, if they exist.",
-  "VER": "Displays the MCS-DOS version and\ncopyright information.\n\nVER\nVERSION",
+  "VER": "Displays the MCS-DOS version and\ncopyright information.\n\nVER",
   "DISKID": "Changes the drive's two-character ID.\n\nDISKID [drive:] [id]\n\nID must be two letters or digits. Omit\nthe ID to be prompted.",
   "SET": "Displays, sets, or removes  environment\nvariables.\n\nSET [variable=[string]]\nSET /ENV\n  variable  Specifies the environment\n            variable name.\n  string    Specifies a series of\n            characters to assign to the\n            variable.\n  /ENV      Displays environment usage\n            statistics.\n\nType SET without parameters to display\nthe current environment variables.\n\nVariable names can be up to 8 characters\nlong, and values up to 32 characters.\n\nPROMPT, CHARSET and COLOR take effect\nimmediately. Use SET variable= to remove\na setting and restore its default.",
   "REBOOT": "Reboots the environment.",

@@ -93,7 +93,6 @@
 #define SYSOUT_CRT_HELP_UNAVAILABLE "Help unavailable"
 #define SYSOUT_HELP_INTRO "For more information on a specific\ncommand, type HELP [command]."
 #define SYSOUT_HELP_CMD "%-13s"
-#define SYSOUT_HELP_ALIASES "Aliases: CHDIR DELETE ERASE MKDIR RENAME\nRMDIR VERSION"
 /* Directory listings and file management */
 #define SYSOUT_DIR_HEADER " Directory of %s:%c%s\n\n"
 #define SYSOUT_DIR_WIDE_ENTRY "%-19s"

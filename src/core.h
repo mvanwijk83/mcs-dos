@@ -7,6 +7,11 @@
 #include "cart.h"
 #include "banking.h"
 #include "session.h"
+#include "storage.h"
+#include "host.h"
+#include "mount.h"
+#include "dir-filter.h"
+#include "device-name.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
@@ -16,21 +21,27 @@ extern unsigned char resume_requested;
 #include <stdarg.h>
 #include <time.h>
 
-/* 64 command characters plus terminator. */
-#define LINE 65
+/* Classic DOS limits include the terminating byte. */
+#define LINE 128
+#define INPUT_COPY_CON 2
+#define PATHSIZE 128
+#define LOCATIONCOUNT 24
 #define MAXARGS 33
 #define ENVVALUE 32
-#define ENVSIZE 512
-#define VERSION "2.0"
+#define ENVSIZE 256
+#define KEYBUFSIZE 256
+#define FUNCTIONKEYS 7
+#define VERSION "2.1"
 #include "sysout.h"
 
 #define MAXFILES 296
 #define EDITROWS 24
-#define BATCHMAX 2048
+#define BATCHMAX 1024
 
 typedef struct Path {
     unsigned char dev; /* 0 is cartridge storage; disk devices are 8-30. */
     char name[17];     /* Native filename bytes, at most 16 plus a terminator. */
+    char dir[PATHSIZE]; /* Absolute parent directory; empty means the root. */
 } Path;
 
 typedef struct Entry {
@@ -40,22 +51,37 @@ typedef struct Entry {
 } Entry;
 
 extern Entry directory_entries[MAXFILES];
+/* The bridge starts at $0880 and is limited to 255 bytes by the build.
+ * Its reserved tail at $0980-$09FF holds the 37-byte directory lock bitmap.
+ * Every published cache fills its bits; no startup initialization is needed. */
+extern unsigned char directory_locks[(MAXFILES + 7) / 8];
+typedef char DirectoryLocksFit[(MAXFILES + 7) / 8 <= 128 ? 1 : -1];
 extern unsigned int count;
 extern unsigned char cachedev, cachevalid, drive;
+extern unsigned char optionalheader;
+extern char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
 extern unsigned int freeblocks;
 extern char volume[17], diskid[3];
 extern unsigned char ox, oy, fg, bg, bd, quit, reboot, echoon, batching;
 extern volatile unsigned char skipautoexec;
 extern unsigned char copysuppress;
+extern unsigned int ultimatebase;
 extern unsigned char pagelines, aborted, editprompt;
 extern unsigned int screenbase;
 extern char environment[ENVSIZE];
 extern unsigned int envused;
+extern char keybindings[KEYBUFSIZE];
 extern unsigned char envready;
-extern char line[LINE], history[10][LINE], draft[LINE];
+extern char line[LINE];
 extern char prompttext[ENVVALUE + 1];
 #define RAWMAP ((LINE + 7) / 8)
-extern unsigned char rawline[RAWMAP], rawhistory[10][RAWMAP], rawdraft[RAWMAP];
+typedef struct History {
+    char text[10][LINE];
+    unsigned char raw[10][RAWMAP];
+} History;
+extern History history;
+extern unsigned char rawline[RAWMAP];
+void history_recall(char *buf, unsigned char slot);
 extern unsigned char rawparse[(LINE + MAXARGS + 7) / 8];
 extern unsigned char histcount, histnext;
 extern char fmtbuf[160], statusbuf[64];
@@ -73,14 +99,22 @@ extern char parsebuf[LINE + MAXARGS];
 extern unsigned char argc;
 extern unsigned char argquoted[MAXARGS];
 extern Path p1, p2;
+#define OUTPUT_CONSOLE 0
+#define OUTPUT_FILE 1
+#define OUTPUT_NUL 2
+#define OUTPUT_CHANNEL 5
+/* Printer streams use their IEC device number as the kind. */
+extern unsigned char outputkind;
+extern unsigned char default_printer;
+#define redirected (outputkind != OUTPUT_CONSOLE)
 extern Path outputpath;
-extern unsigned char redirected, outputfailed, outputused, outputcol;
+extern unsigned char outputfailed, outputused, outputcol, outputmode, outputstarted;
 extern unsigned char outputbuf[128];
 extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
-extern unsigned char noseparators, validate;
-#define COMMANDCOUNT 32
+extern unsigned char noseparators;
+#define COMMANDCOUNT 39
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */
@@ -93,6 +127,8 @@ void charset_scroll(void);
 unsigned int splash_nmi_address(void);
 void clear(void);
 void newline(void);
+void consoleline(void);
+void consoleout(const char *s);
 void displayc(unsigned char c);
 void outc(unsigned char c);
 void outs(const char *s);
@@ -127,15 +163,24 @@ unsigned char diroption(const char *s, unsigned char *flags);
 unsigned char dirdefaults(const char *s, unsigned char *flags);
 unsigned char charsetname(const char *s);
 void setcmd(const char *s);
+unsigned char output_append(void);
+unsigned char output_open(unsigned char kind, unsigned char append);
+void output_finish(void);
+unsigned char printer_device(const char *name);
+unsigned char printer_open(unsigned char channel, unsigned char device);
+extern unsigned char rawreadmask, rawreading;
+unsigned char raw_reader_open(const Path *p, unsigned char lfn);
+int raw_reader_read(unsigned char lfn, void *buffer, unsigned int size);
+void raw_reader_clone(void);
+unsigned char deletable(const Path *p);
+unsigned char copyfile(unsigned char moving);
 unsigned char path(const char *s, Path *p);
 /* Channel services and shared file helpers. Success is nonzero unless a
  * routine explicitly returns a count, status code or directory index. */
 unsigned char statuschannel(unsigned char dev);
 unsigned char diskstatus(unsigned char dev, unsigned char report);
 int readio(unsigned char lfn, void *buf, unsigned int size);
-void startupprompt(void);
-void startupcolor(void);
-void startupcharset(unsigned char device);
+unsigned char setcharset(const char *value, unsigned char device);
 unsigned char command(unsigned char dev, const char *s);
 unsigned char directory(unsigned char dev);
 int findfile(const Path *p);
@@ -146,7 +191,7 @@ unsigned char preparewrite(const Path *p);
 unsigned char openreadtype(const Path *p, unsigned char lfn, unsigned char type);
 unsigned char openread(const Path *p, unsigned char lfn);
 unsigned char openwrite(const Path *p, unsigned char type);
-unsigned char input(char *buf, unsigned int max, unsigned char recall);
+unsigned char input(char *buf, unsigned int max, unsigned char mode);
 /* Command entry points consume args/argc and use the shared workspaces. */
 void dircmd(void);
 void copycmd(unsigned char moving);
@@ -154,7 +199,8 @@ void typecmd(unsigned char printer);
 void findcmd(void);
 void editcmd(void);
 void runbatch(void);
-void runcmd(void);
+void runcmd(unsigned char implicit);
+void keycmd(const char *s);
 unsigned char blockio(unsigned char dev, unsigned char track, unsigned char sector,
                       unsigned char writing);
 unsigned char rawopen(unsigned char dev);
@@ -163,9 +209,6 @@ unsigned char drivetype(unsigned char dev, unsigned char report);
 unsigned char tracksectors(unsigned char track, unsigned char tracks);
 unsigned char bam(unsigned char dev);
 unsigned char copyrel(void);
-unsigned char reportoptions(unsigned char disk);
-unsigned int freememory(void);
-void memcmd(void);
 void delcmd(void);
 void volcmd(unsigned char stats);
 void labelcmd(void);
@@ -182,8 +225,10 @@ void executecommand(char *s);
 void execute(char *s);
 void bootsplash(unsigned char wait);
 void renamecmd(void);
+void direntry(unsigned int index, const char *shown, unsigned char soft);
+void dirfooter(unsigned int files, unsigned int dirs, unsigned int blocks, unsigned char soft);
 
-unsigned char bootstart(unsigned char startdrive);
+void bootstart(void);
 unsigned char findoptions(unsigned char *flags, char **needle);
 unsigned char typeoptions(unsigned char *mode, unsigned long *limit);
 #endif

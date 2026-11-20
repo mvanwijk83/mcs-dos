@@ -10,7 +10,6 @@ __noinline unsigned char bank_blockio(unsigned char dev, unsigned char track, un
                                       unsigned char writing);
 __noinline unsigned char bank_rawchannel(unsigned char dev, unsigned char lfn);
 __noinline unsigned char bank_rawopen(unsigned char dev);
-__noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report);
 __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tracks);
 __noinline unsigned char bank_bam(unsigned char dev);
 __noinline unsigned char bank_copyrel(void);
@@ -20,6 +19,33 @@ __noinline void bank_formatcmd(void);
 __noinline void bank_diskidcmd(void);
 __noinline void bank_diskinitcmd(void);
 __noinline void bank_diskcopycmd(void);
+
+/* Parse CHKDSK's optional drive path and mutually exclusive /V and /C switches. */
+static unsigned char validate;
+__noinline unsigned char bank_reportoptions(void)
+{
+    unsigned char i, seenpath = 0;
+    validate = 0;
+    for (i = 1; i < argc; ++i) {
+        if (!stricmp(args[i], "/V"))
+            validate |= 1;
+        else if (!stricmp(args[i], "/C"))
+            validate |= 2;
+        else {
+            if (args[i][0] == '/' || seenpath++)
+                break;
+            if (!path(args[i], &p1))
+                return 0;
+            if (p1.name[0])
+                break;
+        }
+    }
+    if (i < argc || validate == 3) {
+        error(SYSOUT_INVALID_PARAM);
+        return 0;
+    }
+    return 1;
+}
 
 /* CBM DOS raw block interface. Each drive uses secondary address 2;
  * separate host logical files let two drives keep their buffers open.
@@ -86,73 +112,6 @@ __noinline unsigned char bank_rawopen(unsigned char dev)
     return bank_rawchannel(dev, 2);
 }
 
-/* Read-only stock ROM identification: compressed DOS model strings have the
- * final digit's high bit set. Includes 1541-II and 1571CR. Never reset a drive:
- * DIR may be running with a redirected output file already open. Unknown ROMs
- * retain ordinary DOS file access, but cannot perform raw disk operations.
- *
- * Identify supported stock drive ROMs using fixed read-only fingerprints.
- *
- * dev: Disk device.
- * report: Nonzero reports unsupported models; return model ID or zero if unknown. */
-__noinline unsigned char bank_drivemodel(unsigned char dev, unsigned char report)
-{
-    unsigned char lfn = statuschannel(dev), i;
-    unsigned char probe[6] = {'m', '-', 'r', 0xc4, 0xe5, 4}, signature[4];
-    if (!dev) {
-        if (report)
-            error(SYSOUT_UNSUPPORTED_OP_CRT);
-        return 0;
-    }
-    if (!lfn)
-        return 0;
-    for (i = 0; i < 2; ++i) {
-        POKE(144, 0);
-        if (channel_write(lfn, probe, 6) != 6 || channel_read(lfn, signature, 4) != 4)
-            break;
-        if (signature[0] == '1' && signature[1] == '5') {
-            if (!i && signature[2] == '4' && signature[3] == 0xb1) {
-                /* Stock 1541-II: JMP opcode at $FF33 instead of TAX. */
-                probe[3] = 0x33;
-                probe[4] = 0xff;
-                probe[5] = 1;
-                POKE(144, 0);
-                if (channel_write(lfn, probe, 6) == 6 && channel_read(lfn, signature, 1) == 1 &&
-                    signature[0] == 0x4c)
-                    return 4;
-                return 1;
-            }
-            if (!i && signature[2] == '7') {
-                if (signature[3] == 0xb0)
-                    return 5; /* 1570 */
-                if (signature[3] == 0xb1)
-                    return 2; /* 1571 / 1571CR */
-            }
-            if (i && signature[2] == '8' && signature[3] == 0xb1)
-                return 3;
-        }
-        probe[3] = 0xe7;
-        probe[4] = 0xa6;
-    }
-    if (report)
-        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
-    return 0;
-}
-
-/* Geometry families stay 1541=1, 1571=2, 1581=3 for all raw operations.
- *
- * Return a supported geometry family, or the precise model when requested.
- *
- * dev: Disk device.
- * report: 0=quiet, 1=report errors, 128=return precise model instead of geometry. */
-__noinline unsigned char bank_drivetype(unsigned char dev, unsigned char report)
-{
-    unsigned char model = bank_drivemodel(dev, report == 128 ? 0 : report);
-    if (report == 128)
-        return model;
-    return model == 4 || model == 5 ? 1 : model;
-}
-
 /* Return the sector count for a track in the detected disk geometry.
  *
  * track: One-based track number.
@@ -171,13 +130,13 @@ __noinline unsigned char bank_tracksectors(unsigned char track, unsigned char tr
  * dev: Disk device; return nonzero for a supported readable format. */
 __noinline unsigned char bank_bam(unsigned char dev)
 {
-    unsigned char ok, type = bank_drivetype(dev, 1);
+    unsigned char ok, type = drivetype(dev, 1);
     if (!type)
         return 0;
     headertrack = type == 3 ? 40 : 18;
     labeloff = type == 3 ? 4 : 144;
     idoff = type == 3 ? 22 : 162;
-    if (type == 2 && !command(dev, "u0>m1"))
+    if (type == 2 && !drivemode(dev, 1))
         return 0;
     if (!bank_rawopen(dev))
         return 0;
@@ -198,135 +157,70 @@ __noinline unsigned char bank_bam(unsigned char dev)
  * editbuf is idle during COPY and holds one complete binary record.
  *
  * Copy a REL file record by record from p1 to p2, letting DOS create destination side sectors. */
-__noinline unsigned char bank_copyrel(void)
+/* Emit the saved source below the drive ID. The native leaf is ASCII, while
+ * the parent path and legacy IEC aliases already use PETSCII. */
+static void mounted_image_info(unsigned char dev)
 {
-    static unsigned char tr, se, r, len, next, sector, ok, code, lfn, tracks, dirtrack;
-    static unsigned int off, n, pos, record, guard;
-    static char name[17], position[5];
-    len = pos = guard = 0;
-    ok = record = 1;
-    if (!bank_bam(p1.dev) || !bank_rawopen(p1.dev))
-        return 0;
-    tr = io[0];
-    se = io[1];
-    tracks = disktracks;
-    dirtrack = headertrack;
-    while (tr && !len && ++guard <= bank_tracksectors(dirtrack, tracks)) {
-        if (tr != dirtrack || se >= bank_tracksectors(tr, tracks))
-            break;
-        if (!bank_blockio(p1.dev, tr, se, 0))
-            break;
-        tr = io[0];
-        se = io[1];
-        for (off = 0; off < 256; off += 32) {
-            if ((io[off + 2] & 0x87) != 0x84)
-                continue;
-            memcpy(name, io + off + 5, 16);
-            name[16] = 0;
-            for (r = 16; r && (unsigned char)name[r - 1] == 160; --r)
-                name[r - 1] = 0;
-            if (strcmp(name, p1.name))
-                continue;
-            len = io[off + 23];
-            tr = io[off + 3];
-            se = io[off + 4];
-            break;
-        }
+    const MountRecord *record;
+    const char *path, *leaf;
+    unsigned int offset, prefix;
+    unsigned char i, c, column, indent = sizeof(SYSOUT_CHKDSK_IMAGE) - 1;
+    for (i = 0; i < MOUNT_COUNT && mounts[i].dev != dev; ++i) {}
+    if (i == MOUNT_COUNT) return;
+    record = &mounts[i];
+    path = record->dir;
+    if (record->type & MOUNT_NATIVE) {
+        leaf = strrchr(path, 0x5c);
+        leaf = leaf ? leaf + 1 : path;
+        prefix = leaf - path;
+    } else {
+        leaf = record->name;
+        prefix = strlen(path);
+        if (prefix) ++prefix;
     }
-    channel_close(2);
-    if (!len || len == 255 || !tr) {
-        error(SYSOUT_INVALID_REL_FILE);
-        return 0;
-    }
-    if (!preparewrite(&p2) || !bank_rawopen(p1.dev))
-        return 0;
-    snprintf(diskcmd, sizeof(diskcmd), "0:%s,l,%c", p2.name, len);
-    if (channel_open(3, p2.dev, 3, diskcmd) != 0) {
-        channel_close(3);
-        channel_close(2);
-        return 0;
-    }
-    if (diskstatus(p2.dev, 1) >= 20)
-        ok = 0;
-    lfn = statuschannel(p2.dev);
-    guard = 0;
-    uppername(p1.name, statusbuf);
-    outs(statusbuf);
-    while (ok && tr) {
-        if (tr > tracks || se >= bank_tracksectors(tr, tracks) ||
-            ++guard > (tracks == 80   ? 3200
-                       : tracks == 70 ? 1366
-                                      : 683) ||
-            !bank_blockio(p1.dev, tr, se, 0)) {
-            ok = 0;
-            break;
-        }
-        next = io[0];
-        sector = io[1];
-        n = next ? 256 : (unsigned int)sector + 1;
-        if (n < 2) {
-            ok = 0;
-            break;
-        }
-        for (off = 2; ok && off < n; ++off) {
-            editbuf[pos++] = io[off];
-            if (pos != len)
-                continue;
-            position[0] = 'p';
-            position[1] = 96 + 3;
-            position[2] = record;
-            position[3] = record >> 8;
-            position[4] = 1;
-            POKE(144, 0);
-            if (channel_write(lfn, position, 5) != 5) {
-                ok = 0;
-                break;
-            }
-            code = diskstatus(p2.dev, 0);
-            /* Positioning beyond EOF is how DOS extends a REL file. */
-            if (code >= 20 && code != 50) {
-                error(statusbuf);
-                ok = 0;
-                break;
-            }
-            POKE(144, 0);
-            if (channel_write(3, editbuf, len) != len || diskstatus(p2.dev, 1) >= 20) {
-                ok = 0;
-                break;
-            }
-            pos = 0;
-            ++record;
-            if (stop()) {
-                ok = 0;
-                break;
+
+    print(SYSOUT_CHKDSK_IMAGE "%u:%c", record->source, 0x5c);
+    column = indent + (record->source < 10 ? 3 : 4);
+    for (offset = 0;; ++offset) {
+        if (offset < prefix)
+            c = path[offset] ? toupper(path[offset]) : 0x5c;
+        else {
+            c = leaf[offset - prefix];
+            if (!c) break;
+            if (record->type & MOUNT_NATIVE) {
+                if (c >= 65 && c <= 90) c += 128;
+                else if (c >= 97 && c <= 122) c -= 32;
             }
         }
-        tr = next;
-        se = sector;
+        if (column == 40) {
+            if (redirected) newline();
+            for (column = 0; column < indent; ++column) outc(' ');
+        }
+        outc(c);
+        ++column;
     }
-    if (pos)
-        ok = 0;
-    channel_close(3);
-    channel_close(2);
-    newline();
-    if (diskstatus(p2.dev, 1) >= 20)
-        ok = 0;
-    return ok;
+    if (redirected || column != 40) newline();
 }
 
-/* The preceding space statistics already end with a blank line.
- *
- * Report the detected drive model and its supported disk capacity.
- *
- * dev: Device to inspect. */
+/* The preceding space statistics already end with a blank line. */
 __noinline void bank_driveinfo(unsigned char dev)
 {
-    unsigned char type;
+    unsigned char type, geometry;
     if (!dev) {
         print(SYSOUT_DRIVE_MODEL, "EasyFlash");
         say(SYSOUT_VOL_ID_CART);
     } else {
-        type = bank_drivemodel(dev, 0);
+        type = drivemodel(dev, 0);
+        if (type >= DRIVE_SOFTIEC)
+            print(SYSOUT_DRIVE_MODEL, type == DRIVE_SD2IEC ? "SD2IEC drive" : "SoftIEC drive");
+        else if (type >= DRIVE_CMD_HD) {
+            geometry = drivetype(dev, 0);
+            print(SYSOUT_DRIVE_MODEL, type == DRIVE_CMD_HD
+                  ? (geometry == 1 ? "CMD HD (1541)" : geometry == 2 ? "CMD HD (1571)" :
+                     geometry == 3 ? "CMD HD (1581)" : "CMD HD")
+                  : (geometry == 1 ? "CMD FD (1541)" : geometry == 2 ? "CMD FD (1571)" :
+                     geometry == 3 ? "CMD FD (1581)" : "CMD FD"));
+        } else
         print(SYSOUT_DRIVE_MODEL, type == 1   ? "1541"
                                   : type == 2 ? "1571"
                                   : type == 3 ? "1581"
@@ -334,23 +228,150 @@ __noinline void bank_driveinfo(unsigned char dev)
                                   : type == 5 ? "1570"
                                               : "Unknown");
         print(SYSOUT_VOL_ID, dev, 'A' + dev - 8);
+        mounted_image_info(dev);
     }
 }
 
 /* Display volume information, optionally including CHKDSK allocation checks.
  *
  * stats: Nonzero selects CHKDSK; zero selects VOL. */
+typedef struct DiskWide1581 {
+    unsigned int blocks, files, free, directories, directoryblocks;
+    unsigned char id[2];
+} DiskWide1581;
+
+/* Allocation-report prototype: absolute 1581 sector addresses let us visit
+ * sub-partition headers directly, without repeatedly replaying DOS paths.
+ * The pending extents and visited-header bitmap use EDIT's idle workspace.
+ * Each child BAM excludes its descendants; summing free counts is disjoint. */
+static unsigned char diskwide1581(unsigned char dev, DiskWide1581 *result)
+{
+    unsigned char *pending = (unsigned char *)workspace;
+    unsigned char *seen = (unsigned char *)workspace + 160;
+    unsigned char top = 1, header, first, last, track, sector, nexttrack, nextsector;
+    unsigned char bam, tr, off, start, end, type, n;
+    unsigned int entry, blocks, guard = 0;
+    memset(result, 0, sizeof(*result));
+    memset(seen, 0, 10);
+    pending[0] = 40; pending[1] = 80;
+    seen[39 >> 3] |= 1 << (39 & 7);
+    if (!bank_rawopen(dev))
+        return 0;
+    while (top) {
+        --top;
+        header = pending[top * 2]; last = pending[top * 2 + 1];
+        first = header == 40 ? 1 : header;
+        if (stop() || !bank_blockio(dev, header, 0, 0))
+            goto failed;
+        if (io[2] != 0x44 || io[0] != header || io[1] < 3 || io[1] >= 40) {
+            if (header != 40)
+                continue; /* An unformatted CBM area remains reserved space. */
+            goto damaged;
+        }
+        track = io[0]; sector = io[1];
+        if (header != 40) {
+            ++result->directories;
+            result->directoryblocks += 3; /* Header and two BAM sectors. */
+        }
+        if (header == 40) {
+            for (n = 0; n < 16 && (unsigned char)io[4 + n] != 160; ++n)
+                volume[n] = io[4 + n];
+            volume[n] = 0;
+            result->id[0] = io[22]; result->id[1] = io[23];
+        }
+        /* No child can cross root's track 40, so only one BAM half is
+         * relevant for a child; root itself needs both BAM sectors. */
+        for (bam = first <= 40 ? 1 : 2; bam <= (last <= 40 ? 1 : 2); ++bam) {
+            if (!bank_blockio(dev, header, bam, 0))
+                goto failed;
+            if (io[2] != 0x44 || (unsigned char)io[3] != 0xbb)
+                goto damaged;
+            start = first > (bam == 1 ? 1 : 41) ? first : (bam == 1 ? 1 : 41);
+            end = last < (bam == 1 ? 40 : 80) ? last : (bam == 1 ? 40 : 80);
+            for (tr = start; tr <= end; ++tr)
+                /* DOS excludes root's entire directory track from capacity,
+                 * although its BAM retains unused directory-sector bits.
+                 * Child headers share their track with ordinary file data. */
+                if (header != 40 || tr != 40)
+                    result->free += (unsigned char)io[16 + ((tr - 1) % 40) * 6];
+        }
+        while (track) {
+            if (track < first || track > last || sector >= 40 || ++guard > 3200)
+                goto damaged;
+            if (stop() || !bank_blockio(dev, track, sector, 0))
+                goto failed;
+            if (header != 40)
+                ++result->directoryblocks;
+            nexttrack = io[0]; nextsector = io[1];
+            for (entry = 0; entry < 256; entry += 32) {
+                type = io[entry + 2] & 7;
+                blocks = (unsigned char)io[entry + 30] | ((unsigned int)(unsigned char)io[entry + 31] << 8);
+                if (type >= 1 && type <= 4) {
+                    ++result->files;
+                    result->blocks += blocks;
+                } else if (type == 5 && blocks >= 120 && !(blocks % 40) && !io[entry + 4]) {
+                    start = io[entry + 3];
+                    if (start < first || start > last || start == header ||
+                        blocks / 40 > last - start + 1 || (start <= 40 && start + blocks / 40 > 40))
+                        goto damaged;
+                    off = start - 1;
+                    if (top == 80 || (seen[off >> 3] & (1 << (off & 7))))
+                        goto damaged;
+                    seen[off >> 3] |= 1 << (off & 7);
+                    pending[top * 2] = start;
+                    pending[top * 2 + 1] = start + blocks / 40 - 1;
+                    ++top;
+                }
+            }
+            track = nexttrack; sector = nextsector;
+        }
+    }
+    if (result->blocks + result->free + result->directoryblocks > 3160)
+        goto damaged;
+    channel_close(2);
+    return 1;
+damaged:
+    error(SYSOUT_INVALID_PARTITION_ALLOCATION);
+failed:
+    channel_close(2);
+    return 0;
+}
+
 __noinline void bank_volcmd(unsigned char stats)
 {
     unsigned int i;
-    unsigned int used, filecount;
+    unsigned int used = 0, filecount = 0, total = 0, reserved = 0;
+    unsigned char whole1581, model;
+    DiskWide1581 report;
     char shown[17];
     int compacted;
-    p1.dev = drive;
+    if (!path("", &p1))
+        return;
     if (stats) {
-        if (!reportoptions(1))
+        if (!bank_reportoptions())
             return;
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
+        return;
+    model = p1.dev ? drivemodel(p1.dev, 0) : 0;
+    whole1581 = stats && (model == DRIVE_1581 || mount_geometry(p1.dev) == 3);
+    if (model >= DRIVE_SOFTIEC && !mount_geometry(p1.dev)) {
+        if (stats) error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        else host_volume(&p1);
+        return;
+    }
+    if (stats && validate == 1 && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+        say(SYSOUT_CHECKING_AND_FIXING_DISK);
+        if (!validate_disk(p1.dev))
+            error(SYSOUT_DISK_VALIDATION_FAILED);
+        else
+            say(SYSOUT_DISK_VALIDATION_COMPLETE);
+        return;
+    }
+    if (whole1581) {
+        p1.dir[0] = 0;
+        if (!location_select(p1.dev, p1.dir))
+            return;
+    } else if (p1.dev && stats && !disk_location(&p1))
         return;
     if (stats && validate == 2 && p1.dev) {
         error(SYSOUT_COMPACT_CRT_ONLY);
@@ -382,32 +403,51 @@ __noinline void bank_volcmd(unsigned char stats)
         return;
     }
     if (stats && validate) {
+        if (!drivetype(p1.dev, 1))
+            return;
         say(SYSOUT_CHECKING_AND_FIXING_DISK);
-        if (!command(p1.dev, "v0")) {
+        if (!(whole1581 ? validate_disk(p1.dev) : command(p1.dev, "v0"))) {
             error(SYSOUT_DISK_VALIDATION_FAILED);
             return;
         }
         say(SYSOUT_DISK_VALIDATION_COMPLETE);
     }
-    if (!directory(p1.dev))
+    if (!whole1581 && !location_list(p1.dev, p1.dir))
         return;
     if (stats) {
+        if (whole1581) {
+            if (!diskwide1581(p1.dev, &report))
+                return;
+            used = report.blocks; filecount = report.files; freeblocks = report.free;
+            total = 3160;
+            reserved = total - used - freeblocks - report.directoryblocks;
+        }
         uppername(volume, shown);
         print(SYSOUT_DISK_VOL, shown);
-        if (!bank_bam(p1.dev))
-            return;
-        print(SYSOUT_DISK_ID_SPACED, toupper(io[idoff]), toupper(io[idoff + 1]));
-        used = 0;
-        for (i = 0; i < count; ++i)
-            used += directory_entries[i].blocks;
-        print(SYSOUT_DISK_TOTAL_SPACE, decimal(((unsigned long)used + freeblocks) * 256));
-        print(SYSOUT_DISK_ALLOCATED, allocated(used), count);
+        if (whole1581)
+            print(SYSOUT_DISK_ID_SPACED, toupper(report.id[0]), toupper(report.id[1]));
+        else {
+            if (!bank_bam(p1.dev))
+                return;
+            print(SYSOUT_DISK_ID_SPACED, toupper(io[idoff]), toupper(io[idoff + 1]));
+            used = 0;
+            for (i = 0; i < count; ++i)
+                used += directory_entries[i].blocks;
+            filecount = count;
+            total = used + freeblocks;
+        }
+        print(SYSOUT_DISK_TOTAL_SPACE, decimal((unsigned long)total * 256));
+        print(SYSOUT_DISK_ALLOCATED, allocated(used), filecount);
+        if (whole1581 && report.directories)
+            print(SYSOUT_DISK_DIRECTORIES, allocated(report.directoryblocks), report.directories);
+        if (reserved)
+            print(SYSOUT_DISK_RESERVED, allocated(reserved));
         print(SYSOUT_DISK_AVAILABLE, allocated(freeblocks));
         /* Exactly 40 columns: outc already advances to the next row. */
         outs(SYSOUT_DISK_BLOCK_SIZE);
         if (redirected)
             newline();
-        print(SYSOUT_DISK_TOTAL_BLOCKS, decimal((unsigned long)used + freeblocks));
+        print(SYSOUT_DISK_TOTAL_BLOCKS, decimal(total));
         print(SYSOUT_DISK_FREE_BLOCKS, decimal(freeblocks));
         if (!validate)
             bank_driveinfo(p1.dev);
@@ -430,6 +470,8 @@ __noinline void bank_labelcmd(void)
         }
         ++a;
     }
+    if (!disk_location(&p1))
+        return;
     if (argc > a + 1) {
         error(SYSOUT_SYNTAX_LABEL);
         return;
@@ -465,47 +507,155 @@ __noinline void bank_labelcmd(void)
         say(SYSOUT_VOL_LABEL_CHANGED);
 }
 
-/* Validate FORMAT, confirm with the user, and format the selected disk. */
+/* FORMAT always targets a physical floppy, independently of its working path.
+ * FD extensions are explicit: bare NEW could erase only one CMD partition. */
+#pragma code(storage_code)
+#pragma data(storage_data)
+static unsigned char format_label_valid(const char *label);
+static unsigned char format_label(const char *label, char *name);
+static unsigned char format_id(const char *diskid, char *id);
+
 __noinline void bank_formatcmd(void)
 {
-    char name[17], id[3];
-    unsigned char type;
-    if (argc != 2 || !path(args[1], &p1)) {
+    static const char *const formats[] = {"81", "DD8", "HD8", "ED8", "DDN", "HDN", "EDN", "S8", "SN"};
+    const char *target = 0, *label = 0, *diskid = 0, *format = 0, *colon;
+    char name[17], id[3], root[6], extension[4];
+    unsigned char i, n, type, model, lfn, quick = 0;
+    for (i = 1; i < argc; ++i) {
+        if (!strnicmp(args[i], "/V:", 3) && !label)
+            label = args[i] + 3;
+        else if (!strnicmp(args[i], "/I:", 3) && !diskid)
+            diskid = args[i] + 3;
+        else if (!stricmp(args[i], "/Q"))
+            quick = 1;
+        else if (!strnicmp(args[i], "/F:", 3) && !format)
+            format = args[i] + 3;
+        else if (args[i][0] == '/') {
+            error(SYSOUT_INVALID_SWITCH);
+            return;
+        } else if (!target)
+            target = args[i];
+        else {
+            error(SYSOUT_TOO_MANY_PARAMS);
+            return;
+        }
+    }
+    if (!target || !(colon = strchr(target, ':')) || colon[1] || colon - target > 2) {
         error(SYSOUT_SYNTAX_FORMAT);
         return;
     }
-    type = bank_drivetype(p1.dev, 1);
-    if (!type)
+    /* Parse an absolute root, so stale remembered CMD paths need no lookup. */
+    strcpy(root, target);
+    n = strlen(root);
+    root[n] = 0x5c; root[n + 1] = 0;
+    if (!path(root, &p1))
+        return;
+    if (p1.name[0] || p1.dir[0]) {
+        error(SYSOUT_INVALID_DRIVE_SPEC);
+        return;
+    }
+    if (!p1.dev) {
+        error(SYSOUT_UNSUPPORTED_OP_CRT);
+        return;
+    }
+    model = drivemodel(p1.dev, 1);
+    if (!model)
+        return;
+    /* Bare NEW on CMD media clears one partition, not the physical disk.
+     * Keep FORMAT whole-disk; its type extensions require an ID/full format. */
+    if (quick && (model == DRIVE_CMD_HD || model == DRIVE_CMD_FD)) {
+        error(SYSOUT_FORMAT_QUICK_UNSUPPORTED);
+        return;
+    }
+    if (model == DRIVE_CMD_HD) {
+        error(SYSOUT_FORMAT_CMD_HD_UNSUPPORTED);
+        return;
+    }
+    if (model == DRIVE_CMD_FD) {
+        if (!format) {
+            error(SYSOUT_FORMAT_FD_REQUIRES_TYPE);
+            return;
+        }
+        for (n = 0; n < sizeof(formats) / sizeof(formats[0]); ++n)
+            if (!stricmp(format, formats[n]))
+                break;
+        if (n == sizeof(formats) / sizeof(formats[0])) {
+            error(SYSOUT_UNSUPPORTED_DISK_FORMAT);
+            return;
+        }
+        /* The NEW extension uses DOS bytes, not presentation PETSCII. */
+        filename(formats[n], extension);
+        format = extension;
+        type = 3; /* Formatting must also work with native or unformatted media. */
+    } else {
+        if (format) {
+            error(SYSOUT_FORMAT_FD_ONLY);
+            return;
+        }
+        type = drivetype(p1.dev, 1);
+        if (!type)
+            return;
+    }
+    /* Reject supplied values before confirmation or any drive mutation. */
+    if (label && !format_label_valid(label))
+        return;
+    if (diskid && !quick && !format_id(diskid, id))
         return;
     print(SYSOUT_INSERT_DISK, drivename(p1.dev));
     say(SYSOUT_ALL_DATA_LOST);
+    if (format)
+        print(SYSOUT_FORMAT_TYPE, format);
     if (!yesno(SYSOUT_PROCEED_WITH_FORMAT))
         return;
-    outs(SYSOUT_FORMAT_LABEL_PROMPT);
-    if (!input(line, 17, 0))
+    if (!format_label(label, name))
         return;
-    filename(line, name);
-    if (!*name)
-        strcpy(name, "MCS-DOS");
-    outs(SYSOUT_DISK_ID_PROMPT);
-    if (!input(line, LINE, 0))
+    if (!diskid && !quick && !format_id(0, id))
         return;
-    if (strlen(line) != 2 || !isalnum(line[0]) || !isalnum(line[1])) {
-        say(SYSOUT_DISK_ID_FORMAT);
-        return;
+    /* Establish physical root only after confirmation and value validation. */
+    if (model == DRIVE_1581 || model == DRIVE_CMD_FD || mount_active(p1.dev)) {
+        nav_invalidate();
+        if (!location_select(p1.dev, p1.dir))
+            return;
     }
-    filename(line, id);
+    if (model == DRIVE_CMD_FD) {
+        /* NEW is rejected inside native subdirectories. Both root commands
+         * are harmless on other formats; discard their unsupported/unformatted
+         * status so blank media can still be formatted. Check transport writes. */
+        lfn = statuschannel(p1.dev);
+        POKE(144, 0);
+        if (!lfn || channel_write(lfn, "cd//\r", 5) != 5) {
+            error(SYSOUT_WRITE_FAULT_ERR);
+            return;
+        }
+        diskstatus(p1.dev, 0);
+        POKE(144, 0);
+        if (channel_write(lfn, "/\r", 2) != 2) {
+            error(SYSOUT_WRITE_FAULT_ERR);
+            return;
+        }
+        diskstatus(p1.dev, 0);
+    }
     say(SYSOUT_FORMATTING);
-    if (type == 2 && !command(p1.dev, "u0>m1"))
+    if (type == 2 && !drivemode(p1.dev, 1))
         return;
-    snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s", name, id);
-    if (command(p1.dev, diskcmd))
+    if (quick)
+        snprintf(diskcmd, sizeof(diskcmd), "n0:%s", name);
+    else
+        snprintf(diskcmd, sizeof(diskcmd), "n0:%s,%s%s%s", name, id,
+                 format ? "," : "", format ? format : "");
+    if (command(p1.dev, diskcmd)) {
+        working[location_index(p1.dev)][0] = 0;
+        nav_invalidate();
         say(SYSOUT_FORMAT_COMPLETE);
+    }
 }
 
+#pragma code(disk_code)
+#pragma data(disk_data)
 /* Execute DISKINIT to initialize a disk through its command channel. */
 __noinline void bank_diskinitcmd(void)
 {
+    unsigned char model;
     if (argc > 2) {
         error(SYSOUT_SYNTAX_DISKINIT);
         return;
@@ -523,7 +673,14 @@ __noinline void bank_diskinitcmd(void)
         error(SYSOUT_UNSUPPORTED_OP_CRT);
         return;
     }
+    model = drivemodel(p1.dev, 0);
+    if (model >= DRIVE_CMD_HD) {
+        error(SYSOUT_UNSUPPORTED_DRIVE_TYPE);
+        return;
+    }
     command(p1.dev, "i0");
+    working[location_index(p1.dev)][0] = 0;
+    nav_invalidate();
 }
 
 /* Read or change the two-byte disk ID after validating the disk header. */
@@ -544,6 +701,9 @@ __noinline void bank_diskidcmd(void)
         error(SYSOUT_SYNTAX_DISKID);
         return;
     }
+    /* Reject unsupported media before asking for an ID. */
+    if (!drivetype(p1.dev, 1))
+        return;
     if (argc == a + 1) {
         if (strlen(args[a]) != 2) {
             say(SYSOUT_DISK_ID_FORMAT);
@@ -604,23 +764,29 @@ __noinline void bank_diskcopycmd(void)
         error(SYSOUT_INVALID_DRIVE_SPEC);
         return;
     }
-    type = bank_drivetype(p1.dev, 1);
-    other = bank_drivetype(p2.dev, 1);
+    type = drivetype(p1.dev, 1);
+    if (!disk_location(&p2))
+        return;
+    other = drivetype(p2.dev, 1);
     if (!type || !other)
         return;
-    if (type != other) {
-        error(SYSOUT_INCOMPATIBLE_DRIVE);
-        return;
-    }
     if (!bank_bam(p1.dev))
         return;
     tracks = disktracks;
+    /* A physical 1571 can format either side count. CMD partitions have fixed
+     * geometries, so compare the source medium rather than physical models. */
+    type = tracks == 80 ? 3 : tracks == 70 ? 2 : 1;
+    if (type != other && !(type == 1 && drivemodel(p2.dev, 0) == DRIVE_1571)) {
+        error(SYSOUT_INCOMPATIBLE_DRIVE);
+        return;
+    }
     id[0] = io[idoff];
     id[1] = io[idoff + 1];
-    say(SYSOUT_DEST_DISK_OVERWRITTEN);
+    say(drivemodel(p2.dev, 0) >= DRIVE_CMD_HD ? SYSOUT_PARTITION_OVERWRITTEN
+                                           : SYSOUT_DEST_DISK_OVERWRITTEN);
     if (!yesno(SYSOUT_DISKCOPY_PROCEED))
         return;
-    if (type == 2 && !command(p2.dev, tracks == 70 ? "u0>m1" : "u0>m0"))
+    if (drivemodel(p2.dev, 0) == DRIVE_1571 && !drivemode(p2.dev, tracks == 70))
         return;
     snprintf(diskcmd, sizeof(diskcmd), "n0:mcs-copy,%c%c", id[0], id[1]);
     if (!command(p2.dev, diskcmd))
@@ -653,6 +819,64 @@ __noinline void bank_diskcopycmd(void)
     command(p2.dev, "i0");
     cachevalid = 0;
     say(ok ? SYSOUT_COPY_COMPLETE : SYSOUT_DISK_COPY_NOT_COMPLETED);
+}
+
+#pragma code(storage_code)
+#pragma data(storage_data)
+
+/* FORMAT and MAKEDISK use the same native label and ID rules. */
+static unsigned char format_label_valid(const char *label)
+{
+    if (strlen(label) > 16) {
+        error(SYSOUT_VOLUME_LABEL_TOO_LONG);
+        return 0;
+    }
+    if (strchr(label, ',')) {
+        error(SYSOUT_FORMAT_INVALID_LABEL);
+        return 0;
+    }
+    return 1;
+}
+
+static unsigned char format_label(const char *label, char *name)
+{
+    if (!label) {
+        outs(SYSOUT_FORMAT_LABEL_PROMPT);
+        if (!input(line, 17, 0))
+            return 0;
+        label = line;
+    }
+    if (!format_label_valid(label))
+        return 0;
+    filename(label, name);
+    if (!*name)
+        strcpy(name, SYSOUT_FORMAT_DEFAULT_LABEL);
+    return 1;
+}
+
+static unsigned char format_id(const char *diskid, char *id)
+{
+    if (!diskid) {
+        outs(SYSOUT_DISK_ID_PROMPT);
+        if (!input(line, LINE, 0))
+            return 0;
+        diskid = line;
+    }
+    if (strlen(diskid) == 2) {
+        filename(diskid, id);
+        if (isalnum(id[0]) && isalnum(id[1]))
+            return 1;
+    }
+    error(SYSOUT_DISK_ID_FORMAT);
+    return 0;
+}
+
+__noinline unsigned char bank_makedisk_title(const char *label, const char *id, ImageLabel *title)
+{
+    if ((label && !format_label_valid(label)) || (id && !format_id(id, title->id)) ||
+        !format_label(label, title->name) || (!id && !format_id(0, title->id)))
+        return 0;
+    return 1;
 }
 
 #pragma code(code)

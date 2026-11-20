@@ -7,12 +7,15 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 #include <stdarg.h>
 #define VERSION "test-version"
 static char prompttext[33], output[1024];
 static unsigned char drive, aborted, dos;
 static int used, helpid;
+static char io[256];
+static void uppername(const char *s,char *d) {while(*s)*d++=toupper(*s++);*d=0;}
 
 /* Provide the character-output hook, separately from redirected byte output.
  *
@@ -86,26 +89,32 @@ static int check(const char *cmd, const char *expected)
 int main(void)
 {
     drive = 8;
-    if (check("$p$c$g", "8:>"))
+    if (check("$p$g", "8:" "\\x5c" ">"))
         return 1;
-    if (check("$d$c$g $n $p $q$s$v$$", "A:> 8 8 = test-version$"))
+    if (check("$d$c$g $n $p $q$s$v$$", "A:> 8 8:\\x5c = test-version$"))
         return 2;
     dos = 1;
     drive = 30;
     used = 0;
     showprompt();
-    if (strcmp(output, "W:> 30 W = test-version$"))
+    if (strcmp(output, "W:> 30 W:\\x5c = test-version$"))
         return 3;
-    if (check("$D$C$G $N $P $Q$S$V$$", "W:> 30 W = test-version$"))
+    if (check("$D$C$G $N $P $Q$S$V$$", "W:> 30 W:\\x5c = test-version$"))
         return 4;
-    if (check("$b$H$r", "\\xdd\\xa0\\r"))
+    if (check("$b$H$r", "\\xdd\\x5c\\r"))
         return 5;
     if (check("$x$Z$ $/ $$$x $$d", "$x$Z$ $/ $$x $d"))
         return 6;
-    if (check("$p$c$g", "W:>"))
+    if (check("$p$g", "W:" "\\x5c" ">"))
         return 9;
     if (check("  ", "  "))
         return 10;
+    strcpy(working[location_index(drive)], "dir1\\\\mixed");
+    if (check("$I $P$G", "W W:\\x5c" "DIR1\\\\MIXED>"))
+        return 12;
+    dos = 0;
+    if (check("$I $P$G", "30 30:\\x5c" "DIR1\\\\MIXED>"))
+        return 13;
     drive = 0;
     if (check("$d$c$g$n", ":>0"))
         return 11;

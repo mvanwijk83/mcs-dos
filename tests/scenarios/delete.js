@@ -15,7 +15,7 @@ module.exports = async ({command, keys, enter, check, disk}) => {
         s = await keys('n');
         assert(s.includes('Delete ZC.TXT (Y/N)?'), s);
         s = await keys('y', 2000);
-        assert(s.trimEnd().endsWith(dev + ':>'), s);
+        assert(s.trimEnd().endsWith(dev + ':\\>'), s);
         await enter('cls');
         s = await check('dir z* /b', 'ZB.TXT');
         assert(!s.includes('ZA.TXT') && !s.includes('ZC.TXT'), s);

@@ -7,7 +7,10 @@ module.exports = getSocket => async text => {
     initial.destroy();
     return new Promise((resolve, reject) => {
         let out = '', idle;
-        const conn = net.connect(port, '127.0.0.1', () => conn.write(text + '\n'));
+        const conn = net.connect(port, '127.0.0.1', () => conn.write(text + '\n', () => {
+            // Resume leaves the monitor and may legitimately return no text.
+            if (text.trim() === 'x') idle = setTimeout(() => finish(), 180);
+        }));
         const deadline = setTimeout(() => finish(Error('Monitor timeout: ' + text)), 5000);
         function finish(error) {
             clearTimeout(deadline);

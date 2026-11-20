@@ -5,6 +5,7 @@
 #include <c64/kernalio.h>
 #include <string.h>
 #include "../cart-protocol.h"
+#include "../device-name.h"
 #include "../sysout.h"
 #include "../tape.h"
 #define PEEK(a) (*(volatile unsigned char *)(a))
@@ -190,10 +191,10 @@ static unsigned char exists(void)
 static unsigned char validname(void)
 {
     unsigned char i, c;
-    if (!name[0])
+    if (!name[0] || !strcmp(name, ".") || !strcmp(name, "..") || reserved_device(name))
         return 0;
     for (i = 0; (c = name[i]) != 0; ++i)
-        if (c < 32 || (c >= 128 && c < 160) || strchr(":,\"*?@=", c))
+        if (c < 32 || (c >= 128 && c < 160) || strchr("\\/:,\"*?@=", c))
             return 0;
     return 1;
 }
@@ -458,6 +459,10 @@ void copy_main(void)
             TAPE_SEARCH[0] = 0;
             out(SYSOUT_TAPE_SAVE_TO);
             out(TAPE_LABEL);
+            if (TAPE_DIRECTORY[0]) {
+                out(SYSOUT_TAPE_PATH_SEPARATOR);
+                out(TAPE_DIRECTORY);
+            }
             out(SYSOUT_TAPE_QUESTION);
             save = yesno();
             if (TAPE_RESULT)

@@ -9,6 +9,19 @@
 #pragma compile("fileutil.c")
 #pragma compile("filemgmt.c")
 #pragma compile("disk.c")
+#pragma compile("storage.c")
+#pragma compile("storage-cbm.c")
+#pragma compile("storage-cmd.c")
+#pragma compile("navigation.c")
+#pragma compile("transfer.c")
+#pragma compile("volume.c")
+#pragma compile("host.c")
+#pragma compile("softiec.c")
+#pragma compile("nativedir.c")
+#pragma compile("fatdir.c")
+#pragma compile("hostdir.c")
+#pragma compile("ultdir.c")
+#pragma compile("mount.c")
 #pragma compile("boot.c")
 #pragma compile("session.c")
 #pragma compile("tape.c")
@@ -16,7 +29,7 @@
 /* Initialize the shell, then alternate between batch commands and interactive input until exit. */
 int main(void)
 {
-    unsigned char overflow, startdrive, startup, tape_resume;
+    unsigned char overflow, tape_resume;
     unsigned int n;
 
     /* Keep KERNAL available and read PETSCII without library translation. */
@@ -25,7 +38,6 @@ int main(void)
     giocharmap = IOCHM_TRANSPARENT;
     textcursor(false);
     POKE(207, 0);
-    startdrive = 0;
     tape_resume = RESUME[0] == 0x54 && TAPE_PENDING == 0x54;
     resume_requested = RESUME[0] == 0xa5 || tape_resume;
     RESUME[0] = 0;
@@ -36,28 +48,19 @@ int main(void)
     if (!resume_requested)
         bootsplash(1);
 restart:
-    startdrive = bootstart(startdrive);
-    startup = 1;
+    nav_reset();
+    bootstart();
     if (resume_requested) {
         if (!session_restore()) {
-            bootstart(0);
-            envready = 1;
+            bootstart();
             say(SYSOUT_SHELL_RESTORE_FAILED);
         }
-        startup = 0;
         resume_requested = 0;
         if (tape_resume)
             tapecopy_report();
     }
 again:
     while (!quit) {
-        if (startup && !batching) {
-            startup = 0;
-            envready = 1;
-            startupcharset(startdrive);
-            startupprompt();
-            startupcolor();
-        }
         if (batching) {
             memset(rawline, 0, sizeof(rawline));
             if (stop() || batchpos >= batchlen) {
@@ -90,14 +93,15 @@ again:
             if (!input(line, LINE, 1))
                 continue;
             if (line[0]) {
-                strcpy(history[histnext], line);
-                memcpy(rawhistory[histnext], rawline, RAWMAP);
+                strcpy(history.text[histnext], line);
+                memcpy(history.raw[histnext], rawline, RAWMAP);
                 histnext = (histnext + 1) % 10;
                 if (histcount < 10)
                     ++histcount;
             }
         }
         execute(line);
+        nav_finish();
         /* Unwind the old batch before restarting startup processing. */
         if (reboot)
             goto restart;

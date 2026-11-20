@@ -1,11 +1,10 @@
-// Test startup settings atomically, including environment capacity and screen recoloring.
+// Test live SET changes, environment capacity, and screen recoloring.
 require('./setup');
 const fs = require('fs'), assert = require('assert/strict');
-const {fn, functions, header} = require('./source');
+const {constant, fn, functions, header} = require('./source');
 const env = fn('envget');
 const drives = functions('dosdrives', 'drivename');
-const set = fn('setcmd');
-const startup = functions('startupprompt', 'startupcolor');
+const set = functions('setcolor', 'setcmd');
 const code = `
 
 #include <stdio.h>
@@ -13,10 +12,10 @@ const code = `
 #include <ctype.h>
 #include <stdarg.h>
 #define ENVVALUE 32
-#define ENVSIZE 512
-static char environment[512], prompttext[33];
+#define ENVSIZE ${constant('ENVSIZE')}
+static char environment[ENVSIZE], prompttext[33];
 static unsigned int envused;
-static unsigned char fg = 15, bg, bd, errors, envready;
+static unsigned char fg = 15, bg, bd, errors, envready, startupdevice;
 static char output[160];
 
 /* Format the supplied values into captured output for independent report comparisons.
@@ -47,7 +46,7 @@ static void error(const char *s)
     ++errors;
 }
 
-/* Provide the color hook without opening a display; the fixture observes startup settings. */
+/* Provide the color hook without opening a display. */
 static void colors(void)
 {
 }
@@ -71,7 +70,12 @@ static unsigned char charsetname(const char *s)
     return 1;
 }
 
-/* Accept startup directory options; detailed option parsing is tested separately.
+static unsigned char setcharset(const char *s, unsigned char dev)
+{
+    return 1;
+}
+
+/* Accept default directory options; detailed option parsing is tested separately.
  *
  * s: Directory option text.
  * f: Option flag destination. */
@@ -80,7 +84,7 @@ static unsigned char dirdefaults(const char *s, unsigned char *f)
     return 1;
 }
 
-${env} ${drives} ${set} ${startup}
+${env} ${drives} ${set}
 /* Run the independent fixture cases; failure results identify the violated invariant. */
 int main(void)
 {
@@ -97,59 +101,61 @@ int main(void)
     if (errors != 2 || strlen(envget("ABCDEFGH")) != 32)
         return 3;
     setcmd("color=15, 6, 14");
-    if (fg != 15 || bg || bd)
-        return 4;
-    startupcolor();
     if (fg != 15 || bg != 6 || bd != 14)
         return 5;
     setcmd("color=1,2,16");
-    startupcolor();
-    if (errors != 3 || fg != 15 || bg != 6 || bd != 14)
+    if (errors != 3 || fg != 15 || bg != 6 || bd != 14 ||
+        strcmp(envget("COLOR"), "15, 6, 14"))
         return 6;
     setcmd("color=1,2,3,4");
-    startupcolor();
     if (errors != 4 || fg != 15)
         return 7;
     setcmd("color=1,2");
-    startupcolor();
     if (errors != 5)
         return 8;
+    setcmd("color=");
+    if (fg != 15 || bg || bd || envget("COLOR"))
+        return 4;
     setcmd("prompt=Ready.$R$D$C$G");
-    if (prompttext[0])
-        return 9;
-    startupprompt();
     if (strcmp(prompttext, "Ready.$R$D$C$G"))
         return 10;
     setcmd("prompt=later");
-    if (strcmp(prompttext, "Ready.$R$D$C$G"))
+    if (strcmp(prompttext, "later"))
         return 11;
+    setcmd("prompt=");
+    if (strcmp(prompttext, "$p$g") || envget("PROMPT"))
+        return 9;
     envused = 0;
     errors = 0;
-    for (i = 0; i < 13; ++i) {
+    for (i = 0; i < 6; ++i) {
         sprintf(b, "n%02u=12345678901234567890123456789012", i);
         setcmd(b);
     }
-    setcmd("edge=1234567890123456789012345");
-    if (envused != 512 || errors)
+    setcmd("edge=1234567890123456789012345678");
+    if (envused != 256 || errors)
         return 12;
     setcmd("/ENV");
-    if (strcmp(output, "512 bytes total environment size\\n512 bytes used\\n  0 bytes free\\n"))
+    if (strcmp(output, "256 bytes total environment size\\n256 bytes used\\n  0 bytes free\\n"))
         return 20;
-    setcmd("edge=12345678901234567890123456");
-    if (envused != 512 || errors != 1)
+    setcmd("edge=12345678901234567890123456789");
+    if (envused != 256 || errors != 1 || strcmp(envget("EDGE"), "1234567890123456789012345678"))
         return 13;
+    setcmd("color=1,2,3");
+    setcmd("prompt=full");
+    if (errors != 3 || fg != 15 || bg || bd || strcmp(prompttext, "$p$g"))
+        return 24;
     setcmd("edge=");
     setcmd("extra=ok");
     if (!envget("EXTRA"))
         return 14;
     envused = 0;
     setcmd("/eNv  ");
-    if (strcmp(output, "512 bytes total environment size\\n  0 bytes used\\n512 bytes free\\n"))
+    if (strcmp(output, "256 bytes total environment size\\n  0 bytes used\\n256 bytes free\\n"))
         return 15;
     setcmd("aa=12345678901234567890123456789012");
     setcmd("b=123456789");
     setcmd("/ENV");
-    if (strcmp(output, "512 bytes total environment size\\n 48 bytes used\\n464 bytes free\\n"))
+    if (strcmp(output, "256 bytes total environment size\\n 48 bytes used\\n208 bytes free\\n"))
         return 16;
     setcmd("driveids=dos");
     if (strcmp(drivename(8), "8"))
@@ -162,14 +168,12 @@ int main(void)
         return 19;
     memset((void *)0xd800, 7, 1001);
     setcmd("color=0,15,15");
-    startupcolor();
     for (j = 0; j < 1000; ++j)
         if (((unsigned char *)0xd800)[j] != 0)
             return 21;
     if (*(unsigned char *)0xdbe8 != 7)
         return 22;
     setcmd("color=1,2,16");
-    startupcolor();
     for (j = 0; j < 1000; ++j)
         if (((unsigned char *)0xd800)[j] != 0)
             return 23;
@@ -178,7 +182,7 @@ int main(void)
 fs.writeFileSync('build/test-startup-settings.c', code);
 require('./simulator')('build/test-startup-settings.c');
 
-assert(header.includes('#define LINE 65'));
+assert(header.includes('#define LINE 128'));
 assert(header.includes('#define MAXARGS 33'));
 console.log(
-    'PASS startup colors/prompt, atomic invalid colors, 8/32 limits exact 512-byte capacity, aligned usage statistics deferred DRIVEIDS and exact screen recoloring');
+    'PASS live colors and prompt, invalid values, defaults, environment limits, aligned usage statistics and exact screen recoloring');

@@ -7,6 +7,7 @@ fs.mkdirSync(out, {recursive:true});
 let c = '/* Generated C64 assembly services. Do not edit. */\n';
 function asm(s) {
   return s.replace(/;[^\r\n]*/g, '').replace(/@/g, 'local_')
+    .replace(/\.byte\b/g, 'byt')
     .replace(/\$([0-9a-f]+)/gi, '0x$1');
 }
 let reu = fs.readFileSync('src/reu.s','utf8').split('_reu_size:')[1];

@@ -6,15 +6,15 @@ require('./shell')('sample-startup', async ({enter, keys, until}) => {
     const copied = await enter('copy autoexec.sample autoexec.bat');
     assert(copied.includes('1 file(s) copied.'), copied);
     await keys('reboot\\x0d');
-    // The backslash glyph uses screen code 96, represented as ` by the harness.
-    const boot = await until(s => s.endsWith('0:`>'));
+    // The pound-key slot now displays the DOS backslash.
+    const boot = await until(s => s.endsWith('0:\\>'));
     assert(boot.includes('MCS-DOS Version'), boot);
     assert(
         !boot.includes('Bad command') && !boot.includes('Cannot load') && !boot.includes('Invalid'),
         boot);
     await keys('set\\x0d');
-    const settings = await until(s => s.endsWith('0:`>'));
-    for (const line of ['DRIVEIDS=dos', 'CHARSET=cga', 'COLOR=15,0,0', 'PROMPT=$p$c$h$g'])
+    const settings = await until(s => s.endsWith('0:\\>'));
+    for (const line of ['DRIVEIDS=dos', 'CHARSET=cga', 'COLOR=15,0,0', 'PROMPT=$p$g'])
         assert(settings.includes(line), settings);
     console.log(
         'PASS public config samples copied to active files, startup device, batch settings and prompt applied');

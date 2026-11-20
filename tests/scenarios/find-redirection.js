@@ -14,8 +14,8 @@ module.exports = async ({enter, check}) => {
     await enter('cls');
     s = await check('type out.txt', 'INPUT.TXT: 1');
     assert(s.includes('one more'), s);
-    await check('help find >out.txt', 'Redirection not supported');
-    await check('find /? >out.txt', 'Redirection not supported');
+    await enter('help find >findhelp.txt');
+    await enter('find /? >>findhelp.txt');
     await enter('cls');
     s = await check('type out.txt', 'one more');
     assert(s.includes('INPUT.TXT: 1'), s);
@@ -29,6 +29,6 @@ module.exports = async ({enter, check}) => {
     await enter('cls');
     await check('type out.txt', 'one more');
     console.log(
-        'PASS FIND overwrite/append, preserved input/output files, and rejected HELP redirection');
+        'PASS FIND overwrite/append, preserved input/output files, and redirected HELP');
     return;
 };

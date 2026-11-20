@@ -6,6 +6,7 @@ const harness = `
 static unsigned char io[256], mode, pushed, commands[3], commandcount;
 static unsigned char replypos, statuspos, polls, control, writes, id, revision = 3;
 static unsigned char c128, vdc, rasterreads;
+static unsigned char mega, unlocked, key, sprite = 17, palette = 23;
 static unsigned int window;
 static unsigned long ticks;
 static const char *reply, *status;
@@ -53,6 +54,10 @@ static unsigned char peek(unsigned int a)
         return status[statuspos++];
     if (a == 0xd02f)
         return c128 ? 248 : 255;
+    if (a == 0xd000)
+        return sprite;
+    if (a == 0xd100)
+        return mega && unlocked ? palette : sprite;
     if (a == 0xd600)
         return 128 | vdc;
     if (a == 0xd011)
@@ -72,6 +77,17 @@ static unsigned char peek(unsigned int a)
  * value: Byte to write into simulated hardware state. */
 static void poke(unsigned int a, unsigned char value)
 {
+    if (a == 0xd02f) {
+        unlocked = (mega == 4 && key == 0x47 && value == 0x53) ||
+                   (mega >= 3 && key == 0xa5 && value == 0x96);
+        key = value;
+    }
+    if (a == 0xd100) {
+        if (mega && unlocked)
+            palette = value;
+        else
+            sprite = value;
+    }
     if (a >= 0xde1c && a <= 0xde1f) {
         if (window != 0xde1c)
             return;
@@ -96,8 +112,25 @@ static void poke(unsigned int a, unsigned char value)
 
 #define PEEK(a) peek(a)
 #define POKE(a, v) poke(a, v)
+#define VICPEEK(a) peek(a)
+#define VICPOKE(a, v) poke(a, v)
 
-${functions('romtext', 'kernalname', 'ultimate')}
+/* Model the assembly bus operations; image tests verify their compiled order. */
+static unsigned char vicalias(unsigned char first, unsigned char second)
+{
+    unsigned char saved = peek(0xd000), color, observed;
+    poke(0xd02f, first);
+    poke(0xd02f, second);
+    color = peek(0xd100);
+    poke(0xd100, saved ^ 255);
+    observed = peek(0xd000);
+    poke(0xd100, color);
+    poke(0xd02f, 0);
+    poke(0xd02f, 0);
+    return observed == saved;
+}
+static unsigned int ultimatebase;
+${functions('romtext', 'romcode', 'kernalname', 'ultimate', 'victype')}
 /* Provide the newline hook; fixtures capture it when text layout is under test. */
 static void newline(void)
 {
@@ -128,21 +161,33 @@ static void print(const char *fmt, ...)
 /* Return a synthetic status-channel handle without opening a drive.
  *
  * dev: Synthetic device identifier. */
-static unsigned char statuschannel(unsigned char dev)
+static unsigned char drivefixture, probes14, letters;
+static unsigned char dosdrives(void) { return letters; }
+static const char *drivename(unsigned char dev) {
+    static char text[4];
+    if (letters) { text[0] = 'A' + dev - 8; text[1] = 0; }
+    else snprintf(text, sizeof(text), "%u", dev);
+    return text;
+}
+static unsigned char drivepresent(unsigned char dev)
 {
-    return 0;
+    return drivefixture && (dev == 12 || dev == 14 || dev == 30 || (drivefixture == 2 && dev == 29));
 }
 
 /* Provide the synthetic drive family needed by this isolated test.
  *
  * dev: Device identifier.
  * report: Whether the caller requests an error report. */
-static unsigned char drivetype(unsigned char dev, unsigned char report)
+static unsigned char drivemodel(unsigned char dev, unsigned char report)
 {
-    return 0;
+    if (dev == 14)
+        ++probes14;
+    return dev == 12 ? DRIVE_CMD_HD : dev == 30 ? DRIVE_SOFTIEC : dev == 29 ? DRIVE_SD2IEC : DRIVE_1541;
 }
 
-${functions('sysinfo')}
+// The extractor removes bank_ from calls; keep the report's local variable
+// distinct from the resulting ultimate() fixture helper.
+${functions('sysinfo').replace(/\bultimate\b(?!\s*\()/g, 'ultimateBoard')}
 /* Reset observable state and load fixture inputs before an independent case.
  *
  * m: Simulated interface behavior, including busy and error states.
@@ -232,7 +277,7 @@ int main(void)
     revision = 67;
     c128 = 1;
     vdc = 2;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "Commodore 64 personal computer\\n64 KB RAM") ||
         !strstr(output, "CPU:      MOS 6510 (FPGA)\\nBoard:    Commodore 64 Ultimate\\nKERNAL:") ||
         strstr(output, "portable"))
@@ -241,20 +286,28 @@ int main(void)
     revision = 3;
     c128 = 1;
     vdc = 2;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "Commodore 128DCR personal computer\\n128 KB RAM") ||
-        !strstr(output, "CPU:      MOS 8502") || strstr(output, "Board:"))
+        !strstr(output, "CPU:      MOS 8502") ||
+        !strstr(output, "Video:    VIC-II E (PAL)") || strstr(output, "Board:"))
         return 19;
+    reset(0, "", "");
+    c128 = 1;
+    vdc = 0;
+    sysinfo(0);
+    if (!strstr(output, "Commodore 128 personal computer") ||
+        !strstr(output, "Video:    VIC-II E (PAL)"))
+        return 36;
     reset(0, "", "00,OK");
     c128 = 0;
     revision = 67;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "Commodore SX-64 portable computer"))
         return 20;
     reset(8, "ULTIMATE 64", "00,OK");
     revision = 3;
     c128 = 0;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "CPU:      MOS 6510 (FPGA)") || !strstr(output, "Board:    Ultimate 64"))
         return 21;
     reset(9, "ULTIMATE 64", "00,OK");
@@ -267,7 +320,7 @@ int main(void)
     window = 0xde1c;
     revision = 3;
     c128 = 0;
-    sysinfo();
+    sysinfo(0);
     if (!strstr(output, "CPU:      MOS 6510 (FPGA)") || !strstr(output, "Board:    Ultimate 64"))
         return 24;
     if (control != 2 || commandcount != 3)
@@ -280,10 +333,54 @@ int main(void)
     window = 0xde1c;
     if (ultimate() || writes)
         return 27;
+    reset(0, "", "");
+    drivefixture = 1;
+    sysinfo(0);
+    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: Software IEC Interface") ||
+        !strstr(output, "Drive 14: Unknown device") || probes14)
+        return 28;
+    output[0] = 0;
+    sysinfo(1);
+    if (!strstr(output, "Drive 14: 1541") || probes14 != 1)
+        return 29;
+    letters = 1;
+    output[0] = 0;
+    sysinfo(0);
+    if (!strstr(output, "Drive E:  CMD HD") || !strstr(output, "Drive W:  Software IEC Interface") ||
+        !strstr(output, "Drive G:  Unknown device"))
+        return 34;
+    letters = 0;
+    drivefixture = 2;
+    output[0] = 0;
+    sysinfo(0);
+    if (!strstr(output, "Drive 29: SD2IEC Mass Storage Device\\nDrive 30: Software IEC Interface"))
+        return 35;
+    drivefixture = 0;
+    reset(0, "", "");
+    mega = 4;
+    sysinfo(0);
+    if (!strstr(output, "CPU:      45GS02 (FPGA)\\nKERNAL:   Revision 3\\nVideo:    VIC-IV (PAL)") ||
+        !strstr(output, "MEGA65 personal computer\\n64 KB RAM") || strstr(output, "Board:") ||
+        sprite != 17 || palette != 23 || unlocked || key)
+        return 30;
+    reset(0, "", "");
+    mega = 3;
+    sysinfo(0);
+    if (!strstr(output, "Commodore 65 personal computer\\n128 KB RAM") ||
+        !strstr(output, "CPU:      CSG 4510\\nKERNAL:   Revision 3\\nVideo:    VIC-III (PAL)") ||
+        strstr(output, "Board:") || sprite != 17 || palette != 23 || unlocked || key)
+        return 32;
+    mega = 0;
+    reset(0, "", "");
+    sysinfo(0);
+    if (strstr(output, "Board:") || !strstr(output, "CPU:      MOS 6510/8500") ||
+        !strstr(output, "KERNAL:   Revision 3\\nVideo:    VIC-II (PAL)") || strstr(output, "display mode") ||
+        sprite != 17 || unlocked || key)
+        return 31;
     return 0;
 }
 `;
 fs.writeFileSync('build/test-ultimate-models.c', harness);
 require('./simulator')('build/test-ultimate-models.c');
 console.log(
-    'PASS Ultimate mappings, aligned Board report, classic fallback, IO2 restoration, accepted idle state, pending command, busy interface, timeouts and malformed replies');
+    'PASS Ultimate Board, MEGA65/C65 models and video, VIC-IV-before-III unlock/alias/restoration, classic fallback and UCI transport');

@@ -15,7 +15,7 @@ if (options.includes('--help')) {
 }
 const selected = new Map();
 for (const name of selectors.length ? selectors : [list ? 'all' : 'unit']) {
-    const tests = groups[name] || groups.all.filter(test => test.id === name);
+    const tests = groups[name] || [...groups.all, ...groups.cmd, ...groups.directories].filter(test => test.id === name);
     if (!tests.length) {
         console.error('Unknown group or suite: ' + name + '. Use --list or --help.');
         process.exit(2);
@@ -34,12 +34,12 @@ if (list) {
 }
 const standalone = [
     'banked-image', 'drive-compat', 'input-history', 'petscii-completion', 'sample-startup',
-    'editor-session', 'copy-wildcards', 'find-vice', 'help-session'
+    'editor-session', 'copy-wildcards', 'find-vice', 'help-session', 'cmd-hd', 'cmd-rel', 'cmd-sysinfo', 'cmd-overview', 'directories', 'dos-directories', 'partition-channels'
 ];
 if ([...selected.values()].some(
         test => test.file === 'easyflash' || standalone.includes(test.file)) &&
     !fs.existsSync(path.join(root, 'build/easyflash/MCS-DOS.crt'))) {
-    console.error('Missing 2.0 cartridge build. Run node scripts/build.js before these suites.');
+    console.error('Missing 2.1 cartridge build. Run node scripts/build.js before these suites.');
     process.exit(2);
 }
 let failures = 0;

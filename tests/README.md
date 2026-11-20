@@ -22,11 +22,74 @@ are found beside `bin`, or under `VICE_DATA_HOME` for a separate data installati
 `VICE_CHARGEN` can select a character ROM explicitly. Use stock ROMs when running
 the standard acceptance suites.
 
+`kernal-models` checks sparse EXOS, JaffyDOS and SpeedDOS reference fingerprints
+under ASCII and cartridge PETSCII encoding; provenance is recorded in
+`kernal-fingerprints.json`. `ultimate-models` also models MEGA65 VIC-IV and C65
+VIC-III register aliasing and restoration. `mega65-report` and `c65-report`
+substitute the hardware result in disposable cartridges to check actual boot
+and shell output; they do not emulate those machines. The `image` suite checks
+the compiled probe's bus access order.
+
+`sd2iec-models` checks provisional SD2IEC/uIEC identification using X? under
+ASCII and PETSCII encoding, before ROM-emulation probes, and raw-operation
+rejection. `dir-filter` checks SD2IEC sizes without block/free-space fields.
+These fixtures do not constitute SD2IEC hardware validation.
+`softiec-target` tests the original UCI Target IDENTIFY command, busy-interface
+ownership, timeout cleanup and rejection of unavailable/malformed replies.
+`host-protocol` parses wire-format FAT and partition listings, tests uncached
+lookups/completion, SD2IEC partition selection and legacy SoftIEC colon paths,
+and checks that CD cannot mount a file implicitly. `host-directories` generates
+1,001 files without a directory array and exercises sorting, exact/estimated/
+saturated sizes, recursive paths and recursive removal including hidden files.
+The image checks also execute the linked SoftIEC IDENTIFY helper against
+destructive response/status FIFOs. This catches optimized-away MMIO reads that
+the C callback fixture cannot reproduce, for ASCII and binary success replies.
+`channel-buffer` checks temporary read-ahead, including partial/exact EOF,
+reopening, close, errors and independent directory/lookup channels. Its
+1,001 one-byte requests require eight underlying 128-byte reads.
+`softiec-rename` exercises the pre-3.15 DOS-target workaround for directory
+REN/MOVE: native long names and PETSCII escapes, ambiguous IEC aliases, errors,
+timeouts, and restoring the DOS path (including a renamed ancestor). The CMD
+protocol stand-in cannot emulate this UCI operation and skips SoftIEC directory
+renaming; its SD2IEC mode still exercises the ordinary IEC rename path.
+
+`cmd-storage` checks SoftIEC identification through a verified UCI bus ID,
+its IO1/IO2 mappings, and rejection of raw geometry operations. `sysinfo-pal`
+checks DRIVEIDS letters and numbers, plus DISKID rejection with a simulated
+SoftIEC identification and a substituted target
+handshake. A stock emulated 1541 is not a SoftIEC filesystem backend.
+
 No build is needed for `unit`; most tests compile temporary C fixtures from
 production function bodies and execute them in Oscar64's 6502 simulator. `image`
 needs a build but no emulator. The other groups need the tools indicated below.
 
+`banking` compiles the production mapping helpers and representative resident
+gates with nested services. It checks argument forwarding, byte/word/pointer
+returns, restoration of cartridge and cartridge-disabled mappings, interrupt
+state, and CPU stack balance across repeated calls.
+
+`batch-loading` checks the configured batch-size boundary, terminator storage,
+oversized-file rejection, adjacent RAM, read/open failures, and nested-batch
+protection. `startup-settings` checks the 256-byte environment capacity and
+refusal to grow a full environment by one byte.
+
 ## Selecting coverage
+
+The standalone disk-wide 1581 CHKDSK experiment uses full D81 fixtures and
+normal-speed VICE timing (PAL, true drive emulation, warp off):
+
+```powershell
+node tests/chkdsk-benchmark.js --realistic --repeat
+node tests/chkdsk-benchmark.js --dense-four
+node tests/chkdsk-benchmark.js --image=build/user-d81test.d81
+```
+
+Both generated profiles have 22 partitions and at most four directory levels.
+`--realistic` scatters 184 text files across every directory; `--dense-four`
+instead fills the same hierarchy with 2,748 one-sector files. Each fixture has
+zero free blocks and an independent physical-sector audit. Use a disposable
+copy with `--image`; the benchmark verifies its hash remains unchanged. Timing
+JSON, monitor logs, images and the measured cartridges are saved under `build`.
 
 ```powershell
 node tests/run.js --list
@@ -49,13 +112,25 @@ selected suite names and entry points without running them; `--help` prints usag
 | `session` | BASIC handoff, shell restoration, program return and save faults | VICE |
 | `hardware` | Formatting/screen support, stock ROM probes, machine/drive reports, startup display and fonts | Oscar64 and VICE |
 | `drives` | D64/D71/D81 copies, large directories, REL records, formatting and incompatible media | VICE |
+| `cmd` | ROM-backed CMD HD detection, partitions, files, REL records, raw copies, formatting and native-format refusal | VICE and privately supplied CMD ROM/utilities |
 | `tape` | Real KERNAL pulse decoding, PRG/SEQ transfer, search, cancellation and failed-transfer cleanup | VICE |
 | `smoke` | Image, command, BASIC session and PAL machine checks | VICE |
-| `all` | Every suite above, including drives and tape | Oscar64 and VICE |
+| `all` | Standard suites, including drives and tape; excludes optional `cmd` | Oscar64 and VICE |
 
 Drive formatting/copying and tape pulse decoding can take several minutes per
 suite. Use named suites or feature groups while developing; run `all` for complete
 release coverage. The runner does not silently skip slow tests or retry failures.
+
+The optional `node tests/run.js cmd` suite needs a CMD HD boot ROM and the CMD
+HD Utilities D64 containing `CREATE SYS`. Set `CMD_HD_ROM` and `CMD_HD_UTILITIES`,
+or place them at `assets/cmd_hd_bootrom_v2.80.bin` and `assets/hd-utilities.d64`.
+The ROM may be 16 KiB or a 32 KiB dump containing two identical copies. The suite
+installs DOS using the utility, then builds disposable partition fixtures using
+the [VICE DHD format](https://vice-emu.sourceforge.io/vice_17.html#DHD).
+It compares disk bytes after copying and verifies that formatting leaves other
+partitions intact. ROMs and initialized DOS images remain in ignored directories.
+CMD FD protocol handling is covered by unit fixtures; this suite emulates an HD.
+Neither coverage substitutes for testing on physical CMD hardware.
 
 ## Fixtures, diagnostics and contributing
 
@@ -102,3 +177,120 @@ JavaScript formatting is configured in `.clang-format` within this directory;
 it uses four spaces and a 100-column limit. Embedded C fixtures follow the root
 K&R configuration, with explanatory comments around mocks and boundary cases.
 Formatting is optional for running tests.
+
+`cmd-sysinfo` repeats SYSINFO twenty times with only a CMD HD at device 8,
+then checks CHKDSK model names for all three emulation formats.
+
+`cmd-overview` checks virtual-root listings, partition-name navigation,
+numeric aliases and preservation of the selected location.
+
+## Directory integration
+
+`node tests/run.js directories` exercises stock 1581 ROM and CMD HD DOS
+against disposable images, including nested paths, fixed-size allocation,
+buffered copying, virtual-root protection, recursive removal, redirection,
+and saved-location recovery. It requires the same private CMD ROM and
+utilities as the optional `cmd` group. `node tests/directories.js --native`
+runs the CMD portion without the slower 1581 partition-format setup.
+
+`dos-directories` checks DOS-style dot entries and totals, recursive file
+paths, compact CD/CHDIR syntax, CD /D, and uppercase $P versus drive-only $I.
+
+The `partition-channels` probe documents the 1581 WRITE FILE OPEN restriction.
+The production transfer closes readers and writers between buffered chunks.
+
+`format-disk` formats a disposable 1581 from a nested directory, checks that
+all partitions disappear and the full capacity returns, and verifies label/ID
+switches, cancellation, blank media, preservation of another selected drive,
+and CMD HD rejection without image changes. CMD FD format extensions are
+covered by the `format-label` fixture and a linked-cartridge command-byte
+probe in `format-disk`; these do not constitute FD hardware validation.
+
+`disk-tree` checks root labels/IDs below 1581 partitions, all CMD directory
+header types, native MD/RD/REN (including R-H), and CMD DISKINIT rejection.
+It deliberately reserves orphan sectors in three nested D81 allocation maps
+and every supported CMD partition, then checks that CHKDSK /V repairs all of
+them while preserving files and the original working directory. The CMD
+fixture includes native, 1541, 1571 and 1581 partitions, nested 1581 storage,
+and partition 13. System and non-CBM regions are not validated.
+
+`dos-fileops` checks MOVE directory renames on 1581 and CMD native storage,
+including native directory headers, preserved contents and conflict rejection.
+It also verifies implicit COPY destinations for single files and wildcards,
+both within one drive and from another drive, using independent byte decoding.
+
+`dir-layout-session` verifies full-width screen rows and redirected listings,
+CMD root partition types, and aligned file/free byte counts on 1581 and 1541
+media. The `dir-layout` unit fixture also checks the exact sample layout,
+maximum allocation counts, separator settings and four-digit entry counts.
+
+`host-session` substitutes the model detector and translates the legacy
+SoftIEC absolute-root spelling in a disposable cartridge, then runs the linked
+host backend against CMD DOS's compatible directory/file
+commands. It checks copying, renaming, removal, redirection and root protection
+with independent image decoding. It is a protocol stand-in, not an emulator of
+SD2IEC or legacy SoftIEC firmware; their actual behavior still needs hardware
+verification. Sorted or redirected host listings may reopen and rescan a
+directory rather than retain cached entries across mutations/context changes.
+Run `node tests/host-session.js --sd2iec` to exercise the SD2IEC partition path;
+that stand-in translates SD2IEC's hidden-entry filter for CMD DOS. Both modes
+also copy through cartridge storage and restore the remembered directory after
+an external CD in BASIC.
+Use `--listing` for a focused check of buffered ordinary/sorted listings,
+redirection and directory lookup.
+
+`mount-lifecycle` exercises media ownership, replacement cancellation and
+rollback, image-root navigation, protected source files and session recovery
+against the production command handlers. `softiec-rename` also checks legacy
+UCI mount/unmount packets, powered drive selection and actual FAT-name lookup.
+The same fixture checks original FILE_STAT packets and exact 32-bit sizes,
+including recovery when metadata is unavailable. `host-directories` checks
+truncated D64 aliases, large DNP sizes and incomplete directory totals with +.
+`mount-session` runs the linked cartridge against a disposable CMD-HD image,
+translating SD2IEC image entry/exit to real CMD emulation partitions. It checks
+DIR image types, CHKDSK, replacement and BASIC return. This is a protocol
+stand-in; SD2IEC and Ultimate mounting still require hardware verification.
+Mount descriptors are included in version 4 of the shell session record.
+`session-encoding` checks every mount-state byte with nonzero test data using
+the optimized production encoder and decoder, including the font boundary.
+
+`ultimate-listing` exercises the Ultimate-only temporary DIR buffers with
+1,001 generated entries, overflow passes, every sort mode, duplicate aliases,
+redirection cursor ownership, selective metadata and cancellation/error cleanup.
+`softiec-rename` also checks that batch metadata resolves the parent once,
+scans aliases together, stats only capped sizes and restores the DOS path.
+`image-names` checks real ASCII FAT names and PETSCII shell extensions with
+both compiler character maps, including the truncated DUAL SID TEST.D6 alias.
+Native DIR tests retain the header and allocation footer, suppress per-file
+data, wrap 80/255-byte names, preserve logical lines on redirection and restore
+the DOS path after cancellation. Native MOUNT tests select both disk sides
+behind one IEC alias, preserve the exact source on restoration/rollback, and
+round-trip the existing mount-record storage with session format version 5.
+`native-options` checks full-name patterns, lowercase output, type filters,
+every sort direction, recursive paths and cleanup, including 300-entry listings
+and size sorting beyond the 256-entry metadata cache. Plain `/N` and `/N /L`
+retain the streaming fast path. `dir-filter` checks that unsupported drives
+ignore `/N`, including `DIRCMD=/N` combined with explicit switches.
+`fat-listing` checks the native Ultimate backend in ASCII and PETSCII builds,
+including globally sorted packed batches, duplicate aliases, maximum-length
+names and metadata replies, filters, redirection ownership and cancellation.
+`output-flush` checks that committing redirected output preserves a formatted
+line still being emitted from the shared formatting buffer.
+`node tests/host-session.js --listing --overflow` checks the linked cartridge
+with 91 real files, confirming that sorted output continues past the buffer.
+`node tests/host-session.js --listing --native` checks native-mode bank dispatch,
+long-name command parsing and BASIC mount-state restoration in the actual CRT.
+Its Ultimate drive/mount boundaries are stubbed; protocol fixtures cover the
+native directory enumeration and the exact UCI filename sent for each side.
+`ultimate-dir-benchmark` is an explicitly authorized live-hardware harness:
+its isolated cartridge copies disable pagination and expose jiffy timings in
+unused RAM. It does not inject executable code or alter the production build.
+
+`cmd-navigation` exercises failed native DIR reads across initial boot, soft reset
+and hard reset, then verifies full listings and partition-name prompts on a
+formatted native filesystem. It uses disposable media. To reproduce against an
+existing image without modifying it, run
+`node tests/cmd-navigation.js --image=build/test-cmd-hd.dhd`; that image is copied
+before testing. `cmd-hd` likewise builds its own `test-cmd-storage-session.dhd`.
+`path-display` checks name resolution, numeric fallback and the path length limit
+without changing the internal numeric partition identities.

@@ -141,6 +141,7 @@ int cart_write(char f, const void *buffer, unsigned int size)
  * f: Logical file number; successful cartridge closes commit pending writes. */
 void channel_close(char f)
 {
+    channel_buffer(f, 0);
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f]) {
         call(CART_CLOSE, f);
         cart_channels[f] = 0;
@@ -153,6 +154,7 @@ void channel_close(char f)
  * f: Cartridge logical file number; other channels are left alone. */
 void channel_abort(char f)
 {
+    channel_buffer(f, 0);
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f]) {
         call(CART_ABORT, f);
         cart_channels[f] = 0;
@@ -195,12 +197,14 @@ unsigned char cart_directory(char f, unsigned char first, struct DirectoryEntry 
     return CART_MAILBOX[4] ? 1 : 0;
 }
 
-/* Read startup devices from CONFIG.SYS; return the number enabled for AUTOEXEC searching.
+/* Read CONFIG.SYS and return the number of devices to search for AUTOEXEC.
  *
- * devices: Output array with room for 24 device numbers. */
-unsigned char cart_config(unsigned char *devices)
+ * devices: Output array with room for 24 device numbers.
+ * printer: Output IEC number for PRN. */
+unsigned char cart_config(unsigned char *devices, unsigned char *printer)
 {
     call(CART_CONFIG, 0);
+    *printer = CART_MAILBOX[5];
     memcpy(devices, CART_TEXT, CART_MAILBOX[3]);
     return CART_MAILBOX[3];
 }

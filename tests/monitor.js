@@ -33,7 +33,8 @@ function rows(bytes) {
     return Array.from({length: 25}, (_, row) => bytes.slice(row * 40, row * 40 + 40)
                                         .map(value => {
                                             const code = value & 127;
-                                            if (code === 27 || code === 29)
+                                            if (code === 0) return '@';
+                                            if (code === 27 || code === 28 || code === 29)
                                                 return String.fromCharCode(code + 64);
                                             return String.fromCharCode(
                                                 code >= 1 && code <= 26 ? code + 96 : code);

@@ -75,6 +75,9 @@ MCS-DOS main features:
   CONFIG.SYS.
 * Some batch file support.
 * Supports multiple attached drives and
+  multiple models: 1541, 1541-II, 1570,
+  1571, 1581, and CMD-FD/HD.
+* Supports multiple attached drives and
   multiple models (1541, 1571, 1581).
 * Drives can be optionally displayed and
   addressed with DOS-style drive
@@ -97,13 +100,7 @@ and architectural differences with IBM
 PC-compatibles. Some notable limitations
 and omissions include:
 
-* No subdirectory support. This is a
-  limitation of the CBM-DOS file system.
-* No support for hard disks, SD2IEC,
-  Ultimate storage, etc. Only standard
-  CBM-formatted floppy disks are
-  supported, so no GEOS disks or other
-  custom formats either.
+* No subdirectory support.
 * Automatic return from native programs
   depends on their exit implementation
   (if any) and whether they don't over-
@@ -202,11 +199,10 @@ Upon booting the software, you are
 presented by a logo splash screen and
 some basic information about your
 system that MCS-DOS has detected.
-Ultimate boards are recognized (but
-need Command Interface enabled - if
-detection fails, manually reenable from
-the Ultimate menu), as well as JiffyDOS
-and DolphinDOS replacement KERNALs.
+Ultimate boards are recognized (with
+Command Interface enabled), as well as
+JiffyDOS and DolphinDOS replacement
+KERNALs.
 
   Boot configuration
 If an AUTOEXEC.BAT is present, it will
@@ -298,7 +294,7 @@ case-insensitive, and treats spaces
 before switches as optional. For
 example, DIR/W and DIR /W both work.
 The maximum full length of a command,
-including parameters, is 64 characters.
+including parameters, is 127 characters.
 
 You can use CRSR LEFT/RIGHT to move
 within the command text. Typing inserts.
@@ -331,9 +327,16 @@ possible (think of it as the Ctrl-C
 equivalent).
 
   Running programs
+
 Native C64 programs or batch files can
-be started from the shell using the RUN
-command. Batch files run fully within
+be started from the shell simply by
+typing their name. Alternatively, an
+explicit RUN command can be used.
+Prior to version 2.1, this was the
+canonical MCS-DOS way to execute a
+program.
+
+Batch files run fully within
 the shell and return control after
 completion. Native program return is
 not guaranteed; it depends on their
@@ -381,7 +384,10 @@ drive numbers 4 and 5 can be specified,
 or DOS aliases LPT1 and LPT2.
 
 Supported floppy drive models are 1541,
-1541-II, 1570, 1571 and 1581.
+1541-II, 1570, 1571 and 1581. There is
+also provisional support for emulation
+partitions on Creative Micro Designs'
+CMD-FD and HD drives.
 
 Datasette (tape) support is present in
 the form of the TAPECOPY command which
@@ -411,7 +417,7 @@ MCS-DOS features familiar commands from
 classic MS-DOS, as well as a few of
 its own. A list of supported commands
 can be viewed from within the shell by
-entering the HELP command. 
+entering the HELP command.
 
 Help on a specific command can be
 viewed by typing "HELP command" or
@@ -436,6 +442,11 @@ BASIC
 BEEP [duration]
   Plays a SID beep.
 
+CD [drive:][path] [/D]
+CHDIR [drive:][path] [/D]
+  Changes or displays the current
+  directory or partition.
+
 CHKDSK [drive:] [/V] [/C]
   Checks a disk and returns a status
   report.
@@ -454,14 +465,12 @@ ERASE [drive:]filename [/P]
   Deletes one or more files.
 
 DIR [drive:][pattern]
-    [/B /L /Osortorder /W]
+    [/B /L /Osortorder /Ttype /W]
   Displays a list of files on a disk.
 
 DISKCOPY source: destination:
   Copies the contents of a disk to
-  another of the same drive type.
-  Source and destination drives must
-  be of the same type.
+  another.
 
 DISKID [drive:] [id]
   Changes the drive's two-character ID.
@@ -489,9 +498,16 @@ FORMAT drive:
 HELP [command]
   Displays help on MCS-DOS commands.
 
+KEY [/Fn:[command] ...] [/CLEAR:[n]]
+  Binds command text to function keys.
+
 LABEL [drive:] [label]
   Creates, changes, or deletes the
   volume label of a disk.
+
+MD [drive:][path] [/SIZE:n]
+MKDIR [drive:][path] [/SIZE:n]
+  Creates a directory or partition.
 
 MEM
   Displays the amount of used and free
@@ -502,7 +518,7 @@ MOVE source destination [/P]
   specified destination, then deletes
   the source.
 
-PAUSE
+PAUSE [message]
   Suspends processing of a batch program
   and waits for a key to resume.
 
@@ -510,17 +526,21 @@ PRINT filename [4:|5:|LPT1|LPT2]
   Sends the contents of a file to a
   printer.
 
+RD [drive:][path] [/S [/P]]
+  Removes a directory or partition.
+
 REBOOT
   Reboots the environment.
 
 REM [comment]
   Records comments in a batch file.
 
-REN filename1 filename2
-RENAME filename1 filename2
-  Renames a file on the same disk.
+REN [drive:]filename1 [drive:]filename2
+RENAME [drive:]filename1
+       [drive:]filename2
+  Changes the name of a file.
 
-RUN filename [/A address]
+RUN [drive:]filename [/A address]
   Executes a program.
 
 SET [variable=[string]]
@@ -539,7 +559,7 @@ TAPECOPY [filename] [drive:]
   Loads and transfers one or more files
   from tape to disk.
 
-TYPE filename [/H:n | /T:n | /HEX]
+TYPE filename [/H:n | /T:n | /HEX | /C]
   Displays the contents of a file.
 
 VER
@@ -646,8 +666,9 @@ PROMPT
     $G  > (greater-than sign)
     $H  \ (backslash)
     $N  Drive number
-    $P  Drive identifier according to
+    $I  Drive identifier according to
         the DRIVEIDS variable
+    $P  Current drive and full path
     $Q  = (equal sign)
     $R  Line break (RETURN)
     $S  Space
@@ -660,9 +681,10 @@ PROMPT
     READY.
     A:\>
 
-  The default setting is $P$C$G, which
-  yields A:> or 8:>, depending on
-  DRIVEIDS. The format codes are case-
+  The default setting is $P$G, which
+  yields A:\> or 8:\> at root, depending
+  on DRIVEIDS. Paths display in upper
+  case. The format codes are case-
   insensitive.
 
 
@@ -759,7 +781,7 @@ present on device 0 (or a device chosen
 by CONFIG.SYS), it runs at startup.
 Pressing RESTORE on the boot screen will
 run MCS-DOS in "safe mode"; it skips
-execution of AUTOEXEC.BAT. 
+execution of AUTOEXEC.BAT.
 
 
   B. Version history
@@ -784,6 +806,11 @@ Reengineered for EasyFlash distribution.
 Many refinements, several new commands
 and command options, improved BASIC
 integration and native program support.
+
+  2.1 (dd-Mmm-2026)
+Further expansions to the command set,
+launch programs without RUN, partial
+CMD-HD/FD support, new manual (PDF).
 
 
   C. About the author

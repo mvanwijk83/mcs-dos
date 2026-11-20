@@ -94,12 +94,17 @@ function crc(bytes) {
 function verifyDistribution(file) {
     const {files} = readImage(file);
     const names = [
-        'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT', 'CONFIG.SAMPLE', 'LICENSE.TXT', 'MANUAL.TXT'
+        'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'PET.CPI', 'README.TXT', 'VGA.CPI'
     ];
     assert.equal(files.size, names.length);
     assert.deepEqual([...files.keys()], names, 'bundled files in alphabetical order');
     assert.deepEqual(files.get('CONFIG.SAMPLE').data, Buffer.from('LDAUTOEX=1\rBOOTDRV=0\r'),
         'sample startup settings');
+    for (const name of ['CGA.CPI', 'PET.CPI', 'VGA.CPI'])
+        assert.deepEqual(files.get(name).data, fs.readFileSync('disk-content/' + name), name);
+    assert.deepEqual(files.get('README.TXT').data,
+        require('../scripts/petscii')(fs.readFileSync('disk-content/readme.txt', 'utf8')),
+        'bundled readme in PETSCII');
     for (const name of names) {
         assert.deepEqual(files.get(name).data, fs.readFileSync('build/' + name), name);
         assert.equal(files.get(name).readonly, 0);

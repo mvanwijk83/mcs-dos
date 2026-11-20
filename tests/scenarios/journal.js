@@ -47,12 +47,12 @@ module.exports =
         await command('x');
         await delay(2000);
         let s = await screen();
-        for (let i = 0; i < 50 && !s.endsWith('0:>'); i++) {
+        for (let i = 0; i < 50 && !s.endsWith('0:\\>'); i++) {
             await command('x');
             await delay(500);
             s = await screen();
         }
-        assert(s.endsWith('0:>'), s);
+        assert(s.endsWith('0:\\>'), s);
         return s;
     }
     async function attach() {
@@ -136,7 +136,8 @@ module.exports =
     await check('help cls', 'Clears');
     await enter('echo executable name is ordinary >mcs-dos.exe');
     await check('type mcs-dos.exe', 'ordinary');
-    await check('help cls >help.txt', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+    await enter('help cls >help.txt');
+    await check('type help.txt', 'Clears');
     let beforeRename = await inspect();
     await keys('ren backup.bat mcs-dos.exe\\x0d');
     await keys('y', 1500);

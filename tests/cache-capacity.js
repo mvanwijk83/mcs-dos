@@ -9,17 +9,17 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #define MAXFILES ${capacity}
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 struct DirectoryEntry {
     char name[17];
     unsigned int size;
-    unsigned char type;
+    unsigned char type, access;
 };
 
 static struct {
@@ -44,10 +44,13 @@ static void error(const char *s)
  *
  * d: Device identifier.
  * report: Whether the caller requests an error report. */
-static unsigned char drivetype(unsigned char d, unsigned char report)
+static unsigned char drivemodel(unsigned char d, unsigned char report)
 {
     return 2;
 }
+
+/* Prepare a physical 1571 through the observable DOS mode command. */
+static unsigned char drivemode(unsigned char d, unsigned char doublesided);
 
 /* Provide the DOS command interface without talking to a physical disk drive.
  *
@@ -56,6 +59,11 @@ static unsigned char drivetype(unsigned char d, unsigned char report)
 static unsigned char command(unsigned char d, const char *s)
 {
     return !failmode;
+}
+
+static unsigned char drivemode(unsigned char d, unsigned char doublesided)
+{
+    return command(d, "u0>m1");
 }
 
 /* Start the synthetic directory stream at its header record.
@@ -92,6 +100,8 @@ static unsigned char directory_read(unsigned char f, struct DirectoryEntry *e)
     }
     sprintf(e->name, "f%03u", cursor - 2);
     e->size = 1;
+    e->access = CBM_A_RW;
+    if ((cursor - 2) & 1) e->access = CBM_A_RO;
     e->type = 16;
     return 0;
 }
@@ -101,7 +111,8 @@ ${code}
 int main(void)
 {
     Path p;
-    unsigned int n, i;
+    p.dir[0]=0;
+    unsigned int n, i, k;
     const unsigned int sizes[] = {1, 255, 256, MAXFILES - 1, MAXFILES};
     p.dev = 8;
     for (i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
@@ -113,6 +124,9 @@ int main(void)
         if (!directory(8) || count != n || !cachevalid || closed != 1 || errors ||
             freeblocks != 111)
             return 1;
+        for (k = 0; k < n; ++k)
+            if (k & 1) { if (DIR_ACCESS(k) != CBM_A_RO) return 5; }
+            else if (DIR_ACCESS(k) != CBM_A_RW) return 6;
         sprintf(p.name, "f%03u", n - 1);
         if (findfile(&p) != n - 1)
             return 2;

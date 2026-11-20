@@ -342,7 +342,7 @@ static void config(void)
 {
     char *line = configline;
     unsigned char devices[24], trial[24], countdev = 1, enabled = 1, n = 0, overflow = 0, ch, j, k,
-                                          bad = 0;
+                                          bad = 0, printer = 4;
     unsigned int off, len, pos = 0, value;
     char *s, *end;
     int index = find("config.sys");
@@ -374,6 +374,14 @@ static void config(void)
                 if (!strncmp(line, "ldautoex=", 9)) {
                     if (n == 10 && (line[9] == '0' || line[9] == '1'))
                         enabled = line[9] - '0';
+                    else
+                        bad = 1;
+                } else if (!strncmp(line, "prn=", 4)) {
+                    s = line + 4;
+                    if (!strcmp(s, "lpt1") || !strcmp(s, "4:"))
+                        printer = 4;
+                    else if (!strcmp(s, "lpt2") || !strcmp(s, "5:"))
+                        printer = 5;
                     else
                         bad = 1;
                 } else if (!strncmp(line, "bootdrv=", 8)) {
@@ -413,6 +421,7 @@ static void config(void)
         }
     }
     CART_MAILBOX[3] = enabled ? countdev : 0;
+    CART_MAILBOX[5] = printer;
     for (j = 0; j < countdev; ++j)
         CART_TEXT[j] = devices[j];
     if (bad)
@@ -532,7 +541,7 @@ void dispatch(void)
                     c->kind = 3;
                 } else if (c->pos == 0) {
                     memset(CART_TEXT, 0, 24);
-                    strcpy(CART_TEXT, "mcs-dos 2.0");
+                    strcpy(CART_TEXT, "mcs-dos 2.1");
                     CART_MAILBOX[3] = 0;
                     ++c->pos;
                 } else if (c->pos <= count) {

@@ -7,6 +7,9 @@
 #define TAPE_PENDING (*(volatile unsigned char *)0xc1ee)
 #define TAPE_SEARCH ((char *)0xc610)
 #define TAPE_COLORS ((unsigned char *)0xc621)
+/* Canonical destination survives both the payload and shell restoration. */
+#define TAPE_DIRECTORY ((char *)0xc624)
+#define TAPE_DIRECTORY_SIZE 128
 #define TAPE_SAVED 1
 #define TAPE_CANCELLED 2
 #define TAPE_READ_ERROR 3

@@ -6,6 +6,17 @@
 #define BANK_FILEMGMT 7
 #define BANK_DISK 8
 #define BANK_BOOT 9
+#define BANK_STORAGE 12
+#define BANK_NAV 13
+#define BANK_TRANSFER 14
+#define BANK_VOLUME 15
+#define BANK_HOST 16
+#define BANK_HOSTDIR 17
+#define BANK_MOUNT 18
+#define BANK_ULTDIR 19
+#define BANK_SOFTIEC 20
+#define BANK_NATIVEDIR 21
+#define BANK_FATDIR 22
 #define BANK_NONE 255
 /* Shared with the low-RAM filesystem bridge. Hardware bank registers cannot
  * be read back. This byte describes the caller's mapping, even during I/O. */

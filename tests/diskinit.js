@@ -4,17 +4,20 @@ const {functions} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../src/device-name.h"
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 static Path p1;
 static unsigned char drive = 8;
 static int argc, errors, calls, device;
 static const char *args[3], *message;
+static unsigned char model=DRIVE_1541;
+static unsigned char drivemodel(unsigned char d,unsigned char r) {return model;}
 static char sent[8];
 
 /* Record a reported error so rejection and cleanup can be checked without screen I/O.
@@ -102,6 +105,10 @@ int main(void)
     diskinitcmd();
     if (errors != 1 || calls || strcmp(message, SYSOUT_SYNTAX_DISKINIT))
         return 12;
+    model=DRIVE_CMD_HD;run("8:");
+    if(errors!=1||calls||strcmp(message,SYSOUT_UNSUPPORTED_DRIVE_TYPE))return 13;
+    model=DRIVE_CMD_FD;run("9:");
+    if(errors!=1||calls||strcmp(message,SYSOUT_UNSUPPORTED_DRIVE_TYPE))return 14;
     return 0;
 }
 `;

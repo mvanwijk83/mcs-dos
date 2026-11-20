@@ -15,9 +15,13 @@ const rows = cases.map(([file, model, family]) => {
     return '{' + [...bytes, model, family].join(',') + '}';
 });
 const harness = `
+#define softiec_target() 1
 
 #include <string.h>
 #define POKE(a, b) ((void)0)
+#define PEEK(a) 0
+static unsigned int ultimatebase;
+static unsigned char sd_model(unsigned char dev) { return 0; }
 static const unsigned char fixtures[][11] = {${rows.join(',')}};
 static unsigned char current, offset, errors, bad, fail;
 
@@ -44,6 +48,10 @@ static void error(const char *s)
  * n: Requested byte count. */
 static int channel_write(int f, const unsigned char *p, int n)
 {
+    if (n == 7 && p[3] == 0xa4 && p[4] == 0xfe && p[5] == 2 && p[6] == 13) {
+        offset = 9;
+        return n;
+    }
     if (n != 6 || memcmp(p, "m-r", 3))
         bad = 1;
     if (p[3] == 0xc4 && p[4] == 0xe5 && p[5] == 4)
@@ -64,13 +72,19 @@ static int channel_write(int f, const unsigned char *p, int n)
  * n: Requested byte count. */
 static int channel_read(int f, unsigned char *p, int n)
 {
+    if (offset == 9) {
+        memset(p, 0, n);
+        return n;
+    }
     if (fail && offset == 8)
         return 0;
     memcpy(p, fixtures[current] + offset, n);
     return n;
 }
 
-${functions('drivemodel', 'drivetype')}
+/* CMD is absent in these stock-ROM fixtures; geometry queries stay CBM-only. */
+static void cmd_geometry(unsigned char dev, unsigned char report, unsigned char *geometry) { *geometry = 0; }
+${functions('cmd_model', 'cbm_model', 'cbm_geometry', 'drivemodel', 'drivetype')}
 /* Run the independent fixture cases; failure results identify the violated invariant. */
 int main(void)
 {

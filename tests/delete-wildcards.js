@@ -4,12 +4,12 @@ const {functions} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <stdio.h>
 #include <ctype.h>
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 static Path p1;
@@ -21,6 +21,7 @@ static const char *answers;
 
 static struct {
     char name[17];
+    unsigned char type;
 } files[4];
 
 static char requests[4][24], removed[4][17];
@@ -97,6 +98,7 @@ static int scratch(const Path *p)
     return !failscratch;
 }
 
+static int findfile(const void *p) { return 0; }
 ${functions('match', 'delcmd')}
 /* Prepare fixture arguments and observable state, then call the production handler.
  *
@@ -131,7 +133,8 @@ int main(void)
     if (errors || deleted != 1 || prompts != 1 || strcmp(removed[0], "two.txt"))
         return 4;
     run("*.txt", "", 1);
-    if (errors || prompts || loads || deleted != 1 || strcmp(removed[0], "*.txt"))
+    if (errors || prompts || loads != 1 || deleted != 3 || strcmp(removed[0], "one.txt") ||
+        strcmp(removed[1], "two.txt") || strcmp(removed[2], "three.txt"))
         return 5;
     run("*.none", "", 0);
     if (errors != 1 || prompts || deleted)

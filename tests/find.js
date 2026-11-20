@@ -50,6 +50,8 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+static unsigned char rawreadmask;
+#define raw_reader_clone() ((void)0)
 #include <ctype.h>
 #include <stdarg.h>
 #define MAXARGS 44

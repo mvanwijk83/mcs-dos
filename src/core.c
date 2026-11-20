@@ -2,24 +2,37 @@
  * call back here for output, parsing and I/O while their ROM bank is visible. */
 #include "core.h"
 #include "memory.h"
+#include "../build/easyflash/build-number.h"
 Entry directory_entries[MAXFILES];
+#pragma bss(dir_cache)
+unsigned char directory_locks[(MAXFILES + 7) / 8];
+#pragma bss(bss)
 unsigned int count;
 unsigned char cachedev, cachevalid, drive;
+char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
 unsigned int freeblocks;
 char volume[17], diskid[3];
 unsigned char ox, oy, fg = 15, bg = 0, bd = 0, quit, reboot, echoon = 1, batching;
 volatile unsigned char skipautoexec;
 unsigned char copysuppress;
+unsigned int ultimatebase;
+/* Optional DIR disk-ID lookup must not turn an otherwise valid listing into errors. */
+unsigned char optionalheader;
 unsigned char pagelines, aborted, editprompt;
 unsigned int screenbase = 0x0400;
 char environment[ENVSIZE];
 unsigned int envused;
+/* Seven terminated strings, in F1..F7 order, packed into one 256-byte buffer. */
+char keybindings[KEYBUFSIZE];
 /* Behavioral settings remain inactive until AUTOEXEC has unwound. */
 unsigned char envready;
-char line[LINE], history[10][LINE], draft[LINE];
+char line[LINE];
 char prompttext[ENVVALUE + 1];
 /* Completed bytes live in the command itself, never as cache indices. */
-unsigned char rawline[RAWMAP], rawhistory[10][RAWMAP], rawdraft[RAWMAP];
+unsigned char rawline[RAWMAP];
+#pragma bss(history_ram)
+History history;
+#pragma bss(bss)
 unsigned char rawparse[(LINE + MAXARGS + 7) / 8];
 unsigned char histcount, histnext;
 /* Formatting and disk command construction never overlap. */
@@ -41,21 +54,34 @@ unsigned char argc;
 unsigned char argquoted[MAXARGS];
 Path p1, p2;
 Path outputpath;
-unsigned char redirected, outputfailed, outputused, outputcol;
+unsigned char outputkind, outputfailed, outputused, outputcol, outputmode, outputstarted;
+unsigned char default_printer;
 unsigned char outputbuf[128];
 /* Loader parameters consumed before the shell is overwritten. */
 char launchname[17];
 unsigned char launchdevice, launchlength, launchabsolute;
 unsigned int launchaddress;
 
-unsigned char noseparators, validate;
+unsigned char noseparators;
 unsigned char resume_requested;
+
+/* Both copies run in low RAM while KERNAL and the editor bank are hidden. */
+__noinline void history_recall(char *buf, unsigned char slot)
+{
+    __asm { php
+            sei }
+    POKE(1, 0x34);
+    strcpy(buf, history.text[slot]);
+    memcpy(rawline, history.raw[slot], RAWMAP);
+    POKE(1, 0x36);
+    __asm { plp }
+}
 
 const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -64,14 +90,9 @@ void clear(void)
     ox = oy = 0;
 }
 
-/* Start a new output line, scrolling the screen or writing a redirected newline. */
-void newline(void)
+/* Advance the screen cursor, scrolling if needed. */
+void consoleline(void)
 {
-    if (redirected) {
-        outputbyte(13);
-        outputcol = 0;
-        return;
-    }
     ox = 0;
     if (oy < 24)
         ++oy;
@@ -87,8 +108,18 @@ void newline(void)
     gotoxy(ox, oy);
 }
 
-/* Screen-only compatibility: external byte 96 is an ordinary space.
- * PETSCII $a0 (Shift-SPACE) selects the new backslash at screen slot 96.
+/* End a text line on the current standard output. */
+void newline(void)
+{
+    if (redirected) {
+        outputbyte(13);
+        outputcol = 0;
+    } else
+        consoleline();
+}
+
+/* Screen-only compatibility: external byte 96 remains an ordinary space.
+ * PETSCII $5c (the pound key) displays backslash at screen slot 28.
  *
  * Display one file character, treating byte 96 as a space for font compatibility.
  *
@@ -98,22 +129,11 @@ void displayc(unsigned char c)
     screen_putc(c == 96 ? ' ' : c);
 }
 
-/* Write one character to the current output, wrapping screen lines at 40 columns.
- *
- * c: Character to write; control bytes in file text are shown as dots. */
-void outc(unsigned char c)
+/* Render one console character and wrap at 40 columns. */
+static void consolec(unsigned char c)
 {
-    if (redirected) {
-        if (c == 10 || c == 13)
-            newline();
-        else {
-            outputbyte(c);
-            outputcol = 1;
-        }
-        return;
-    }
     if (c == 10 || c == 13) {
-        newline();
+        consoleline();
         return;
     }
     /* File contents may not issue arbitrary PETSCII screen controls. */
@@ -122,7 +142,27 @@ void outc(unsigned char c)
     gotoxy(ox, oy);
     displayc(c);
     if (++ox == 40)
+        consoleline();
+}
+
+/* Write a prompt or other text directly to the screen. */
+void consoleout(const char *s)
+{
+    while (*s)
+        consolec(*s++);
+}
+
+/* Write text to standard output, normalizing newlines for stream destinations. */
+void outc(unsigned char c)
+{
+    if (!redirected)
+        consolec(c);
+    else if (c == 10 || c == 13)
         newline();
+    else {
+        outputbyte(c);
+        outputcol = 1;
+    }
 }
 
 /* Write a terminated string through the current output destination.
@@ -134,17 +174,11 @@ void outs(const char *s)
         outc(*s++);
 }
 
-/* Write a message and newline, leaving the editor status area when necessary.
+/* Write a message and newline to standard output.
  *
  * s: Message text. */
 void say(const char *s)
 {
-    /* Save errors leave EDIT visibly, retaining the error on the clean screen. */
-    if (editprompt) {
-        editprompt = 0;
-        screen_reverse(0);
-        clear();
-    }
     outs(s);
     newline();
 }
@@ -154,18 +188,22 @@ void say(const char *s)
  * s: Error message. */
 void error(const char *s)
 {
-    /* Errors must remain visible even if the output file is full or its write failed. */
-    unsigned char saved = redirected;
-    redirected = 0;
-    say(s);
-    redirected = saved;
+    if (optionalheader)
+        return;
+    if (editprompt) {
+        editprompt = 0;
+        screen_reverse(0);
+        clear();
+    }
+    consoleout(s);
+    consoleline();
 }
 
 /* Write buffered redirected output; a short write aborts the current command. */
 void outputflush(void)
 {
     if (outputused && !outputfailed) {
-        if (channel_write(5, outputbuf, outputused) != outputused) {
+        if (!output_append()) {
             outputfailed = aborted = 1;
             error(SYSOUT_WRITE_FAULT_ERR);
         }
@@ -173,12 +211,12 @@ void outputflush(void)
     outputused = 0;
 }
 
-/* Queue one redirected byte and flush when the output buffer fills.
+/* Discard NUL output or queue a byte for the file or printer stream.
  *
  * c: Byte to append. */
 void outputbyte(unsigned char c)
 {
-    if (outputfailed)
+    if (outputkind == OUTPUT_NUL || outputfailed)
         return;
     outputbuf[outputused++] = c;
     if (outputused == sizeof(outputbuf))
@@ -206,6 +244,8 @@ void colors(void)
     bordercolor(bd);
 }
 
+#pragma code(volume_code)
+#pragma data(volume_data)
 #pragma optimize(push, 0)
 
 /* Oscar64 needs this routine unoptimized for 32-bit decimal division.
@@ -213,7 +253,9 @@ void colors(void)
  * Format a byte count with optional thousands separators; the result uses static storage.
  *
  * bytes: Unsigned count to format. */
-char *decimal(unsigned long bytes)
+/* Small persistent formatting buffers share the bridge's reserved RAM tail. */
+#pragma bss(dir_cache)
+__noinline char *bank_decimal(unsigned long bytes)
 {
     static char number[14];
     unsigned char pos = 13, group = 0;
@@ -229,8 +271,11 @@ char *decimal(unsigned long bytes)
     } while (bytes);
     return number + pos;
 }
+#pragma bss(bss)
 
 #pragma optimize(pop)
+#pragma code(code)
+#pragma data(data)
 
 /* Format allocated disk space, counting the full 256 bytes of each block.
  *
@@ -238,31 +283,6 @@ char *decimal(unsigned long bytes)
 char *allocated(unsigned int blocks)
 {
     return decimal((unsigned long)blocks * 256);
-}
-
-/* Print the cached volume name and, for disks, read and display its ID.
- *
- * dev: Device whose directory metadata is currently cached. */
-void volumeheader(unsigned char dev)
-{
-    char shown[17];
-    uppername(volume, shown);
-    print(SYSOUT_VOL_HEADER, drivename(dev));
-    if (ox + strlen(shown) > 40)
-        newline();
-    outs(shown);
-    if (ox)
-        newline();
-    if (!dev) {
-        outs(SYSOUT_CRT_ID_HEADER);
-        return;
-    }
-    if (bam(dev)) {
-        diskid[0] = toupper(io[idoff]);
-        diskid[1] = toupper(io[idoff + 1]);
-        diskid[2] = 0;
-        print(SYSOUT_DISK_ID_HEADER, diskid);
-    }
 }
 
 /* A single-color sprite supplies a true eight-pixel underscore without
@@ -324,16 +344,16 @@ unsigned char yesno(const char *s)
     unsigned char c;
     if (editprompt)
         editstatus();
-    outs(s);
-    outs(SYSOUT_YES_NO_SUFFIX);
+    consoleout(s);
+    consoleout(SYSOUT_YES_NO_SUFFIX);
     do {
         c = getch();
     } while (toupper(c) != 'Y' && toupper(c) != 'N' && c != CH_STOP);
     if (c == CH_STOP)
         c = 'N';
-    outc(toupper(c));
+    consolec(toupper(c));
     if (!editprompt)
-        newline();
+        consoleline();
     return toupper(c) == 'Y';
 }
 
@@ -439,6 +459,7 @@ unsigned char dosdrives(void)
 /* Format a device using the current drive naming setting; result uses static storage.
  *
  * dev: Device number (0 for cartridge storage, 8-30 for disks). */
+#pragma bss(dir_cache)
 const char *drivename(unsigned char dev)
 {
     static char text[4];
@@ -449,9 +470,12 @@ const char *drivename(unsigned char dev)
         snprintf(text, sizeof(text), "%u", dev);
     return text;
 }
+#pragma bss(bss)
 
 /* Expand the configured dollar codes and display the command prompt. */
-void showprompt(void)
+#pragma code(boot_code)
+#pragma data(boot_data)
+__noinline void bank_showprompt(void)
 {
     const char *s = prompttext;
     unsigned char c;
@@ -474,13 +498,21 @@ void showprompt(void)
                 c = '>';
                 break;
             case 'H':
-                c = 0xa0;
-                break; /* Backslash at screen slot 96 */
+                c = 0x5c;
+                break; /* Pound-key screen slot 28 */
             case 'N':
                 print(SYSOUT_DRIVE_NUMBER, drive);
                 ++s;
                 continue;
             case 'P':
+                outs(drivename(drive));
+                outc(':');
+                outc(0x5c);
+                displaypath(drive, working[location_index(drive)], io);
+                outs(io);
+                ++s;
+                continue;
+            case 'I':
                 outs(drivename(drive));
                 ++s;
                 continue;
@@ -509,6 +541,8 @@ void showprompt(void)
         outc(c);
     }
 }
+#pragma code(code)
+#pragma data(data)
 
 /* A 12-character stem leaves room for .CPI in a native 16-byte filename.
  *
@@ -525,46 +559,6 @@ unsigned char charsetname(const char *s)
         ++n;
     }
     return n != 0;
-}
-
-/* Parse a device prefix and native filename; report invalid input and return zero on failure.
- *
- * s: Path text; no prefix uses the current drive.
- * p: Output device and terminated filename. */
-unsigned char path(const char *s, Path *p)
-{
-    unsigned int d = 0;
-    unsigned char letter = 0;
-    const char *q = s;
-    p->dev = drive;
-    if (toupper(s[0]) >= 'A' && toupper(s[0]) <= 'W' && s[1] == ':') {
-        p->dev = toupper(s[0]) - 'A' + 8;
-        s += 2;
-        q = s;
-        letter = 1;
-    }
-    while (isdigit(*q)) {
-        d = d * 10 + *q - '0';
-        ++q;
-    }
-    if (!letter && q > s && *q == ':') {
-        if (d != 0 && (d < 8 || d > 30)) {
-            error(SYSOUT_INVALID_DRIVE_SPEC);
-            return 0;
-        }
-        p->dev = d;
-        s = q + 1;
-    }
-    if (strlen(s) > 16) {
-        error(SYSOUT_FILE_NAME_TOO_LONG);
-        return 0;
-    }
-    if (strchr(s, ':') || strchr(s, ',') || strchr(s, '"')) {
-        error(SYSOUT_INVALID_FILE_NAME);
-        return 0;
-    }
-    filename(s, p->name);
-    return 1;
 }
 
 /* Closing a 1541 command channel also closes its data channels. Keep two
@@ -645,6 +639,11 @@ int readio(unsigned char lfn, void *buf, unsigned int size)
     /* KERNAL has one status byte for all channels; this array preserves each file EOF independently. */
     if (eof[lfn])
         return 0;
+    if (!rawreading && lfn >= 2 && lfn <= 3 && (rawreadmask & (1 << lfn)))
+        return raw_reader_read(lfn, buf, size);
+    if (!rawreading && outputkind == OUTPUT_FILE && (lfn == 2 || lfn == 3) &&
+        !location_select(p1.dev, p1.dir))
+        return -1;
     POKE(144, 0);
     n = channel_read(lfn, buf, size);
     st = PEEK(144);
@@ -687,22 +686,17 @@ unsigned char command(unsigned char dev, const char *s)
  *
  * p: Wildcard pattern.
  * s: Native filename, compared byte for byte. */
-unsigned char match(const char *p, const char *s)
+__noinline unsigned char match(const char *p, const char *s)
 {
-    while (*p) {
-        if (*p == '*') {
-            do {
-                if (match(p + 1, s))
-                    return 1;
-            } while (*s++);
-            return 0;
-        }
-        if (!*s || (*p != '?' && *p != *s))
-            return 0;
-        ++p;
-        ++s;
+    const char *star = 0, *retry = 0;
+    while (*s) {
+        if (*p == '*') { star = ++p; retry = s; }
+        else if (*p && (*p == '?' || *p == *s)) { ++p; ++s; }
+        else if (star) { p = star; s = ++retry; }
+        else return 0;
     }
-    return !*s;
+    while (*p == '*') ++p;
+    return !*p;
 }
 
 /* Return the display label for a Commodore file type.
@@ -721,6 +715,10 @@ const char *typename(unsigned char t)
         return SYSOUT_TYPE_USR;
     case CBM_T_REL:
         return SYSOUT_TYPE_REL;
+    case CBM_T_DIR:
+        return SYSOUT_TYPE_DIR;
+    case CBM_T_CBM:
+        return SYSOUT_TYPE_CBM;
     default:
         return SYSOUT_TYPE_UNKNOWN;
     }
@@ -750,46 +748,23 @@ void runbatch(void)
     batching = 1;
 }
 
-/* Validate MEM or volume-report switches and update the shared validate flags.
- *
- * disk: Nonzero permits a drive path and the mutually exclusive /V and /C switches. */
-unsigned char reportoptions(unsigned char disk)
-{
-    unsigned char i, seenpath = 0;
-    validate = 0;
-    for (i = 1; i < argc; ++i) {
-        if (disk && !stricmp(args[i], "/V"))
-            validate |= 1;
-        else if (disk && !stricmp(args[i], "/C"))
-            validate |= 2;
-        else {
-            if (args[i][0] == '/' || !disk || seenpath++)
-                break;
-            if (!path(args[i], &p1))
-                return 0;
-            if (p1.name[0])
-                break;
-        }
-    }
-    if (i < argc || validate == 3) {
-        error(SYSOUT_INVALID_PARAM);
-        return 0;
-    }
-    return 1;
-}
+#pragma code(hostdir_code)
+#pragma data(hostdir_data)
 
 /* Return free shell RAM after the linked end of global data and reserved regions. */
-unsigned int freememory(void)
+static unsigned int freememory(void)
 {
     return 0xa000U - ((unsigned int)&BSSEnd) + 0x0400U;
 }
 
 /* Validate and execute MEM, showing how the fixed memory layout uses RAM. */
-void memcmd(void)
+__noinline void bank_memcmd(void)
 {
     unsigned long reserved;
-    if (!reportoptions(0))
+    if (argc > 1) {
+        error(SYSOUT_INVALID_PARAM);
         return;
+    }
     reserved = 65536UL - ((unsigned int)&BSSEnd - 0x0801) - SHELL_STACK_SIZE - freememory() - 8192U;
     print(SYSOUT_MEM_TOTAL, decimal(65536UL));
     print(SYSOUT_MEM_SHELL, decimal((unsigned int)&BSSEnd - 0x0801));
@@ -799,70 +774,10 @@ void memcmd(void)
     print(SYSOUT_MEM_FREE, decimal(freememory()));
 }
 
-/* Resolve a command or alias; return its commands index, or -1 if unknown.
- *
- * s: Terminated command name, compared without case sensitivity. */
-int commandid(const char *s)
-{
-    unsigned char i;
-    if (!stricmp(s, "DELETE") || !stricmp(s, "ERASE"))
-        return 4;
-    if (!stricmp(s, "RENAME"))
-        return 18;
-    if (!stricmp(s, "VERSION"))
-        return 22;
-    for (i = 0; i < COMMANDCOUNT; ++i)
-        if (!stricmp(s, commands[i]))
-            return i;
-    return -1;
-}
-
-/* Split command arguments into parsebuf, preserving quoted text and exact filename flags.
- *
- * s: Command text within line; return zero for malformed quotes or too many arguments. */
-unsigned char tokenize(char *s)
-{
-    char *r = s, *w = parsebuf;
-    unsigned char quote;
-    argc = 0;
-    memset(rawparse, 0, sizeof(rawparse));
-    while (*r) {
-        while (*r == ' ')
-            ++r;
-        if (!*r)
-            break;
-        if (argc == MAXARGS)
-            return 0;
-        argquoted[argc] = *r == '"';
-        args[argc++] = w;
-        /* Quotes protect spaces and slashes, while switches may otherwise be joined without spaces. */
-        quote = 0;
-        /* Keep the switch's leading slash, then split at the next one.
-         * Separate output storage permits DIR/W/O without overwriting /W. */
-        if (*r == '/')
-            *w++ = *r++;
-        while (*r && ((*r != ' ' && *r != '/') || quote)) {
-            if (*r == '"') {
-                quote = !quote;
-                ++r;
-            } else {
-                rawset(rawparse, w - parsebuf, rawget(rawline, r - line));
-                *w++ = *r++;
-            }
-        }
-        if (quote)
-            return 0;
-        while (*r == ' ')
-            ++r;
-        *w++ = 0;
-    }
-    return 1;
-}
-
 /* Validate and dispatch one command using the shared argument and path workspaces.
  *
  * s: Writable command text, including any switches. */
-void executecommand(char *s)
+__noinline void bank_executecommand(char *s)
 {
     char *tail, *end;
     unsigned char i, c;
@@ -882,17 +797,29 @@ void executecommand(char *s)
         newline();
         return;
     }
-    /* ECHO and REM retain their unparsed text. */
+    /* Commands with literal text bypass tokenization. */
     tail = strchr(s, ' ');
     if (tail) {
         c = *tail;
         *tail = 0;
         id = commandid(s);
         *tail = c;
-        if (id == 7 || id == 17 || id == 24) {
+        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32) {
             ++tail;
             if (!strcmp(tail, "/?")) {
                 help(id);
+                return;
+            }
+            if (id == 32) {
+                keycmd(tail);
+                return;
+            }
+            if (id == 15) {
+                while (*tail == ' ')
+                    ++tail;
+                consoleout(*tail ? tail : SYSOUT_PRESS_ANY_KEY);
+                getch();
+                consoleline();
                 return;
             }
             if (id == 24) {
@@ -920,24 +847,23 @@ void executecommand(char *s)
         }
     }
     if (!tokenize(s)) {
-        say(SYSOUT_SYNTAX_ERR);
+        error(SYSOUT_SYNTAX_ERR);
         return;
     }
     if (!argc)
         return;
-    if (argc == 1 && strchr(args[0], ':')) {
+    if (argc == 1 && strchr(args[0], ':') == args[0] + strlen(args[0]) - 1) {
         if (!path(args[0], &p1))
             return;
         if (!p1.name[0]) {
             drive = p1.dev;
             cachevalid = 0;
-        } else
-            error(SYSOUT_INVALID_DRIVE_SPEC);
-        return;
+            return;
+        }
     }
     id = commandid(args[0]);
     if (id < 0) {
-        say(SYSOUT_BAD_CMD_OR_FILE_NAME);
+        runcmd(1);
         return;
     }
     for (i = 1; i < argc; ++i)
@@ -946,6 +872,22 @@ void executecommand(char *s)
             return;
         }
     switch (id) {
+    case 33:
+    case 34:
+    case 35:
+        navcmd(id - 33);
+        break;
+    case 36:
+    case 37:
+        mountcmd(id - 36);
+        break;
+    case 38:
+        makediskcmd();
+        break;
+    case 32:
+        args[0][0] = 0;
+        keycmd(args[0]);
+        break;
     case 0:
         ms = argc > 1 ? strtoul(args[1], &end, 10) : 200;
         if (argc > 2 || (argc > 1 && (!args[1][0] || *end)) || ms > 60000UL) {
@@ -1014,15 +956,15 @@ void executecommand(char *s)
         labelcmd();
         break;
     case 13:
-        memcmd();
+        bank_memcmd();
         break;
     case 14:
         copycmd(1);
         break;
     case 15:
-        outs(SYSOUT_PRESS_ANY_KEY);
+        consoleout(SYSOUT_PRESS_ANY_KEY);
         getch();
-        newline();
+        consoleline();
         break;
     case 16:
         typecmd(1);
@@ -1033,7 +975,7 @@ void executecommand(char *s)
         renamecmd();
         break;
     case 19:
-        runcmd();
+        runcmd(0);
         break;
     case 20:
         typecmd(0);
@@ -1042,7 +984,7 @@ void executecommand(char *s)
         volcmd(0);
         break;
     case 22:
-        say(SYSOUT_BANNER);
+        print(SYSOUT_BANNER, MCS_BUILD_NUMBER);
         break;
     case 23:
         diskidcmd();
@@ -1052,7 +994,8 @@ void executecommand(char *s)
             error(SYSOUT_INVALID_PARAM);
             break;
         }
-        setcmd(argc == 2 ? args[1] : "");
+        if (argc == 1) args[0][0] = 0;
+        setcmd(argc == 2 ? args[1] : args[0]);
         break;
     case 25:
         if (argc != 1) {
@@ -1074,151 +1017,18 @@ void executecommand(char *s)
         attribcmd();
         break;
     case 27:
-    case 31:
         if (argc != 1) {
             error(SYSOUT_INVALID_PARAM);
             break;
         }
-        bootsplash(id & 4); /* SPLASH=27 -> 0, SYSINFO=31 -> 4. */
+        bootsplash(0);
+        break;
+    case 31:
+        if (argc > 2 || (argc == 2 && stricmp(args[1], "/probe14"))) {
+            error(SYSOUT_INVALID_PARAM);
+            break;
+        }
+        bootsplash(argc == 2 ? 5 : 4);
         break;
     }
-}
-
-/* One destination per built-in command. Keep the wrapper responsible for
- * closing output even when command handlers return early.
- *
- * Separate output redirection, execute the command, then close and finalize its output.
- *
- * s: Writable command line; redirection markers may be replaced with terminators. */
-void execute(char *s)
-{
-    char *r, *op = 0, *target, *end;
-    unsigned char quote = 0, append = 0, helping;
-    int id, i;
-    aborted = 0;
-    for (r = s; *r; ++r) {
-        if (*r == '"')
-            quote = !quote;
-        else if (*r == '>' && !quote) {
-            if (op) {
-                error(SYSOUT_MULTIPLE_REDIR);
-                return;
-            }
-            op = r;
-            if (r[1] == '>') {
-                append = 1;
-                ++r;
-            }
-        }
-    }
-    if (!op) {
-        executecommand(s);
-        return;
-    }
-    if (quote) {
-        error(SYSOUT_SYNTAX_ERR);
-        return;
-    }
-    target = op + 1 + append;
-    *op = 0;
-    end = op;
-    while (end > s && end[-1] == ' ')
-        *--end = 0;
-    while (*s == ' ' || *s == '@')
-        ++s;
-    if (!tokenize(s) || !argc) {
-        error(SYSOUT_SYNTAX_ERR);
-        return;
-    }
-    id = commandid(args[0]);
-    if (!stricmp(args[0], "ECHO."))
-        id = 7;
-    helping = id == 11;
-    for (i = 1; i < argc; ++i)
-        if (!argquoted[i] && !strcmp(args[i], "/?"))
-            helping = 1;
-    if (helping || (id != 1 && id != 5 && id != 7 && id != 13 && id != 20 && id != 28)) {
-        error(SYSOUT_REDIR_NOT_SUPPORTED);
-        return;
-    }
-    /* Resolve file inputs before opening/truncating any destination. */
-    if (id == 20 || id == 28) {
-        unsigned char mode;
-        unsigned long limit;
-        char *needle;
-        if (id == 28) {
-            if (!findoptions(&mode, &needle))
-                return;
-        } else {
-            if (!typeoptions(&mode, &limit)) {
-                error(SYSOUT_SYNTAX_TYPE);
-                return;
-            }
-            if (!path(args[1], &p1))
-                return;
-        }
-        i = findfile(&p1);
-        if (i < 0) {
-            if (i == -1)
-                error(SYSOUT_FILE_NOT_FOUND);
-            return;
-        }
-        if (directory_entries[i].type != CBM_T_SEQ && directory_entries[i].type != CBM_T_PRG &&
-            directory_entries[i].type != CBM_T_USR) {
-            error(SYSOUT_UNSUPPORTED_FILE_TYPE);
-            return;
-        }
-    }
-    if (!tokenize(target) || argc != 1) {
-        error(SYSOUT_INVALID_DEST);
-        return;
-    }
-    if (!stricmp(args[0], "LPT1") || !stricmp(args[0], "LPT2")) {
-        error(SYSOUT_PRINTER_REDIR);
-        return;
-    }
-    if (!path(args[0], &outputpath))
-        return;
-    if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
-        error(SYSOUT_INVALID_DEST);
-        return;
-    }
-    if ((id == 20 || id == 28) && p1.dev == outputpath.dev && !strcmp(p1.name, outputpath.name)) {
-        error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
-        return;
-    }
-    cachevalid = 0;
-    i = findfile(&outputpath);
-    if (i == -2)
-        return;
-    if (i >= 0 && directory_entries[i].type != CBM_T_SEQ) {
-        error(SYSOUT_DEST_MUST_BE_SEQ);
-        return;
-    }
-    /* Delay truncation until syntax, source type and self-redirection checks have all passed. */
-    if (i >= 0 && outputpath.dev && !append && !scratch(&outputpath))
-        return;
-    if (!statuschannel(outputpath.dev)) {
-        error(SYSOUT_DRIVE_NOT_READY);
-        return;
-    }
-    snprintf(diskcmd, sizeof(diskcmd), "0:%s,s,%c", outputpath.name, append && i >= 0 ? 'a' : 'w');
-    if (channel_open(5, outputpath.dev, 5, diskcmd) != 0) {
-        channel_close(5);
-        error(SYSOUT_WRITE_FAULT_ERR);
-        return;
-    }
-    if (diskstatus(outputpath.dev, 1) >= 20) {
-        channel_close(5);
-        return;
-    }
-    outputused = outputfailed = outputcol = 0;
-    redirected = 1;
-    executecommand(s);
-    /* Command handlers may return early; this outer path still flushes and closes their output. */
-    outputflush();
-    redirected = 0;
-    channel_close(5);
-    cachevalid = 0;
-    diskstatus(outputpath.dev, 1);
 }

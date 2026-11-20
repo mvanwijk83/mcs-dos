@@ -5,6 +5,8 @@ const {functions, commands, header} = require('./source');
 const harness = `
 
 #include <string.h>
+#include "../src/device-name.h"
+#include "../tests/location-fixture.h"
 #include <stdio.h>
 #include <ctype.h>
 #define MAXARGS      ${header.match(/^#define MAXARGS (\d+)/m)[1]}
@@ -13,23 +15,31 @@ static const char *const commands[] = {${commands.map(name => JSON.stringify(nam
 #define CBM_T_SEQ 16
 #define CBM_T_PRG 17
 #define CBM_T_USR 18
+#define OUTPUT_CONSOLE 0
+#define OUTPUT_FILE 1
+#define OUTPUT_NUL 2
+#define OUTPUT_CHANNEL 5
 
 typedef struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } Path;
 
 static Path p1, outputpath;
-static unsigned char argc, argquoted[MAXARGS], aborted, redirected, outputused, outputfailed,
+static unsigned char argc, argquoted[MAXARGS], aborted, outputkind, outputused, outputfailed,
     outputcol, cachevalid, drive = 8;
+static unsigned char default_printer = 4;
+#define redirected (outputkind != OUTPUT_CONSOLE)
 static char line[160], parsebuf[160], rawparse[160], rawline[160], diskcmd[160], *args[MAXARGS];
 
 static struct {
     unsigned char type;
 } files[1] = {{CBM_T_SEQ}};
 
-static int errors, opened, deleted, executed;
+static unsigned char outputmode, outputstarted;
+static unsigned char outputbuf[128], observed_kind, buffered;
+static int errors, opened, closed, deleted, executed;
 static const char *message;
+static char command_text[160];
 
 /* Ignore raw-byte annotations here; exact PETSCII filename handling has integration coverage.
  *
@@ -108,8 +118,10 @@ static int channel_open(int l, int dev, int sa, const char *s)
 /* Provide the close hook; fixtures observe resource cleanup without using KERNAL channels.
  *
  * l: Logical channel identifier. */
+static void channel_abort(int l) {}
 static void channel_close(int l)
 {
+    ++closed;
 }
 
 /* Provide the fixture status result without reading a physical drive error channel.
@@ -124,24 +136,39 @@ static int diskstatus(int dev, int report)
 /* Provide the flush hook without performing actual disk output. */
 static void outputflush(void)
 {
+    buffered |= outputused;
+    outputused = 0;
 }
+static int output_append(void) {
+    outputstarted=1;snprintf(diskcmd,sizeof(diskcmd),"0:%s,s,%c",outputpath.name,outputmode);
+    return !channel_open(5,outputpath.dev,5,diskcmd);
+}
+
+${functions('outputbyte')}
 
 /* Count accepted dispatches without invoking unrelated command handlers.
  *
  * s: Accepted command text; the mock observes dispatch instead of executing it. */
 static void executecommand(char *s)
 {
+    unsigned int i;
     ++executed;
+    strcpy(command_text, s);
+    observed_kind = outputkind;
+    if (outputkind == OUTPUT_NUL)
+        for (i = 0; i < 1024; ++i)
+            outputbyte((unsigned char)i);
 }
 
-${functions('path', 'typeoptions', 'findoptions', 'tokenize', 'execute')}
+${functions('printer_device', 'printer_open', 'output_open', 'output_finish',
+    'path', 'typeoptions', 'findoptions', 'tokenize', 'can_redirect', 'trim_redirect', 'execute')}
 /* Prepare fixture arguments and observable state, then call the production handler.
  *
  * s: Command line dispatched through the production command parser. */
 static void run(const char *s)
 {
     strcpy(line, s);
-    errors = opened = deleted = executed = 0;
+    errors = opened = closed = deleted = executed = buffered = 0;
     message = "";
     execute(line);
 }
@@ -158,8 +185,8 @@ static int rejected(const char *s)
 /* Run the independent fixture cases; failure results identify the violated invariant. */
 int main(void)
 {
-    if (!rejected("HELP >out") || !rejected("HELP FIND >>out") || !rejected("FIND /? >out") ||
-        !rejected("DIR /? >out"))
+    if (!rejected("RUN input >out") || !rejected("DEL * >out") || !rejected("FORMAT 8: >PRN") ||
+        !rejected("CHKDSK /V >out") || !rejected("FIND /? >>PRN"))
         return 1;
     if (!rejected("FIND \\"word\\" input >input") ||
         strcmp(message, SYSOUT_CANNOT_REDIR_FIND_ON_SELF))
@@ -188,10 +215,33 @@ int main(void)
     run("HELP FIND");
     if (errors || opened || executed != 1)
         return 11;
+    run("FIND /? >out");
+    if (errors || opened != 1 || executed != 1 || redirected)
+        return 12;
+    run("ECHO foo < CON");
+    if (errors || opened || executed != 1 || strcmp(command_text, "ECHO foo"))
+        return 13;
+    run("ECHO foo < CON: >out");
+    if (errors || opened != 1 || executed != 1 || strcmp(command_text, "ECHO foo"))
+        return 14;
+    run("ECHO foo >CON: < CON");
+    if (errors || opened || executed != 1 || strcmp(command_text, "ECHO foo"))
+        return 15;
+    if (!rejected("ECHO foo >8:CON") || !rejected("ECHO foo >>0:PRN") ||
+        !rejected("ECHO foo <PRN") || strcmp(message, SYSOUT_INVALID_FILE_NAME))
+        return 16;
+    run("TYPE input >nul:");
+    if (errors || opened || closed || deleted || buffered || executed != 1 || redirected ||
+        observed_kind != OUTPUT_NUL)
+        return 17;
+    if (!rejected("ECHO foo >>NUL") || strcmp(message, SYSOUT_DEVICE_APPEND) ||
+        !rejected("ECHO foo >8:NUL") || strcmp(message, SYSOUT_INVALID_FILE_NAME) ||
+        !rejected("ECHO foo <NUL") || !rejected("EDIT >NUL"))
+        return 18;
     return 0;
 }
 `;
 fs.writeFileSync('build/test-find-redirection.c', harness);
 require('./simulator')('build/test-find-redirection.c');
 console.log(
-    'PASS FIND redirection validation, append, input protection, quoted help/redirect characters and HELP rejection');
+    'PASS FIND validation, device redirection, NUL byte discard and help redirection');

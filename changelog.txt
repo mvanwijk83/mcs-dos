@@ -4,20 +4,65 @@
        Copyright (C) 2026 MCS Labs
 
 
+  2.1 (dd-Mmm-2026)
+----------------------------------------
+* Added subdirectory support including
+  CD/CHDIR, MD/MKDIR and RD/RMDIR
+  commands. 1581 and CMD-FD/HD
+  partitions are rendered as and
+  navigated as subdirectories with
+  transparent partition switching.
+* Programs can now be run by only
+  specifying their file name, as in
+  classic DOS. The RUN command is
+  retained for backwards compatibility.
+* Added KEY command to bind command text
+  to function keys.
+* Added a /T switch to DIR to filter on
+  file types (PRG, SEQ, REL, USR, DEL),
+  and /S to recursively list files from
+  all subdirectories.
+* Added a /C switch to TYPE to specify a
+  number of bytes or characters instead
+  of lines when used with /H and /T.
+  Additionally, /H and /T now work with
+  /HEX.
+* $P in SET PROMPT now denotes the
+  current path; the DRIVEIDS-dependent
+  drive identifier is now $I.
+* PAUSE can now be made to show a custom
+  message.
+* Expanded SYSINFO computer model and
+  KERNAL detection, and changed video/
+  display presentation. Also, fixed a
+  bug where Ultimate detection required
+  explicitly re-enabling Command
+  Interface.
+* Updated CHKDSK to take into account
+  subdirectories and partitions.
+* Pressing RUN/STOP on the command
+  prompt will now erase the current
+  input, instead of creating a new
+  prompt.
+* Added a safe boot hint on the boot-
+  splash.
+* The backslash symbol has been remapped
+  to the pound key (£), making it
+  typable when using paths.
+* The documentation .TXT files have been
+  replaced with a more extensive PDF
+  manual in the ZIP archive.
+
   2.0 (03-Oct-2026)
 ----------------------------------------
 * MCS-DOS is now distributed as an Easy-
-  Flash cartridge image to enhance
+  Flash cartridge image to support new
   feature development and improve
   performance in some areas. The cart-
   ridge contains a 62.5 kb user-writable
-  area that can be used as any other
-  storage device.
+  storage area.
 * Added support for CONFIG.SYS to
   configure boot behaviour.
-* The command help library is no longer
-  represented as a file (COMMANDS.HLP)
-  but stored as internal cartridge data.
 * Improved native program support:
   programs with a clean BASIC exit and
   that preserve $C000-$C1FF will return

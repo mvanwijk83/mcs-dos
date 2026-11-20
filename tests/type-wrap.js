@@ -8,6 +8,8 @@ const harness = `
 
 #include <stdio.h>
 #include <string.h>
+static unsigned char rawreadmask;
+#define raw_reader_clone() ((void)0)
 #include <ctype.h>
 static unsigned char io[256], ox, aborted, pagelines, redirected;
 static int argc = 2, p1, rows, pages, pos, length;
@@ -129,6 +131,9 @@ static int readio(int a, void *b, unsigned int size)
     return n;
 }
 
+#define printer_device(name) 0
+#define printer_open(channel, device) 0
+#define default_printer 4
 ${type}
 /* Compare the current fixture result with its expected output or state.
  *

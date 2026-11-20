@@ -1,6 +1,15 @@
 const fs=require('fs'),path=require('path'),{execFileSync:exec}=require('child_process');
 const {tool,setup}=require('./toolchain'); setup();
 const out='build/easyflash'; fs.mkdirSync(out,{recursive:true});
+const now = new Date();
+const date = now.toISOString().slice(0, 10);
+const year = now.getUTCFullYear();
+const day = 1 + Math.floor((now - Date.UTC(year, 0, 1)) / 86400000);
+const countFile = `build/build-count-${date}`;
+// Each completed build appends one byte to its UTC day's counter.
+const ordinal = fs.statSync(countFile, {throwIfNoEntry: false})?.size ?? 0;
+const buildNumber = `${date.slice(2, 4)}${String(day).padStart(3, '0')}.${ordinal}`;
+fs.writeFileSync(`${out}/build-number.h`, `#define MCS_BUILD_NUMBER "${buildNumber}"\n`);
 const compile=args=>exec(tool('oscar64','oscar64'),args,{stdio:'inherit',windowsHide:true});
 const binary=(name,source=`src/easyflash/${name}.c`,extra=[])=>compile(['-n','-Os','-Oo','-psci','-rt=','-tf=bin',...extra,`-o=${out}/${name}.bin`,source]);
 exec(process.execPath,['scripts/make-hardware.js'],{stdio:'inherit',windowsHide:true});
@@ -47,12 +56,12 @@ const code=map.match(/^([\da-f]+) - ([\da-f]+) : DATA, code/m);
 // Filesystem calls temporarily expose ROML too; resident services must be
 // below $8000 even though persistent data may extend through $9FFF.
 if(!code||parseInt(code[2],16)>0x8000)throw Error('Resident code overlaps filesystem ROML');
-const commandBanks=['edit','fileutil','filemgmt','disk','boot'].map((name,i)=>{
+const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer','volume','host','hostdir','mount','ultdir','softiec','nativedir','fatdir'].map((name,i)=>{
  const sections=[...map.matchAll(new RegExp(`^([\\da-f]+) - ([\\da-f]+) : DATA, ${name}_(?:code|data)$`,'gm'))]
   .map(m=>[parseInt(m[1],16),parseInt(m[2],16)]).filter(([a,b])=>b>a);
  if(!sections.length||sections.some(([a,b])=>a<0xa000||b>0xc000))throw Error('Command bank overflow: '+name);
  const used=Math.max(...sections.map(s=>s[1]))-0xa000;
- return {name,bank:i+5,used,free:8192-used};
+ return {name,bank:i>=5?i+7:i+5,used,free:8192-used};
 });
 const prg=fs.readFileSync(`${out}/shell.prg`),payload=prg.subarray(2);
 const entry=Number(prg.subarray(6,32).toString('latin1').match(/\x9e(\d+)\x00/)[1]);
@@ -96,7 +105,7 @@ payload.copy(rom,16384);
 const banks=fs.readFileSync(`${out}/shell-crt.crt`);
 for(let at=64;at<banks.length;at+=banks.readUInt32BE(at+4)){
  const bank=banks.readUInt16BE(at+10),address=banks.readUInt16BE(at+12),length=banks.readUInt16BE(at+14);
- if(bank>=5&&bank<=9)banks.copy(rom,bank*16384+address-0x8000,at+16,at+16+length);
+ if(commandBanks.some(b=>b.bank===bank))banks.copy(rom,bank*16384+address-0x8000,at+16,at+16+length);
 }
 const driver=fs.readFileSync(`${out}/fs.bin`); if(driver.length>0x3f00)throw Error('Driver bank overflow'); driver.copy(rom,4*16384);
 const executableBytes=prg.length+commandBanks.reduce((n,b)=>n+b.used,0);
@@ -104,27 +113,32 @@ if(run.length>120)throw Error('RUN loader exceeds transfer buffer'); insert(4,1,
 const help=fs.readFileSync(`${out}/help.bin`);insert(10,0,help);
 const tape=fs.readFileSync(`${out}/tape.bin`);insert(11,1,tape);
 exec(process.execPath,['scripts/make-examples.js'],{stdio:'inherit',windowsHide:true});
-fs.copyFileSync('disk-content/CGA.CPI','build/CGA.CPI');
+for(const name of ['CGA.CPI','PET.CPI','VGA.CPI'])fs.copyFileSync('disk-content/'+name,'build/'+name);
+fs.writeFileSync('build/README.TXT',require('./petscii')(fs.readFileSync('disk-content/readme.txt','utf8')));
 fs.writeFileSync('build/AUTOEXEC.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/AUTOEXEC.SAMPLE','utf8')));
 // Configuration keys use unshifted PETSCII, as written by the shell's ECHO.
 fs.writeFileSync('build/CONFIG.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/CONFIG.SAMPLE','utf8').toLowerCase()));
-const names=['AUTOEXEC.SAMPLE','CGA.CPI','CHANGELOG.TXT','CONFIG.SAMPLE','LICENSE.TXT','MANUAL.TXT'];
+const names=['AUTOEXEC.SAMPLE','CGA.CPI','CONFIG.SAMPLE','PET.CPI','README.TXT','VGA.CPI'];
 const {image,used,fileBytes,available}=require('./journal-image')(names);
 for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
-const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.0',32);
+const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.1',32);
+// REU-aware EasyFlash subtype: $DF00-$DF1F is free (EasyAPI uses $DF80-$DFFF).
+// Ultimate otherwise disables UCI after selecting its $DE1C relocation on load.
+header[0x1a]=1;
 const packets=[header];
 // Include complete filesystem and session sectors, including erased sides.
-for(let bank=0;bank<64;bank++)if(bank<=11||bank>=48)for(let chip=0;chip<2;chip++){
+for(let bank=0;bank<64;bank++)if(bank<=Math.max(...commandBanks.map(b=>b.bank))||bank>=48)for(let chip=0;chip<2;chip++){
  const h=Buffer.alloc(16);h.write('CHIP');h.writeUInt32BE(8208,4);h.writeUInt16BE(2,8);h.writeUInt16BE(bank,10);h.writeUInt16BE(chip?0xa000:0x8000,12);h.writeUInt16BE(8192,14);
  packets.push(h,rom.subarray(bank*16384+chip*8192,bank*16384+(chip+1)*8192));
 }
 fs.writeFileSync(`${out}/MCS-DOS.crt`,Buffer.concat(packets));
 fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').update(Buffer.concat(packets)).digest('hex')+'  MCS-DOS.crt\n');
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
-fs.writeFileSync(`${out}/layout.json`,JSON.stringify({entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
+fs.writeFileSync(`${out}/layout.json`,JSON.stringify({buildNumber,entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
- wedge:wedge.length,sessionBytes:3349,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
+ wedge:wedge.length,sessionBytes:7696,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
  freeRam:0xa000-bssEnd+0x400,freeRanges:[[bssEnd,0xa000],[0xc300,0xc700]],
  helpBank:10,helpBytes:help.length,filesystemVersion:3,used,fileBytes,available},null,2));
-console.log('Built '+out+'/MCS-DOS.crt');
+fs.appendFileSync(countFile, '\n');
+console.log(`Built ${out}/MCS-DOS.crt (build ${buildNumber})`);
 

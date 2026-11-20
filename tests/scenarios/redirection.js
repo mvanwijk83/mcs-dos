@@ -6,7 +6,7 @@ const {tool} = require('../setup');
 const {files} = require('../disk-image');
 const {readImage} = require('../easyflash-image');
 const messages = require('../output');
-module.exports = async function({command, enter, check, disk, crt, root}) {
+module.exports = async function({command, keys, enter, check, disk, crt, root}) {
     const raw = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
     fs.writeFileSync('build/easyflash/redirect-raw', raw);
     fs.writeFileSync('build/easyflash/redirect.bat',
@@ -34,13 +34,48 @@ module.exports = async function({command, enter, check, disk, crt, root}) {
         await check('type binary >binary', messages.SYSOUT_CANNOT_REDIR_TYPE_ON_SELF);
         await check('type binary >>binary', messages.SYSOUT_CANNOT_REDIR_TYPE_ON_SELF);
         await check('echo bad >one >two', messages.SYSOUT_MULTIPLE_REDIR);
-        await check('echo bad >lpt1', messages.SYSOUT_PRINTER_REDIR);
-        await check('ver >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+        await check('echo bad >>prn', messages.SYSOUT_DEVICE_APPEND);
+        await check('echo bad >>con', messages.SYSOUT_DEVICE_APPEND);
+        await check('run 8:redirect.bat >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+        await check('del * >unwanted', messages.SYSOUT_REDIR_NOT_SUPPORTED);
+        await enter('ver >version');
+        await enter('type /? >usage');
+        await check('echo file >' + device + ':prn', messages.SYSOUT_INVALID_FILE_NAME);
+        await check('echo file >' + device + ':con', messages.SYSOUT_INVALID_FILE_NAME);
+        await check('echo explicit console >con', 'explicit console');
+        const consoleInput = await check('echo from console < con', '\nfrom console\n');
+        assert(!consoleInput.includes('\nfrom console <'), consoleInput);
         await check('echo bad >', messages.SYSOUT_INVALID_DEST);
         await check('type missing >replace', messages.SYSOUT_FILE_NOT_FOUND);
         await enter('echo after-error >recovered');
         await enter('run 8:redirect.bat');
     }
+    await enter('echo printer stream >prn:');
+    await enter('echo second printer line >lpt1');
+    await enter('echo redirected payload >0:printme');
+    await enter('type 0:printme >prn');
+    await enter('print 0:printme prn');
+    await enter('cls');
+    const silent = await enter('ver >nul');
+    assert(!silent.includes('MCS-DOS Version'), silent);
+    await enter('type 8:raw >nul:');
+    await check('type missing >nul', messages.SYSOUT_FILE_NOT_FOUND);
+    await check('echo bad >>nul', messages.SYSOUT_DEVICE_APPEND);
+    await check('echo bad >0:nul', messages.SYSOUT_INVALID_FILE_NAME);
+    await check('echo bad >8:nul', messages.SYSOUT_INVALID_FILE_NAME);
+    await enter('cls');
+    let nulPause = await keys('pause visible prompt >nul\\x0d');
+    for (let i = 0; i < 8 && !/^visible prompt$/m.test(nulPause); ++i)
+        nulPause = await keys('');
+    assert.match(nulPause, /^visible prompt *$/m);
+    await keys('q');
+    await enter('cls');
+    let pause = await keys('pause visible prompt >pauseout\\x0d');
+    for (let i = 0; i < 8 && !/^visible prompt$/m.test(pause); ++i)
+        pause = await keys('');
+    assert.match(pause, /^visible prompt *$/m);
+    await keys('q');
+    await check('echo after pause', 'after pause');
     // One free block cannot hold the binary input. The write failure must leave
     // normal output and subsequent file operations usable.
     const full = root + '/build/easyflash/redirect-full.d64';
@@ -64,11 +99,27 @@ module.exports = async function({command, enter, check, disk, crt, root}) {
                failure.includes(messages.SYSOUT_DISK_ERR),
         failure);
     assert((await enter('echo recovered after full disk')).includes('recovered after full disk'));
+    await enter('echo ldautoex=0 >0:config.sys');
+    await enter('echo PrN=LpT2 >>0:config.sys');
+    await enter('echo prn=lpt3 >>0:config.sys');
+    const invalid = await enter('reboot');
+    assert(invalid.includes(messages.SYSOUT_INVALID_DIRECTIVE), invalid);
+    await enter('echo configured alias >prn');
+    await enter('print 0:printme');
+    await enter('copy 0:printme prn:');
+    await enter('echo explicit override >lpt1');
+    await enter('echo prn=5: >0:config.sys');
+    await enter('reboot');
+    await enter('echo configured number >prn');
+    await enter('echo prn=4: >0:config.sys');
+    await enter('reboot');
+    await enter('echo reset to first port >prn');
     // Detaching flushes the emulated drives and writable CRT to their host files.
     await command('detach 8');
     await command('detach $20');
     for (const entries of [files(disk), readImage(crt).files]) {
         const data = name => entries.get(name).data;
+        const text = name => data(name).toString('ascii').toUpperCase();
         assert.equal(data('OUT').toString(), 'FIRST\rSECOND\r');
         assert.equal(data('NOSEPARATOR').toString(), 'JOINED');
         assert.equal(data('SEMICOLON').toString(), 'LINE;\r');
@@ -79,8 +130,18 @@ module.exports = async function({command, enter, check, disk, crt, root}) {
         assert.deepEqual(data('BINARY'), Buffer.concat([raw, raw]));
         assert.equal(data('RECOVERED').toString(), 'AFTER-ERROR\r');
         assert.equal(data('BT').toString(), 'BATCH\rAPPEND\r');
+        assert.ok(text('VERSION').startsWith('MCS-DOS VERSION ' + messages.VERSION));
+        assert.ok(text('USAGE').includes('TYPE [DRIVE:][PATH]FILENAME'));
+        assert(!entries.has('PRN') && !entries.has('CON') && !entries.has('NUL'));
         assert(!entries.has('UNWANTED'), 'rejected redirection must not create a file');
     }
+    assert.deepEqual(files(disk).get('PAUSEOUT').data, Buffer.from('\r'));
+    const printed = fs.readFileSync('build/easyflash/redirect-prn.txt', 'latin1');
+    assert.match(printed, /PRINTER STREAM\rSECOND PRINTER LINE\r/);
+    assert.match(printed, /REDIRECTED PAYLOAD\rREDIRECTED PAYLOAD\r/);
+    assert.match(printed, /EXPLICIT OVERRIDE\rRESET TO FIRST PORT\r/);
+    assert.equal(fs.readFileSync('build/easyflash/redirect-lpt2.txt', 'latin1'),
+        'CONFIGURED ALIAS\rREDIRECTED PAYLOAD\rREDIRECTED PAYLOAD\rCONFIGURED NUMBER\r');
     console.log(
-        'PASS overwrite, append/create, quoting, ECHO escapes, binary TYPE and error recovery on both media');
+        'PASS SEQ, CON, PRN and NUL output, help, binary TYPE and disk-full recovery');
 };

@@ -19,7 +19,8 @@ this was made for fun and novelty.
 * Many familiar disk commands and utilities are implemented.
 * Configuration via `AUTOEXEC.BAT` and `CONFIG.SYS`.
 * Some batch file support.
-* Supports multiple attached drives and multiple models (1541, 1571, 1581).
+* Supports Commodore floppy drives and CMD HD/FD 1541, 1571 and 1581 emulation partitions.
+* Lists and selects CMD partitions with `DISKPART`.
 * Drives can be optionally displayed and addressed with DOS-style drive letters.
 * Simple built-in text editor.
 * Quality of life features such as command history and file name auto-completion.
@@ -31,13 +32,13 @@ this was made for fun and novelty.
 
 ## Notable limitations and omissions
 
-* No subdirectory support. This ia a limitation of the CBM-DOS file system.
-* No support for hard disks, SD2IEC, Ultimate storage, etc.
+* No subdirectory support or CMD native-format disk operations.
+* No dedicated support for SD2IEC or Ultimate storage.
 * Automatic return from native programs depends on their exit implementation (if any) and whether they don't overwrite the MCS-DOS return hook.
 * No fastload or other disk access optimization implemented.
 * Batch files do not support variables, conditionals, labels, or parameters.
 * No piping (`|` syntax) or output redirection.
-* Duplicating disks between different drive types is not currently implemented.
+* Disk duplication requires matching 1541, 1571 or 1581 disk geometry.
 * Due to the shell's mixed-case mode, half of PETSCII's graphics characters do not display correctly.
 
 Future versions may address (some of) these and other shortcomings where possible.

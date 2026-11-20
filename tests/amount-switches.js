@@ -3,18 +3,24 @@ require('./setup');
 const fs = require('fs');
 const {functions} = require('./source');
 let code = 'static unsigned char noseparators,validate;\n' +
-           functions('decimal', 'allocated', 'reportoptions', 'freememory', 'memcmd', 'deletable',
-               'delcmd', 'driveinfo', 'volcmd');
+           functions('decimal', 'allocated', 'reportoptions', 'memcmd', 'deletable',
+               'delcmd', 'mounted_image_info', 'driveinfo', 'volcmd');
 code = code.replace(/static unsigned char deletable\(const Path \*p\)\s*\{[\s\S]*?\n\}/,
     'static unsigned char deletable(void *p) { return 1; }');
-code = code.replace(/static unsigned int freememory\(void\)\s*\{[\s\S]*?\n\}/,
-    'static unsigned int freememory(void) { return 2000; }');
 const harness = `
 
 #include <stdio.h>
 #include <string.h>
+#include "../tests/location-fixture.h"
 #include <ctype.h>
 #include <stdarg.h>
+#define MOUNT_COUNT 3
+#define MOUNT_NATIVE 128
+typedef struct MountRecord {
+    unsigned char dev, source, model, type;
+    char dir[128], name[17];
+} MountRecord;
+static MountRecord mounts[MOUNT_COUNT];
 static int argc, errors, prompts, deleted, answer = 1;
 static char *args[12], argstore[2][20];
 static char out[1000], volume[17] = "TEST", io[256];
@@ -23,15 +29,16 @@ static unsigned int count = 2;
 static unsigned int freeblocks = 660;
 static char BSSEnd;
 #define SHELL_STACK_SIZE 2048U
+static unsigned int freememory(void) { return 2000; }
 
 static struct {
-    unsigned char dev;
-    char name[17];
+    unsigned char dev; char name[17]; char dir[128];
 } p1;
 
 static struct {
     unsigned int blocks;
     char name[17];
+    unsigned char type;
 } files[2] = {{2, "one"}, {2, "two"}};
 
 /* Resolve a controlled fixture path without performing device I/O.
@@ -40,6 +47,7 @@ static struct {
  * p: Result path or placeholder used by this fixture. */
 static int path(const char *s, void *p)
 {
+    p1.dev = drive;
     p1.name[0] = 0;
     if (!strchr(s, ':'))
         strcpy(p1.name, s);
@@ -69,6 +77,16 @@ static void say(const char *s)
 static void outs(const char *s)
 {
     strcat(out, s);
+}
+
+static void outc(unsigned char c)
+{
+    unsigned int length = strlen(out);
+    const char *line = strrchr(out, 10);
+    out[length] = c;
+    if (!redirected && length - (line ? line + 1 - out : 0) == 39)
+        out[++length] = 10;
+    out[length + 1] = 0;
 }
 
 /* Provide the newline hook; fixtures capture it when text layout is under test. */
@@ -160,6 +178,12 @@ static int bam(int d)
     return 1;
 }
 
+/* Supported geometry lets validation reach the command-channel fixture. */
+static unsigned char drivetype(unsigned char d, unsigned char report)
+{
+    return 1;
+}
+
 static unsigned char model = 1;
 
 /* Supply the configured drive model so report formatting can be tested independently.
@@ -187,6 +211,14 @@ static void volumeheader(int d)
 {
 }
 
+static int findfile(const void *p) { return 0; }
+/* Raw 1581 traversal is exercised against independently audited full D81s.
+ * Here, provide its completed statistics to test the report formatting. */
+#define DRIVE_1581 3
+typedef struct DiskWide1581 {unsigned int blocks,files,free,directories,directoryblocks;unsigned char id[2];} DiskWide1581;
+static unsigned char diskwide1581(unsigned char d,DiskWide1581 *r) {
+    memset(r,0,sizeof(*r));r->blocks=4;r->files=2;r->free=3156;r->id[0]='M';r->id[1]='C';return 1;
+}
 ${code}
 /* Reset observable state and load fixture inputs before an independent case.
  *
@@ -196,6 +228,7 @@ static void reset(const char *a, const char *b)
 {
     out[0] = 0;
     errors = prompts = deleted = noseparators = 0;
+    freeblocks = 660;
     argc = 1;
     if (a) {
         strcpy(argstore[0], a);
@@ -288,26 +321,27 @@ int main(void)
     drive = 8;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "\\n\\nDrive model is 1541\\nDrive identifier is 8 (CBM) / A (DOS)\\n"))
+    if (!strstr(out, "\\n\\nDrive model: 1541\\nDrive ID:    8 (IEC), A (DOS)\\n"))
         return 29;
     drive = 9;
     model = 2;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "Drive model is 1571\\nDrive identifier is 9 (CBM) / B (DOS)\\n"))
+    if (!strstr(out, "Drive model: 1571\\nDrive ID:    9 (IEC), B (DOS)\\n"))
         return 30;
     drive = 30;
     model = 3;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "Drive model is 1581\\nDrive identifier is 30 (CBM) / W (DOS)\\n"))
+    if (!strstr(out, "Drive model: 1581\\nDrive ID:    30 (IEC), W (DOS)\\n"))
         return 31;
     drive = 0;
     reset(0, 0);
     volcmd(1);
-    if (!strstr(out, "\\n\\nDrive model is EasyFlash\\nDrive identifier is 0\\n"))
+    if (!strstr(out, "\\n\\nDrive model: EasyFlash\\nDrive ID:    0\\n"))
         return 32;
     drive = 8;
+    model = 1;
     reset("/V", 0);
     volcmd(1);
     if (errors || strstr(out, "Drive model"))
@@ -347,7 +381,7 @@ int main(void)
         return 13;
     reset("*", "/p");
     delcmd();
-    if (prompts || deleted != 1)
+    if (prompts || deleted != 2)
         return 14;
     reset("/P", "file");
     delcmd();
@@ -366,6 +400,44 @@ int main(void)
     delcmd();
     if (prompts != 1 || deleted)
         return 18;
+    /* A native leaf is ASCII on disk and must retain its case in PETSCII. */
+    {
+        static const char suffix[] = {0x49,0x4d,0xc1,0x47,0x45,0x2e,0x44,0x36,0x34,0};
+        unsigned char i;
+        mounts[2].dev = 9; mounts[2].source = 11; mounts[2].type = MOUNT_NATIVE;
+        strcpy(mounts[2].dir, "USB1\\\\GAMES\\\\");
+        i = strlen(mounts[2].dir);
+        memset(mounts[2].dir + i, 'x', 12);
+        strcpy(mounts[2].dir + i + 12, "imAge.d64");
+        for (i = 0; i < 2; ++i) {
+            redirected = i;
+            out[0] = 0;
+            driveinfo(9);
+            if (!strstr(out, "Disk image:  11:\\\\USB1\\\\GAMES\\\\XXXXXXXXXXXX\\n             "))
+                return 34;
+            if (!strstr(out, suffix)) return 35;
+        }
+        /* A source ending exactly on the right margin advances only once. */
+        memset(mounts[2].dir, 0x58, 23);
+        mounts[2].dir[23] = 0;
+        for (i = 0; i < 2; ++i) {
+            redirected = i;
+            out[0] = 0;
+            driveinfo(9);
+            if (!strstr(out, "Disk image:  11:\\\\") ||
+                out[strlen(out) - 2] != 0xd8 || out[strlen(out) - 1] != 10)
+                return 38;
+        }
+        out[0] = 0;
+        driveinfo(8);
+        if (strstr(out, "Disk image:")) return 36;
+        mounts[2].type = 1;
+        strcpy(mounts[2].dir, "@1");
+        strcpy(mounts[2].name, "GAME.D64");
+        out[0] = 0;
+        driveinfo(9);
+        if (!strstr(out, "Disk image:  11:\\\\@1\\\\GAME.D64\\n")) return 37;
+    }
     return 0;
 }
 `;

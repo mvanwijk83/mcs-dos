@@ -1,6 +1,7 @@
 // Editor UI, save/reload and IRQ restoration on the release cartridge.
 const fs = require('fs'), path = require('path'), assert = require('assert/strict');
 const messages = require('./output');
+const {files} = require('./disk-image');
 require('./shell')('editor-session', async session => {
     const {command, memory} = session;
     const screen = async () => (await session.screen()).split('\n');
@@ -63,6 +64,25 @@ require('./shell')('editor-session', async session => {
     assert(out.some(s => s.includes(messages.SYSOUT_INVALID_SWITCH.trim())));
     out = await keys('help edit\\x0d');
     assert(!out.some(s => s.includes('/MODERN')));
+    status((await keys('edit con\\x0d'))[24], 'CON');
+    await keys('do not save\\x03y');
+    await session.until(text => text.includes(messages.SYSOUT_OVERWRITE_FILE));
+    await keys('y');
+    await session.until(text => text.includes(messages.SYSOUT_INVALID_FILE_NAME));
+    await keys('edit\\x0d');
+    await keys('do not save\\x03y');
+    await keys('8:prn\\x0d');
+    await session.until(text => text.includes(messages.SYSOUT_OVERWRITE_FILE));
+    await keys('y');
+    await session.until(text => text.includes(messages.SYSOUT_INVALID_FILE_NAME));
+    status((await keys('edit nul:\\x0d'))[24], 'NUL');
+    await keys('do not save\\x03y');
+    await session.until(text => text.includes(messages.SYSOUT_OVERWRITE_FILE));
+    await keys('y');
+    await session.until(text => text.includes(messages.SYSOUT_INVALID_FILE_NAME));
+    await command('detach 8');
+    const entries = files(session.disk);
+    assert(!entries.has('CON') && !entries.has('PRN') && !entries.has('NUL'));
     console.log(
         'PASS right-aligned status, Untitled and 16-character filename, fixed-cell watchpoints, shell colours/IRQ unchanged, save/reload and cancellation/error paths');
 }).catch(error => {

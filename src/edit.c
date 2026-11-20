@@ -3,13 +3,125 @@
 #include "core.h"
 #pragma code(edit_code)
 #pragma data(edit_data)
-__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall);
+__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char mode);
 __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char deleting);
 __noinline void bank_editstatus(void);
 __noinline void bank_editsaving(void);
 __noinline void bank_editnumber(unsigned int address, unsigned char n);
 __noinline void bank_renderedit(void);
 __noinline void bank_editcmd(void);
+
+/* Locate one string in the packed F1..F7 table. */
+__noinline char *bank_keytext(char *table, unsigned char key)
+{
+    while (--key)
+        table += strlen(table) + 1;
+    return table;
+}
+
+/* Recognize KEY's option boundaries without splitting commands such as DIR/W. */
+__noinline unsigned char bank_keyswitch(const char *s)
+{
+    return *s == '/' && ((toupper(s[1]) == 'F' && s[2] >= '0' && s[2] <= '9') ||
+                         !strnicmp(s, "/CLEAR", 6));
+}
+
+/* Display only bound keys, using the same layout for lists and individual queries. */
+__noinline void bank_keyshow(char *table, unsigned char key)
+{
+    char *text = bank_keytext(table, key);
+    if (*text)
+        print("  F%u  %s\n", (unsigned int)key, text);
+}
+
+/* Apply a complete KEY request to a scratch copy before publishing any changes.
+ * Commands remain unparsed so spaces, quotes and filename switches survive. */
+__noinline void bank_keycmd(const char *s)
+{
+    char *table = workspace, *old, *last;
+    const char *text, *end, *next;
+    unsigned int used, before, size, length;
+    unsigned char key, quoted, clearing;
+    while (*s == ' ')
+        ++s;
+    if (!*s) {
+        for (key = 1; key <= FUNCTIONKEYS; ++key)
+            bank_keyshow(keybindings, key);
+        return;
+    }
+    memcpy(table, keybindings, KEYBUFSIZE);
+    while (*s) {
+        clearing = 0;
+        if (!strnicmp(s, "/CLEAR", 6)) {
+            s += 6;
+            if (!*s || *s == ' ') {
+                memset(table, 0, KEYBUFSIZE);
+                while (*s == ' ')
+                    ++s;
+                continue;
+            }
+            if (*s++ != ':' || *s < '1' || *s > '7' || (s[1] && s[1] != ' '))
+                goto invalid;
+            key = *s++ - '0';
+            clearing = 1;
+            text = end = s;
+        } else {
+            if (*s != '/' || toupper(s[1]) != 'F' || s[2] < '1' || s[2] > '7' ||
+                (s[3] && s[3] != ':' && s[3] != ' '))
+                goto invalid;
+            key = s[2] - '0';
+            s += 3;
+            if (*s == ':')
+                ++s;
+            while (*s == ' ')
+                ++s;
+            if (!*s || bank_keyswitch(s)) {
+                bank_keyshow(table, key);
+                continue;
+            }
+            text = end = s;
+            quoted = 0;
+            while (*end) {
+                if (*end == '"')
+                    quoted = !quoted;
+                if (*end == ' ' && !quoted) {
+                    next = end;
+                    while (*next == ' ')
+                        ++next;
+                    if (bank_keyswitch(next))
+                        break;
+                }
+                ++end;
+            }
+            s = end;
+            while (end > text && end[-1] == ' ')
+                --end;
+        }
+        length = clearing ? 0 : end - text;
+        if (length >= LINE) {
+            error(SYSOUT_KEY_TOO_LONG);
+            return;
+        }
+        old = bank_keytext(table, key);
+        last = bank_keytext(table, FUNCTIONKEYS);
+        used = last - table + strlen(last) + 1;
+        before = old - table;
+        size = strlen(old) + 1;
+        if (used - size + length + 1 > KEYBUFSIZE) {
+            error(SYSOUT_KEY_FULL);
+            return;
+        }
+        memmove(old + length + 1, old + size, used - before - size);
+        memcpy(old, text, length);
+        old[length] = 0;
+        while (*s == ' ')
+            ++s;
+    }
+    memcpy(keybindings, table, KEYBUFSIZE);
+    return;
+invalid:
+    error(SYSOUT_INVALID_SWITCH);
+}
 
 /* Clear and select the reverse-video editor status line. */
 __noinline void bank_editstatus(void)
@@ -51,6 +163,16 @@ __noinline void bank_renderedit(void)
     }
 }
 
+/* Treat a device as an existing target without opening a disk file. */
+static unsigned char editpath(const char *name)
+{
+    if (!reserved_device(name))
+        return path(name, &p1);
+    memcpy(p1.name, name, 3);
+    p1.name[3] = 0;
+    return 1;
+}
+
 /* Run EDIT: load bounded text, handle editing keys, and save only after confirmation. */
 __noinline void bank_editcmd(void)
 {
@@ -68,11 +190,11 @@ __noinline void bank_editcmd(void)
         } else if (p1.name[0]) {
             say(SYSOUT_TOO_MANY_PARAMS);
             return;
-        } else if (!path(args[i], &p1))
+        } else if (!editpath(args[i]))
             return;
     }
     memset(editbuf, ' ', sizeof(editbuf));
-    if (p1.name[0]) {
+    if (p1.name[0] && !reserved_device(p1.name)) {
         cachevalid = 0;
         exists = findfile(&p1);
         if (exists == -2)
@@ -247,8 +369,13 @@ __noinline void bank_editcmd(void)
     if (!p1.name[0]) {
         bank_editstatus();
         outs(SYSOUT_FILE_NAME);
-        if (!bank_input(line, LINE, 0) || !path(line, &p1) || !p1.name[0])
+        if (!bank_input(line, LINE, 0) || !editpath(line) || !p1.name[0])
             goto done;
+    }
+    if (reserved_device(p1.name)) {
+        if (yesno(SYSOUT_OVERWRITE_FILE))
+            error(SYSOUT_INVALID_FILE_NAME);
+        goto done;
     }
     bank_editsaving();
     if (!preparewrite(&p1) || !openwrite(&p1, CBM_T_SEQ))
@@ -287,26 +414,45 @@ done:
     editprompt = 0;
 }
 
-/* One-row horizontal viewport, with an 64-character command behind it.
+/* The KERNAL's CTRL table maps function keys to $ff, so GETIN never
+ * receives them. Use its physical scan index instead, once per key press.
+ * Keep the latch across prompts so a held shortcut cannot execute twice. */
+__noinline unsigned char bank_controlkey(void)
+{
+    static unsigned char down;
+    unsigned char key = PEEK(197), mod = PEEK(653), c;
+    if (!(mod & 4))
+        key = 64;
+    if (key == down)
+        return 0;
+    down = key;
+    if (key < 3 || key > 6)
+        return 0;
+    c = key == 3 ? 136 : 133 + key - 4;
+    if (mod & 1)
+        c += 4;
+    return c;
+}
+
+/* One-row horizontal viewport, with a 127-character command behind it.
  *
- * Read an editable command line with completion and optional history; return zero on
- * cancellation.
+ * Read an editable line; return nonzero on RETURN or zero on RUN/STOP.
  *
  * buf: Destination buffer, including space for a terminator.
  * max: Total buffer capacity.
- * recall: Nonzero enables command history and raw filename tracking. */
-__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char recall)
+ * mode: 1 enables history and completion, INPUT_COPY_CON keeps text on RUN/STOP. */
+__noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char mode)
 {
     unsigned int len = 0, pos = 0, view = 0, start = 0, i, n;
     unsigned char x = ox, y = oy, w = 39 - ox, c, oldmod = 0;
     unsigned char h = histcount, dirty = 1, comp = 0;
     unsigned int ci = 0;
     static char token[LINE];
-    char prefix[17], shown[40], lead[5];
+    char prefix[17], shown[40], lead[PATHSIZE];
     unsigned char mod, quoted;
     Path cp;
     clock_t blink;
-    unsigned char visible = 1;
+    unsigned char visible = 1, accept = 0, control, recall = mode == 1;
     /* Leave room for one bank_input character and its caret after a long prompt. */
     if (!w) {
         newline();
@@ -362,7 +508,8 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
         if (recall && mod && !oldmod) {
             oldmod = mod;
             if (!comp) {
-                /* Completion is only offered after a command token. */
+                /* Complete a filename in the first token too. A complete built-in
+                 * command still starts completion of its first argument. */
                 start = 0;
                 quoted = 0;
                 for (i = 0; i < pos; ++i) {
@@ -371,7 +518,7 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                     if (buf[i] == ' ' && !quoted)
                         start = i + 1;
                 }
-                if (!start) {
+                if (!start && commandid(buf) >= 0) {
                     if (!pos || pos != len || len + 1 >= max)
                         continue;
                     buf[pos++] = ' ';
@@ -390,15 +537,19 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                 }
                 strcpy(prefix, cp.name);
                 lead[0] = 0;
-                if (strchr(token, ':'))
-                    snprintf(lead, sizeof(lead), "%s:", drivename(cp.dev));
+                for (i = 0; token[i]; ++i)
+                    if (token[i] == 0x5c || token[i] == ':') {
+                        memcpy(lead, token, i + 1);
+                        lead[i + 1] = 0;
+                    }
                 ci = 0;
-                if (!cachevalid || cachedev != cp.dev) {
+                if (!host_device(cp.dev) && (!cachevalid || cachedev != cp.dev || strcmp(cachedir, cp.dir))) {
                     caret_hide();
                     /* Successful directory reads are silent: keep this row. */
                     ox = 0;
                     oy = y;
-                    if (!directory(cp.dev)) {
+                    if (!location_list(cp.dev, cp.dir)) {
+                        nav_finish();
                         showprompt();
                         if (ox == 39)
                             newline();
@@ -408,9 +559,22 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
                         dirty = 1;
                         continue;
                     }
+                    nav_finish();
                     dirty = 1;
                 }
                 comp = 1;
+            }
+            if (host_device(cp.dev)) {
+                caret_hide();
+                if (host_complete(&cp, prefix, &ci) &&
+                    start + strlen(directory_entries[0].name) + strlen(lead) + 2 < max) {
+                    snprintf(buf + start, max - start, "\"%s%s\"", lead, directory_entries[0].name);
+                    for (i = start; i < LINE; ++i) rawset(rawline, i, 0);
+                    for (i = start + 1 + strlen(lead); i < strlen(buf) - 1; ++i) rawset(rawline, i, 1);
+                    pos = strlen(buf);
+                }
+                nav_finish(); dirty = 1;
+                continue;
             }
             for (i = 0; i < count; ++i) {
                 n = ci++;
@@ -433,38 +597,70 @@ __noinline unsigned char bank_input(char *buf, unsigned int max, unsigned char r
             continue;
         }
         oldmod = mod;
-        if (!kbhit())
-            continue;
-        c = getch();
+        control = 0;
+        if (accept)
+            c = CH_ENTER;
+        else if (kbhit())
+            c = getch();
+        else {
+            c = recall && !editprompt ? bank_controlkey() : 0;
+            if (!c)
+                continue;
+            control = 1;
+        }
+        accept = 0;
         comp = 0;
+        if (recall && !editprompt && c >= 133 && c <= 139) {
+            const char *binding;
+            n = c <= 136 ? (c - 133) * 2 + 1 : (c - 137) * 2 + 2;
+            binding = bank_keytext(keybindings, n);
+            if (*binding) {
+                strcpy(buf, binding);
+                memset(rawline, 0, sizeof(rawline));
+                pos = strlen(buf);
+                view = 0;
+                h = histcount;
+                dirty = 1;
+                accept = control || (PEEK(653) & 4) != 0;
+            }
+            continue;
+        }
+        if (c == CH_STOP && recall && !editprompt) {
+            buf[0] = 0;
+            memset(rawline, 0, sizeof(rawline));
+            pos = view = 0;
+            h = histcount;
+            dirty = 1;
+            continue;
+        }
         if (c == CH_ENTER || c == CH_STOP) {
             caret_hide();
             ox = 0;
             oy = y;
-            if (!editprompt)
+            if (mode == INPUT_COPY_CON)
+                consoleline();
+            else if (!editprompt)
                 newline();
             if (c == CH_STOP) {
-                buf[0] = 0;
+                if (mode != INPUT_COPY_CON)
+                    buf[0] = 0;
                 return 0;
             }
             return 1;
         }
         if (recall && (c == CH_CURS_UP || c == CH_CURS_DOWN)) {
-            if (h == histcount) {
-                strcpy(draft, buf);
-                memcpy(rawdraft, rawline, RAWMAP);
-            }
+            if (h == histcount && (c == CH_CURS_DOWN || !h))
+                continue;
             if (c == CH_CURS_UP && h)
                 --h;
             if (c == CH_CURS_DOWN && h < histcount)
                 ++h;
             if (h == histcount) {
-                strcpy(buf, draft);
-                memcpy(rawline, rawdraft, RAWMAP);
+                buf[0] = 0;
+                memset(rawline, 0, sizeof(rawline));
             } else {
                 i = (histnext + 10 - histcount + h) % 10;
-                strcpy(buf, history[i]);
-                memcpy(rawline, rawhistory[i], RAWMAP);
+                history_recall(buf, i);
             }
             pos = strlen(buf);
             dirty = 1;
@@ -519,6 +715,216 @@ __noinline void bank_rawedit(unsigned char pos, unsigned char len, unsigned char
         for (i = len; i > pos; --i)
             rawset(rawline, i, rawget(rawline, i - 1));
         rawset(rawline, pos, 0);
+    }
+}
+
+/* Resolve a command or alias; return its commands index, or -1 if unknown.
+ *
+ * s: Terminated command name, compared without case sensitivity. */
+__noinline int bank_commandid(const char *s)
+{
+    unsigned char i;
+    if (!stricmp(s, "DELETE") || !stricmp(s, "ERASE"))
+        return 4;
+    if (!stricmp(s, "CHDIR"))
+        return 33;
+    if (!stricmp(s, "MKDIR"))
+        return 34;
+    if (!stricmp(s, "RMDIR"))
+        return 35;
+    if (!stricmp(s, "RENAME"))
+        return 18;
+    for (i = 0; i < COMMANDCOUNT; ++i)
+        if (!stricmp(s, commands[i]))
+            return i;
+    return -1;
+}
+
+/* Commands that transfer control or change media need special ownership.
+ * Keep file-mutating operations out of file streams until they can check
+ * their operands against the active destination. Help bypasses these checks. */
+static unsigned char can_redirect(int id, unsigned char kind)
+{
+    switch (id) {
+    case -1: /* Implicit RUN */
+    case 19: /* RUN */
+        return 0;
+    case 8:  /* EDIT */
+    case 10: /* FORMAT */
+    case 12: /* LABEL */
+    case 16: /* PRINT already owns a printer stream */
+    case 23: /* DISKID */
+    case 27: /* SPLASH */
+    case 30: /* TAPECOPY */
+    case 34: /* MD can ask for a partition size */
+    case 36: /* MOUNT */
+    case 38: /* MAKEDISK */
+        return kind == OUTPUT_CONSOLE;
+    case 3:  /* COPY */
+    case 4:  /* DEL */
+    case 6:  /* DISKCOPY */
+    case 14: /* MOVE */
+    case 18: /* REN */
+    case 29: /* DISKINIT */
+    case 35: /* RD */
+    case 37: /* UNMOUNT */
+        return kind != OUTPUT_FILE;
+    }
+    return 1;
+}
+
+/* Separate a redirection suffix and remove the spaces before it. */
+static void trim_redirect(char *s, char *op)
+{
+    *op = 0;
+    while (op > s && op[-1] == ' ')
+        *--op = 0;
+}
+
+/* Own the output stream across all command handler returns.
+ *
+ * s: Writable command line; redirection markers may be replaced with terminators. */
+__noinline void bank_execute(char *s)
+{
+    char *r, *op = 0, *input_op = 0, *target, *end;
+    unsigned char quote = 0, append = 0, helping, kind, modifies = 0;
+    int id, i;
+    aborted = 0;
+    /* KEY stores redirection text rather than opening its future destination. */
+    r = s;
+    while (*r == ' ' || *r == '@')
+        ++r;
+    if (!strnicmp(r, "KEY ", 4)) {
+        executecommand(s);
+        return;
+    }
+    for (r = s; *r; ++r) {
+        if (rawget(rawline, r - line))
+            continue;
+        if (*r == '"')
+            quote = !quote;
+        else if (*r == '>' && !quote) {
+            if (op) {
+                error(SYSOUT_MULTIPLE_REDIR);
+                return;
+            }
+            op = r;
+            if (r[1] == '>') {
+                append = 1;
+                ++r;
+            }
+        } else if (*r == '<' && !quote && !input_op)
+            input_op = r;
+    }
+    /* CON is already the input device. Accept it explicitly alongside an
+     * output redirect, with either operator first. */
+    if (input_op) {
+        end = op && input_op < op ? op : (char *)0;
+        if (end)
+            *end = 0;
+        kind = tokenize(input_op + 1) && argc == 1 ? reserved_device(args[0]) : 0;
+        if (end)
+            *end = '>';
+        if (kind == DEVICE_CON)
+            trim_redirect(s, input_op);
+        else if (kind) {
+            error(SYSOUT_INVALID_FILE_NAME);
+            return;
+        }
+    }
+    if (!op) {
+        executecommand(s);
+        return;
+    }
+    if (quote) {
+        error(SYSOUT_SYNTAX_ERR);
+        return;
+    }
+    target = op + 1 + append;
+    trim_redirect(s, op);
+    while (*s == ' ' || *s == '@')
+        ++s;
+    if (!tokenize(s) || !argc) {
+        error(SYSOUT_SYNTAX_ERR);
+        return;
+    }
+    id = commandid(args[0]);
+    if (!stricmp(args[0], "ECHO."))
+        id = 7;
+    helping = id == 11;
+    for (i = 1; i < argc; ++i) {
+        if (!argquoted[i] && !strcmp(args[i], "/?"))
+            helping = 1;
+        if ((id == 1 && (!stricmp(args[i], "/V") || !stricmp(args[i], "/C"))) ||
+            (id == 26 && (!stricmp(args[i], "+L") || !stricmp(args[i], "-L"))))
+            modifies = 1;
+    }
+    /* Resolve file inputs before opening/truncating any destination. */
+    if (!helping && (id == 20 || id == 28)) {
+        unsigned char mode;
+        unsigned long limit;
+        char *needle;
+        if (id == 28) {
+            if (!findoptions(&mode, &needle))
+                return;
+        } else {
+            if (!typeoptions(&mode, &limit)) {
+                error(SYSOUT_SYNTAX_TYPE);
+                return;
+            }
+            if (!path(args[1], &p1))
+                return;
+        }
+        i = findfile(&p1);
+        if (i < 0) {
+            if (i == -1)
+                error(SYSOUT_FILE_NOT_FOUND);
+            return;
+        }
+        if (directory_entries[i].type != CBM_T_SEQ && directory_entries[i].type != CBM_T_PRG &&
+            directory_entries[i].type != CBM_T_USR) {
+            error(SYSOUT_UNSUPPORTED_FILE_TYPE);
+            return;
+        }
+    }
+    if (!tokenize(target) || argc != 1) {
+        error(SYSOUT_INVALID_DEST);
+        return;
+    }
+    kind = reserved_device(args[0]);
+    if (kind == DEVICE_CON)
+        kind = OUTPUT_CONSOLE;
+    else if (kind == DEVICE_NUL)
+        kind = OUTPUT_NUL;
+    else {
+        kind = printer_device(args[0]);
+        if (!kind)
+            kind = OUTPUT_FILE;
+    }
+    if (kind != OUTPUT_FILE && append) {
+        error(SYSOUT_DEVICE_APPEND);
+        return;
+    }
+    if (!helping && (!can_redirect(id, kind) || (modifies && kind == OUTPUT_FILE))) {
+        error(SYSOUT_REDIR_NOT_SUPPORTED);
+        return;
+    }
+    if (kind == OUTPUT_FILE) {
+        if (!path(args[0], &outputpath))
+            return;
+        if (!outputpath.name[0] || strchr(outputpath.name, '*') || strchr(outputpath.name, '?')) {
+            error(SYSOUT_INVALID_DEST);
+            return;
+        }
+        if (!helping && (id == 20 || id == 28) && sameplace(&p1, &outputpath) &&
+            !strcmp(p1.name, outputpath.name)) {
+            error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
+            return;
+        }
+    }
+    if (output_open(kind, append)) {
+        executecommand(s);
+        output_finish();
     }
 }
 

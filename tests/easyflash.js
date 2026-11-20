@@ -3,8 +3,8 @@ const {tool} = require('./setup');
 const flags = new Set([
     '--commands', '--find-redirection', '--delete', '--diskinit', '--banked', '--journal',
     '--compact', '--session', '--run-return', '--sysinfo', '--ntsc', '--c128', '--sx64',
-    '--boot-info', '--drive-info', '--display', '--display-fonts', '--tape', '--tape-search',
-    '--ultimate-report', '--large-launch', '--redirection'
+    '--boot-info', '--drive-info', '--display', '--display-fonts', '--tape', '--tape-search', '--tape-paths',
+    '--ultimate-report', '--mega65-report', '--c65-report', '--large-launch', '--redirection'
 ]);
 if (process.argv.includes('--help')) {
     console.log('Use node tests/run.js --list to discover named cartridge suites.\n' +
@@ -78,12 +78,12 @@ async function keys(s, ms = 550) {
 async function enter(s, ms) {
     let out = await keys(s + '\\x0d', ms);
     if (!/^edit\b/.test(s)) {
-        for (let i = 0; i < 60 && !/(?:^|\n)(?:[0-9A-W]+:>|ready\.)$/.test(out); i++) {
+        for (let i = 0; i < 60 && !/(?:^|\n)(?:[0-9A-W]+:\\[^\n>]*>|ready\.)$/.test(out); i++) {
             await command('x');
             await delay(500);
             out = await screen();
         }
-        assert(/(?:^|\n)(?:[0-9A-W]+:>|ready\.)$/.test(out),
+        assert(/(?:^|\n)(?:[0-9A-W]+:\\[^\n>]*>|ready\.)$/.test(out),
             'Command did not finish: ' + s + '\n' + out);
     }
     snapshots.push({completed: s, out});
@@ -119,12 +119,24 @@ function diskFile(file, name) {
         }
         fs.writeFileSync(crt, bytes);
     }
+    if (process.argv.includes('--mega65-report') || process.argv.includes('--c65-report')) {
+        // Substitute only the hardware result, keeping real report formatting.
+        // The register-level test covers the unlock/alias/restore sequence.
+        const bytes = fs.readFileSync(crt), map = fs.readFileSync('build/easyflash/shell.map', 'utf8');
+        const address = parseInt(map.match(/^([\da-f]+) - [\da-f]+ : bank_victype, /m)[1], 16);
+        for (let p = 64; p < bytes.length; p += bytes.readUInt32BE(p + 4)) {
+            if (bytes.readUInt16BE(p + 10) === 9 && bytes.readUInt16BE(p + 12) === 0xa000)
+                Buffer.from([0xa9, process.argv.includes('--c65-report') ? 3 : 4, 0x60])
+                    .copy(bytes, p + 16 + address - 0xa000);
+        }
+        fs.writeFileSync(crt, bytes);
+    }
     if (process.argv.includes('--boot-info')) {
         fs.writeFileSync(
             'build/AUTOEXEC.BAT', require('../scripts/petscii')('@ECHO OFF\rECHO AUTOEXEC-RAN\r'));
         const journal = require('../scripts/journal-image')([
-            'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT', 'CONFIG.SAMPLE', 'LICENSE.TXT',
-            'MANUAL.TXT', 'AUTOEXEC.BAT'
+            'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'PET.CPI', 'README.TXT', 'VGA.CPI',
+            'AUTOEXEC.BAT'
         ]).image;
         const bytes = fs.readFileSync(crt);
         for (let p = bytes.readUInt32BE(16); p < bytes.length; p += bytes.readUInt32BE(p + 4)) {
@@ -135,11 +147,20 @@ function diskFile(file, name) {
         fs.writeFileSync(crt, bytes);
     }
     const disk = root + '/build/easyflash/test-v2.d64';
+    const printer = root + '/build/easyflash/redirect-prn.txt';
+    const printer2 = root + '/build/easyflash/redirect-lpt2.txt';
+    if (process.argv.includes('--redirection')) {
+        fs.rmSync(printer, {force: true});
+        fs.rmSync(printer2, {force: true});
+    }
     fs.writeFileSync(
         'build/easyflash/external.bat', Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\r'));
     const blob = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
     fs.writeFileSync('build/easyflash/blob', blob);
-    fs.writeFileSync('build/easyflash/large', Buffer.alloc(50000, 65));
+    // Journal recovery streams a valid large file; the workflow must exceed
+    // total cartridge capacity regardless of the size of bundled resources.
+    fs.writeFileSync('build/easyflash/large',
+        Buffer.alloc(process.argv.includes('--journal') ? 50000 : 64001, 65));
     const big = Buffer.alloc(53002, 0x5a);
     Buffer.from([1, 8, 0x4c, 1, 8]).copy(big);
     fs.writeFileSync('build/easyflash/big.prg', big);
@@ -159,6 +180,12 @@ function diskFile(file, name) {
     child = spawn(tool('vice', process.argv.includes('--c128') ? 'x128' : 'x64sc'),
         [
             '-logfile', 'build/easyflash/vice-debug.log', '-console', '-default',
+            ...(process.argv.includes('--redirection') ? [
+                '-devicebackend4', '1', '-busdevice4', '-pr4drv', 'raw', '-pr4output', 'text',
+                '-pr4txtdev', '0', '-prtxtdev1', printer,
+                '-devicebackend5', '1', '-busdevice5', '-pr5drv', 'raw', '-pr5output', 'text',
+                '-pr5txtdev', '1', '-prtxtdev2', printer2
+            ] : []),
             ...(process.argv.includes('--sx64') ? ['-model', 'sx64'] : []),
             ...(kernalRom ? ['-kernal', path.resolve(kernalRom)] : []),
             process.argv.includes('--ntsc') ? '-ntsc' : '-pal', '-sounddev', 'dummy',
@@ -204,10 +231,32 @@ function diskFile(file, name) {
         }
         assert(s.includes(messages.SYSOUT_COPYRIGHT), s);
         assert(!s.includes('KB RAM'), s);
+        const rows = s.split('\n');
+        const {buildNumber} = JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
+        assert.match(buildNumber, /^\d{5}\.\d+$/);
+        const versionRow = rows.findIndex(row => /MCS-DOS Version/i.test(row));
+        assert(versionRow >= 0, s);
+        const buildLine = 'Build ' + buildNumber;
+        const buildColumn = Math.floor((40 - buildLine.length) / 2);
+        assert.equal(rows[versionRow + 1].toLowerCase(),
+            ' '.repeat(buildColumn) + buildLine.toLowerCase(), s);
+        assert.equal(rows[versionRow + 2].trim(), '', s);
+        assert.equal(rows[versionRow + 3].trim(), messages.SYSOUT_COPYRIGHT, s);
+        const buildStart = 0xd800 + (versionRow + 1) * 40 + buildColumn;
+        assert.deepEqual(
+            (await memory(buildStart, buildStart + buildLine.length - 1)).map(c => c & 15),
+            Array(buildLine.length).fill(15), 'build number uses color 15');
+        const countdown = rows[23];
+        assert(/^ {4}Press RESTORE for safe boot \([1-5]\)/i.test(countdown), s);
+        const seconds = Number(countdown.match(/\(([1-5])\)/)[1]);
+        assert.deepEqual((await memory(0xd800 + 23 * 40 + 4, 0xd800 + 23 * 40 + 34)).map(c => c & 15),
+            Array(31).fill(15), 'safe boot countdown uses color 15');
         await command('x');
-        await delay(2000);
+        await delay(3000);
         s = await screen();
         assert(s.includes(messages.SYSOUT_COPYRIGHT) && !s.includes('KB RAM'), s);
+        assert(Number(s.split('\n')[23].match(/\(([1-5])\)/)[1]) < seconds,
+            'safe boot countdown updates');
         const map = fs.readFileSync(prg.replace(/\.prg$/, '.map'), 'utf8');
         const address = map.match(/^([0-9a-f]+) - [0-9a-f]+ : bank_sysinfo,/m);
         assert(address, 'SYSINFO entry in link map');
@@ -235,13 +284,13 @@ function diskFile(file, name) {
             !s.includes('Unknown device') && !s.includes('Drive 10:') && !s.includes('Drive 11:'),
             s);
     }
-    for (let i = 0; i < 20 && !s.includes('0:>'); i++) {
+    for (let i = 0; i < 20 && !s.includes('0:\\>'); i++) {
         await command('x');
         await delay(500);
         s = await screen();
     }
     console.log('BOOT', s);
-    assert(s.includes('0:>'), s);
+    assert(s.includes('0:\\>'), s);
     if (process.argv.includes('--boot-info')) {
         assert(!s.includes('AUTOEXEC-RAN'), s);
         assert(s.includes('64 KB RAM') && s.includes('Starting MCS-DOS...'), s);
@@ -260,15 +309,30 @@ function diskFile(file, name) {
             'PASS linked Ultimate report retains detection through real formatting and aligns Board after CPU');
         return;
     }
+    if (process.argv.includes('--mega65-report') || process.argv.includes('--c65-report')) {
+        const c65 = process.argv.includes('--c65-report');
+        const model = c65 ? 'Commodore 65 personal computer\n128 KB RAM' : 'MEGA65 personal computer\n64 KB RAM';
+        const cpu = c65 ? 'CPU:      CSG 4510' : 'CPU:      45GS02 (FPGA)';
+        const video = c65 ? 'Video:    VIC-III (PAL)' : 'Video:    VIC-IV (PAL)';
+        assert(s.includes(model) && s.includes(cpu + '\nKERNAL:') && s.includes(video), s);
+        assert(!s.includes('Board:') && !s.includes('display mode'), s);
+        await enter('cls');
+        s = await enter('sysinfo');
+        assert(s.includes(model) && s.includes(cpu + '\nKERNAL:') && s.includes(video), s);
+        assert(!s.includes('Board:') && !s.includes('Hz'), s);
+        assert(s.indexOf('KERNAL:') < s.indexOf('Video:') && s.indexOf('Video:') < s.indexOf('Drive 8:'), s);
+        console.log('PASS linked '+(c65 ? 'C65' : 'MEGA65')+' boot/SYSINFO model, CPU and aligned Video');
+        return;
+    }
     assert.deepEqual(
         await memory(0x283, 0x284), [0, 0xa0], 'normal BASIC RAM limit after cartridge boot');
     await defaultFont();
     if (process.argv.includes('--boot-info')) {
         s = await enter('reboot');
-        assert(s.includes('0:>') && !s.includes('KB RAM') && !s.includes('Starting MCS-DOS...'), s);
+        assert(s.includes('0:\\>') && !s.includes('KB RAM') && !s.includes('Starting MCS-DOS...'), s);
         await defaultFont();
         console.log(
-            'PASS four-second splash, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');
+            'PASS five-second splash and centered gray countdown, fresh BIOS screen, preserved startup display, safe boot and REBOOT bypass');
         return;
     }
     if (process.argv.includes('--sysinfo')) {
@@ -346,7 +410,7 @@ function diskFile(file, name) {
         return;
     }
     if (process.argv.includes('--redirection')) {
-        await require('./scenarios/redirection')({command, enter, check, disk, crt, root});
+        await require('./scenarios/redirection')({command, keys, enter, check, disk, crt, root});
         return;
     }
     if (process.argv.includes('--large-launch')) {
@@ -462,8 +526,8 @@ function diskFile(file, name) {
     assert.deepEqual(saved.get('BLOB').data, blob);
     assert.equal(saved.get('TEST.TXT').data.toString(), 'HELLO\rSECOND\r');
     assert.equal(saved.get('EDITED.TXT').data.toString(), 'EDITED ON CARTRIDGE\r');
-    for (const name of ['AUTOEXEC.SAMPLE', 'CONFIG.SAMPLE', 'CGA.CPI', 'CHANGELOG.TXT',
-             'LICENSE.TXT', 'MANUAL.TXT'])
+    for (const name of ['AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'PET.CPI',
+             'README.TXT', 'VGA.CPI'])
         assert.deepEqual(
             saved.get(name).data, fs.readFileSync('build/' + name), name + ' remains intact');
     console.log('PASS persisted file bytes and bundled resources');
@@ -480,12 +544,12 @@ function diskFile(file, name) {
     });
 async function runAndReturn(cmd) {
     let s = await keys(cmd + '\\x0d', 3500);
-    for (let i = 0; i < 40 && !s.endsWith('0:>'); i++) {
+    for (let i = 0; i < 40 && !s.endsWith('0:\\>'); i++) {
         await command('x');
         await delay(500);
         s = await screen();
     }
-    assert(s.endsWith('0:>'), s);
+    assert(s.endsWith('0:\\>'), s);
 }
 async function recoverWrite(crt) {
     // Keep the remote connection alive so a breakpoint stays in the remote
@@ -559,13 +623,14 @@ async function defaultFont(patch) {
     const rom = fs.readFileSync(process.env.VICE_CHARGEN ||
                                 require('./environment').viceData('C64', 'chargen-901225-01.bin'));
     const expected = Buffer.from(rom.subarray(2048, 4096));
+    const backslash = [0xc0, 0x60, 0x30, 0x18, 0x0c, 0x06, 0x03, 0x00];
     for (let row = 0; row < 8; row++) {
-        expected[96 * 8 + row] = rom[77 * 8 + row];
-        expected[224 * 8 + row] = rom[77 * 8 + row] ^ 255;
+        expected[28 * 8 + row] = backslash[row];
+        expected[156 * 8 + row] = backslash[row] ^ 255;
     }
     if (patch)
         for (let i = 0; i < patch[5]; i++) {
-            const at = 6 + i * 9, code = patch[at];
+            const at = 6 + i * 9, code = patch[at] === 96 ? 28 : patch[at];
             for (let row = 0; row < 8; row++) {
                 expected[code * 8 + row] = patch[at + 1 + row];
                 expected[(code + 128) * 8 + row] = patch[at + 1 + row] ^ 255;

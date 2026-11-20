@@ -12,7 +12,12 @@ module.exports =
     }
     async function variable(name, n) {
         const at = address(name);
-        return Buffer.from(await memory(at, at + n - 1));
+        if (at >= 0xe000) await command('bank ram');
+        try {
+            return Buffer.from(await memory(at, at + n - 1));
+        } finally {
+            if (at >= 0xe000) await command('bank cpu');
+        }
     }
     async function settled(s, predicate) {
         for (let i = 0; i < 40 && !predicate(s); i++) {
@@ -56,7 +61,7 @@ module.exports =
     await enter('echo set boot=must-not-run >autoexec.bat');
     await enter('set keep=preserved');
     await enter('set color=2,6,7');
-    const fields = [['environment', 512], ['prompttext', 33]];
+    const fields = [['environment', 256], ['prompttext', 33]];
     const expected = [];
     for (const field of fields)
         expected.push(await variable(...field));
@@ -66,14 +71,14 @@ module.exports =
     const savedMessage = parseInt(loader.match(/LDA \$9d[^\n]*\n[^\n]*STA \$([0-9a-f]+)/i)[1], 16);
     const basicEntry = loader.match(/^([0-9a-f]+) :[^\n]*JSR \$a659/m)[1];
     async function restored(s) {
-        await settled(s, s => s.endsWith('0:>'));
+        await settled(s, s => s.endsWith('0:\\>'));
         for (let i = 0; i < fields.length; i++)
             assert.deepEqual(await variable(...fields[i]), expected[i], fields[i][0]);
         assert.equal((await memory(0xc1e0))[0], 0, 'resume request consumed');
         assert.deepEqual(await memory(0xd020, 0xd021), colors, 'shell colors restored');
         await defaultFont(fs.readFileSync('build/CGA.CPI'));
     }
-    for (const device of [8, 0])
+    for (const [device, prefix] of [[8, 'run '], [0, 'run '], [8, ''], [0, '']])
         for (const name of ['return', 'warm', 'error']) {
             await command('> c2f0 00');
             let point;
@@ -82,7 +87,7 @@ module.exports =
                     (await command('break exec ' + basicEntry)).match(/(?:BREAK|WATCH):\s*(\d+)/i);
                 assert(point, 'monitor breakpoint for KERNAL message restoration');
             }
-            let output = await keys(`run ${device}:${name}\\x0d`, 3500);
+            let output = await keys(`${prefix}${device}:${name}\\x0d`, 3500);
             if (point) {
                 assert((await command('r')).toLowerCase().includes(basicEntry),
                     'paused after disk LOAD and message restoration');
@@ -99,9 +104,9 @@ module.exports =
             if (name !== 'error')
                 assert.equal((await memory(0xc2f0))[0], name === 'return' ? 0x41 : 0x42,
                     'native code executed');
-            const history = await variable('history', 650);
-            assert(history.includes(Buffer.from(`RUN ${device}:${name.toUpperCase()}\0`)),
-                'RUN retained in history');
+            const history = await variable('history', 1280);
+            assert(history.includes(Buffer.from(`${prefix.toUpperCase()}${device}:${name.toUpperCase()}\0`)),
+                'launch command retained in history');
         }
     // Absolute entry still jumps directly; a program that JMPs to READY returns.
     for (const device of [8, 0]) {
@@ -113,11 +118,11 @@ module.exports =
         assert.equal((await memory(0xc2f0))[0], 0x42, 'absolute native entry executed');
     }
     await enter('8:');
-    await settled(await keys('run return\\x0d', 3500), s => s.endsWith('8:>'));
+    await settled(await keys('return\\x0d', 3500), s => s.endsWith('8:\\>'));
     assert.equal((await variable('drive', 1))[0], 8, 'current disk restored');
     await enter('0:');
     console.log(
-        'PASS disk/cartridge SYS-RTS, direct warm-start and BASIC-error returns with saved state');
+        'PASS explicit and implicit disk/cartridge SYS-RTS, direct warm-start and BASIC-error returns with saved state');
 
     // Failed session save: N leaves the shell; Y runs but cannot revive old state.
     const asm = fs.readFileSync('build/easyflash/bridge.asm', 'utf8');
@@ -141,7 +146,7 @@ module.exports =
         await delay(600);
         const prompt = await screen();
         assert(prompt.replace(/\s/g, '').includes('Runprogramanyway(Y/N)?'), prompt);
-        return settled(await keys(answer, 3500), s => s.endsWith('0:>'));
+        return settled(await keys(answer, 3500), s => s.endsWith('0:\\>'));
     }
     await command('> c2f0 00');
     await fail('n');
@@ -162,7 +167,7 @@ module.exports =
     await command('reset 0');
     await command('x');
     await delay(3500);
-    await settled(await screen(), s => s.endsWith('0:>'));
+    await settled(await screen(), s => s.endsWith('0:\\>'));
     await check('set', 'BOOT=must-not-run');
     console.log(
         'PASS lost hook leaves BASIC usable; cartridge reset retains ordinary startup behavior');

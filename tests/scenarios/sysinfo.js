@@ -1,6 +1,6 @@
 // Machine reports must match the emulated hardware without changing probe registers.
 const assert = require('assert/strict');
-module.exports = async ({command, memory, enter, check, kernalName}) => {
+module.exports = async ({command, memory, enter, check, kernalName, root}) => {
     let s;
     // A coincidental UCI signature in EasyFlash IO2 RAM must not identify a board
     // or leave the command/register bytes changed.
@@ -15,6 +15,7 @@ module.exports = async ({command, memory, enter, check, kernalName}) => {
             s = await check(
                 'sysinfo', `Commodore ${revision === 2 ? '128DCR' : '128'} personal computer`);
             assert(s.includes('128 KB RAM') && s.includes('CPU:      MOS 8502'), s);
+            assert(s.includes('Video:    VIC-II E (PAL)'), s);
             assert.equal(
                 (await memory(0xd600))[0] & 7, before[0] & 7, 'VDC revision remains unchanged');
         }
@@ -26,9 +27,11 @@ module.exports = async ({command, memory, enter, check, kernalName}) => {
                                    ? 'Commodore SX-64 portable computer'
                                    : 'Commodore 64 personal computer');
     assert(s.includes(process.argv.includes('--c128') ? '128 KB RAM' : '64 KB RAM'), s);
-    assert(s.includes(process.argv.includes('--ntsc') ? 'NTSC display mode (60 Hz)'
-                                                      : 'PAL display mode (50 Hz)'),
+    assert(s.includes('Video:    VIC-' + (process.argv.includes('--c128') ? 'II E' : 'II') +
+                      (process.argv.includes('--ntsc') ? ' (NTSC)' : ' (PAL)')),
         s);
+    assert(!s.includes('display mode') && !s.includes('Hz'), s);
+    assert(s.indexOf('KERNAL:') < s.indexOf('Video:') && s.indexOf('Video:') < s.indexOf('Drive 8:'), s);
     assert(s.includes(process.argv.includes('--c128')   ? 'CPU:      MOS 8502'
                       : process.argv.includes('--sx64') ? 'CPU:      MOS 6510'
                                                         : 'CPU:      MOS 6510/8500'),
@@ -43,6 +46,38 @@ module.exports = async ({command, memory, enter, check, kernalName}) => {
     assert.deepEqual(await memory(0xdf1c, 0xdf1f), [0, 0xc9, 0xaa, 0xbb],
         'false UCI signature leaves IO2 RAM intact');
     await command('> df1c ' + io2.map(b => b.toString(16).padStart(2, '0')).join(' '));
+    await enter('set driveids=dos');
+    await enter('cls');
+    s = await check('sysinfo', 'Drive A:  ');
+    assert(!s.includes('Drive 8:'), s);
+    await enter('set driveids=c64');
+    // A read-only UCI bus ID is used only after the UCI transport was verified.
+    // Substitute the target handshake to exercise disk-command rejection. A stock 1541 ROM
+    // cannot execute SoftIEC directory commands; those have separate fixtures.
+    const fs = require('fs');
+    const image = root + '/build/easyflash/softiec-report.d64';
+    require('child_process').execFileSync(require('../setup').tool('vice', 'c1541'),
+        ['-format', 'softiec,mc', 'd64', image], {stdio:'pipe', windowsHide:true});
+    const sample = root + '/build/easyflash/softiec-size.prg';
+    fs.writeFileSync(sample, Buffer.alloc(254));
+    require('child_process').execFileSync(require('../setup').tool('vice', 'c1541'),
+        ['-attach', image, '-write', sample, 'approx'], {stdio:'pipe', windowsHide:true});
+    await command('attach "' + image + '" $8');
+    const labels = fs.readFileSync('build/easyflash/shell-prg.lbl', 'utf8');
+    const address = parseInt(labels.match(/al ([0-9a-f]+) \.ultimatebase/i)[1], 16);
+    const savedBase = await memory(address, address + 1);
+    const savedIo = await memory(0xdf1b, 0xdf1d);
+    const identify = parseInt(labels.match(/al ([0-9a-f]+) \.softiec_target\b/i)[1], 16);
+    const savedIdentify = await memory(identify, identify + 4);
+    await command('> ' + identify.toString(16) + ' a9 01 85 1b 60');
+    await command('> ' + address.toString(16) + ' 1c df');
+    await command('> df1b 08 00 c9');
+    await enter('cls');
+    s = await check('diskid 8:', 'Unsupported drive type');
+    assert(!s.includes('New disk ID'), s);
+    await command('> ' + identify.toString(16) + ' ' + savedIdentify.map(b => b.toString(16).padStart(2,'0')).join(' '));
+    await command('> ' + address.toString(16) + ' ' + savedBase.map(b => b.toString(16).padStart(2,'0')).join(' '));
+    await command('> df1b ' + savedIo.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await enter('cls');
     s = await enter('splash');
     assert(!s.includes('KB RAM'), s);

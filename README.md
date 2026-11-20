@@ -3,9 +3,9 @@
 MCS-DOS is a MS-DOS-inspired operating environment designed to work on a
 Commodore 64, Commodore 64 Ultimate, Commodore 128 in C64 mode, or on emulators.
 No RAM expansions or CPU upgrades are needed. It provides familiar prompts,
-commands and syntax to perform disk and file operations. You can run programs
-just as you would on a stock setup, and the BASIC environment is always just one
-command away. Rudimentary batch scripting is also supported.
+commands and syntax to perform disk and file operations on a variety of supported
+floppy disk drives and mass storage devices. You can also run programs and use
+BASIC. Rudimentary batch scripting is also supported.
 
 MCS-DOS is *not* a straight MS-DOS clone or emulator, nor does it attempt to
 implement the full MS-DOS feature set (regardless of what version). Instead, it
@@ -21,28 +21,31 @@ this was made for fun and novelty.
 * Many familiar disk commands and utilities are implemented.
 * Configuration via `AUTOEXEC.BAT` and `CONFIG.SYS`.
 * Some batch file support.
-* Supports 1541, 1541-II, 1570, 1571 and 1581 floppy drives, and CMD HD/FD native and emulation partitions.
-* Subdirectories on 1581, CMD HD/FD, SD2IEC and Ultimate Software IEC, with DOS paths and CD/MD/RD.
+* Supports 1541, 1541-II, 1570, 1571 and 1581, CMD HD/FD, SD2IEC and SoftIEC (Ultimate).
+* Supports partitions, subdirectories, and disk images on relevant storage devices.
 * Drives can be optionally displayed and addressed with DOS-style drive letters.
 * Simple built-in text editor.
-* Ability to run native programs from the MCS-DOS environment and use BASIC, with return to shell (under some conditions).
-* Quality of life features such as command history and file name auto-completion.
+* Run programs and use BASIC, with return to the MCS-DOS shell (under some conditions).
+* Quality of life features such as command history, file name auto-completion, and key bindings.
 * Environment variables.
-* Output redirection to files.
+* Output redirection.
 * File printing.
 * Command help easily accessible from the shell (`/?` and `HELP`).
-* Customizations including prompts, colors and custom character sets.
+* Customizable shell including prompts, colors and custom character sets.
 
 ## Notable limitations and omissions
 
-* No fastload or other disk access optimization routines are implemented.
+* No fastload or other disk access optimization routines are implemented; use KERNAL replacements such as JiffyDOS or DolphinDOS for improved speed.
+* Native programs cannot always return to the MCS-DOS shell.
 * Batch files do not support variables, conditionals, labels, or parameters.
-* No piping (`|` syntax).
+* No piping (`|` syntax) or input redirection (`<`).
 * Disk duplication is only supported between the same drive models.
 * Due to the shell's mixed-case mode, half of PETSCII's graphics characters do not display correctly.
+* No internationalization.
+* No REU support.
 
 Future versions may address (some of) these and other shortcomings where possible.
 
 ## More information
 
-Refer to the PDF manual, or type `HELP` at the command prompt.
+Refer to the full PDF manual for more information, or use `HELP` at the command prompt.

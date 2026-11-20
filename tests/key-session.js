@@ -42,7 +42,7 @@ require('./shell')('key-session', async ({disk, command, keys, enter, screen, me
     await enter('');
     for(const [code,name] of [['89','TWO'],['86','THREE'],['87','FIVE'],['8b','SIX']]) {
         text = await keys('\\x'+code);
-        assert(new RegExp('8:\\>ECHO '+name+'$','i').test(text),text);
+        assert(text.toUpperCase().endsWith('8:\\>ECHO '+name),text);
         await keys('\\x03');
     }
     console.log('PASS KEY lists, queries and seven function-key recalls');

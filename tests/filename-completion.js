@@ -1,8 +1,7 @@
 require('./setup');
 const fs = require('fs'), assert = require('assert/strict');
 const {execFileSync} = require('child_process'), {tool} = require('./setup');
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-require('./shell')('filename-completion', async ({disk, command, keys, enter, screen, memory}) => {
+require('./shell')('filename-completion', async ({disk, command, keys, enter, memory, until, monitorPort}) => {
     const program = Buffer.from([
         1, 8, 11, 8, 10, 0, 0x9e, 50, 48, 54, 49, 0, 0, 0,
         0xa9, 0x41, 0x8d, 0xf0, 0xc2, 0x60
@@ -16,18 +15,8 @@ require('./shell')('filename-completion', async ({disk, command, keys, enter, sc
     await command(`attach "${disk}" 8`);
     await enter('dir /b');
     async function complete(expected) {
-        let text;
-        for (let i = 0; i < 6; ++i) {
-            await command('> 028d 02');
-            await command('x');
-            await delay(700);
-            await command('> 028d 00');
-            await command('x');
-            await delay(150);
-            text = (await screen()).split('\n').at(-1);
-            if (expected.test(text)) return text;
-        }
-        assert.fail('Completion mismatch: ' + text);
+        await require('./modifier-key')(monitorPort);
+        return until(text => expected.test(text.split('\n').at(-1)));
     }
     await enter('cls');
     await keys('t');

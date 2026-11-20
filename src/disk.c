@@ -460,7 +460,8 @@ __noinline void bank_labelcmd(void)
 {
     unsigned char i, a = 1;
     char name[17];
-    p1.dev = drive;
+    if (!path("", &p1))
+        return;
     if (argc > 1 && strchr(args[1], ':')) {
         if (!path(args[1], &p1))
             return;
@@ -838,20 +839,30 @@ static unsigned char format_label_valid(const char *label)
     return 1;
 }
 
+/* The linked optimizer can leave this boolean in A while callers read ACCU.
+ * Explicit volatile returns preserve both success and cancellation. */
 static unsigned char format_label(const char *label, char *name)
 {
     if (!label) {
         outs(SYSOUT_FORMAT_LABEL_PROMPT);
         if (!input(line, 17, 0))
-            return 0;
+            goto cancelled;
         label = line;
     }
     if (!format_label_valid(label))
-        return 0;
+        goto cancelled;
     filename(label, name);
     if (!*name)
         strcpy(name, SYSOUT_FORMAT_DEFAULT_LABEL);
-    return 1;
+    return __asm volatile {
+        lda #1
+        sta accu
+    };
+cancelled:
+    return __asm volatile {
+        lda #0
+        sta accu
+    };
 }
 
 static unsigned char format_id(const char *diskid, char *id)

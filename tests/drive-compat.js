@@ -6,7 +6,7 @@ const fs = require('fs'), net = require('net'), path = require('path'),
 const {spawn, execFileSync} = require('child_process');
 const root = path.resolve('.').replaceAll('\\', '/');
 const delay = ms => new Promise(r => setTimeout(r, ms));
-let child, socket, launchError;
+let child, socket, launchError, monitorPort;
 const command = require('./vice-command')(() => socket);
 const monitor = require('./monitor');
 async function memory(first, last = first) {
@@ -39,6 +39,18 @@ async function check(cmd, text, ms = 500) {
     console.log('PASS ' + cmd + ' => ' + text);
     return out;
 }
+async function waitFor(text, timeout = 120000) {
+    const deadline = Date.now() + timeout;
+    let out;
+    do {
+        await command('x');
+        await delay(250);
+        out = await screen();
+        if (out.includes(text))
+            return out;
+    } while (Date.now() < deadline);
+    assert.fail('Timed out waiting for ' + text + '\n' + out);
+}
 function image(file, type) {
     execFileSync(tool('vice', 'c1541'), ['-format', 'compat,ct', type, file], {stdio: 'pipe'});
 }
@@ -49,6 +61,7 @@ async function start(type, source, target, other = type) {
     const server = net.createServer();
     await new Promise(r => server.listen(0, '127.0.0.1', r));
     const port = server.address().port;
+    monitorPort = port;
     await new Promise(r => server.close(r));
     child = spawn(tool('vice', 'x64sc'),
         [
@@ -169,16 +182,8 @@ async function run() {
                 await command('keybuf type f000');
                 await command('x');
                 await delay(500);
-                let completed = '';
-                for (let i = 0; i < 5 && !completed.includes('"F000"'); i++) {
-                    await command('> 028d 02');
-                    await command('x');
-                    await delay(700);
-                    await command('> 028d 00');
-                    await command('x');
-                    await delay(150);
-                    completed = await screen();
-                }
+                await require('./modifier-key')(monitorPort);
+                const completed = await waitFor('"F000"');
                 assert(completed.includes('"F000"'), 'completion at index 295\n' + completed);
                 await enter('');
                 await check('dir f00* /o', '10 File(s)');
@@ -219,17 +224,23 @@ async function run() {
                 await check('format 8:', messages.SYSOUT_PROCEED_WITH_FORMAT.trim());
                 await command('keybuf y');
                 await command('x');
-                await delay(500);
+                await waitFor(messages.SYSOUT_FORMAT_LABEL_PROMPT.trim());
                 await enter('native');
-                let out = await enter('nf', 10000);
-                for (let i = 0; i < 30 && !out.includes(messages.SYSOUT_FORMAT_COMPLETE.trim());
-                    i++) {
-                    await command('x');
-                    await delay(5000);
-                    out = await screen();
-                }
+                await waitFor(messages.SYSOUT_DISK_ID_PROMPT.trim());
+                await enter('nf');
+                const out = await waitFor(messages.SYSOUT_FORMAT_COMPLETE.trim());
                 assert(out.includes(messages.SYSOUT_FORMAT_COMPLETE.trim()), out);
                 await check('chkdsk', type === 1541 ? '664' : type === 1571 ? '1,328' : '3,160');
+                await command('detach 8');
+                const bytes = fs.readFileSync(source);
+                const header = type === 1581 ? 39 * 40 * 256 : 357 * 256;
+                const label = header + (type === 1581 ? 4 : 144);
+                const id = header + (type === 1581 ? 22 : 162);
+                assert.equal(bytes.subarray(label, label + 16).toString('latin1').replace(/\xa0+$/, ''),
+                    'NATIVE', 'prompted format label on disk');
+                assert.equal(bytes.subarray(id, id + 2).toString('latin1'), 'NF',
+                    'prompted format ID on disk');
+                assert.equal(files(source).size, 0, 'formatted disk directory is empty');
                 console.log('PASS native-capacity format');
                 continue;
             }

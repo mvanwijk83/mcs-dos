@@ -30,7 +30,11 @@ static void say(const char *s) {}
 static void outs(const char *s) {}
 static void error(const char *s) {lastError=s;++errors;}
 static unsigned char yesno(const char *s) {++confirmations;return accept;}
-static unsigned char input(char *s,unsigned int n,unsigned char e) {strcpy(s,answers[inputs++]);return 1;}
+static unsigned char input(char *s,unsigned int n,unsigned char e) {
+    const char *answer=answers[inputs++];
+    if(!answer)return 0;
+    strcpy(s,answer);return 1;
+}
 static void filename(const char *s,char *d) {
     unsigned char c;
     while((c=*s++)) *d++=c>=193&&c<=218?c-128:c;
@@ -110,6 +114,10 @@ int main(void) {
     if(errors!=1||commands||writes||confirmations)return 32;
     reset();args[3]="/ID:fm";formatcmd();
     if(errors!=1||commands||confirmations||strcmp(lastError,SYSOUT_INVALID_SWITCH))return 33;
+    reset();argc=2;answers[0]=0;formatcmd();
+    if(errors||inputs!=1||commands||selects||!working[2][0])return 34;
+    reset();argc=2;answers[1]=0;formatcmd();
+    if(errors||inputs!=2||commands||selects||!working[2][0])return 35;
     return 0;
 }
 `);

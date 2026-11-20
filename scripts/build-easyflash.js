@@ -113,12 +113,12 @@ if(run.length>120)throw Error('RUN loader exceeds transfer buffer'); insert(4,1,
 const help=fs.readFileSync(`${out}/help.bin`);insert(10,0,help);
 const tape=fs.readFileSync(`${out}/tape.bin`);insert(11,1,tape);
 exec(process.execPath,['scripts/make-examples.js'],{stdio:'inherit',windowsHide:true});
-fs.copyFileSync('disk-content/CGA.CPI','build/CGA.CPI');
-fs.copyFileSync('disk-content/VGA.CPI','build/VGA.CPI');
+for(const name of ['CGA.CPI','PET.CPI','VGA.CPI'])fs.copyFileSync('disk-content/'+name,'build/'+name);
+fs.writeFileSync('build/README.TXT',require('./petscii')(fs.readFileSync('disk-content/readme.txt','utf8')));
 fs.writeFileSync('build/AUTOEXEC.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/AUTOEXEC.SAMPLE','utf8')));
 // Configuration keys use unshifted PETSCII, as written by the shell's ECHO.
 fs.writeFileSync('build/CONFIG.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/CONFIG.SAMPLE','utf8').toLowerCase()));
-const names=['AUTOEXEC.SAMPLE','CGA.CPI','CHANGELOG.TXT','CONFIG.SAMPLE','LICENSE.TXT','MANUAL.TXT','VGA.CPI'];
+const names=['AUTOEXEC.SAMPLE','CGA.CPI','CONFIG.SAMPLE','PET.CPI','README.TXT','VGA.CPI'];
 const {image,used,fileBytes,available}=require('./journal-image')(names);
 for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
 const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.1',32);

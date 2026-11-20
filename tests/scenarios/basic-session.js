@@ -174,7 +174,7 @@ module.exports =
     assert(rotated.subarray(8192, 65536).every(b => b === 255), 'only reused sector erased');
     assert.deepEqual(rotated.subarray(65536), bytes.subarray(65536), 'other journal sector intact');
     const files = require('../easyflash-image').readImage(crt).files;
-    for (const name of ['CGA.CPI', 'MANUAL.TXT'])
+    for (const name of ['CGA.CPI', 'README.TXT'])
         assert.deepEqual(files.get(name).data, fs.readFileSync('build/' + name));
     await attach();
     await resume();

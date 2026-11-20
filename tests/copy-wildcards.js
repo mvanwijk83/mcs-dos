@@ -13,9 +13,9 @@ require('./shell')('copy-wildcards', async ({disk, command, enter, keys, until})
         ['-attach', disk, '-write', 'build/test-legacy-con.txt', 'con,s'],
         {stdio: 'pipe', windowsHide: true});
     for (const name of names.slice(1)) {
-        fs.copyFileSync('build/CGA.CPI', 'build/' + name + '.CPI');
+        fs.copyFileSync('build/CGA.CPI', 'build/test-copy-' + name + '.CPI');
         execFileSync(tool('vice', 'c1541'),
-            ['-attach', disk, '-write', 'build/' + name + '.CPI', name.toLowerCase() + '.cpi,s'],
+            ['-attach', disk, '-write', 'build/test-copy-' + name + '.CPI', name.toLowerCase() + '.cpi,s'],
             {stdio: 'pipe', windowsHide: true});
     }
     execFileSync(tool('vice', 'c1541'), ['-format', 'blank,bb', 'd64', target],
@@ -45,7 +45,7 @@ require('./shell')('copy-wildcards', async ({disk, command, enter, keys, until})
         const file = entries.get(name + '.CPI');
         assert.equal(file.type, 0x81);
         assert.equal(file.blocks, file.chainBlocks, name + ' freshly copied allocation');
-        assert.deepEqual(file.data, fs.readFileSync('build/' + name + '.CPI'));
+        assert.deepEqual(file.data, fs.readFileSync('build/CGA.CPI'));
     }
     console.log(
         'PASS VICE wildcard COPY, exact COPY, no matches, invalid targets, question-mark matching');

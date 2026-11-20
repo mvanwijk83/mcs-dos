@@ -185,7 +185,9 @@ static unsigned char drivemodel(unsigned char dev, unsigned char report)
     return dev == 12 ? DRIVE_CMD_HD : dev == 30 ? DRIVE_SOFTIEC : dev == 29 ? DRIVE_SD2IEC : DRIVE_1541;
 }
 
-${functions('sysinfo')}
+// The extractor removes bank_ from calls; keep the report's local variable
+// distinct from the resulting ultimate() fixture helper.
+${functions('sysinfo').replace(/\bultimate\b(?!\s*\()/g, 'ultimateBoard')}
 /* Reset observable state and load fixture inputs before an independent case.
  *
  * m: Simulated interface behavior, including busy and error states.
@@ -334,7 +336,7 @@ int main(void)
     reset(0, "", "");
     drivefixture = 1;
     sysinfo(0);
-    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: SoftIEC Drive") ||
+    if (!strstr(output, "Drive 12: CMD HD") || !strstr(output, "Drive 30: Software IEC Interface") ||
         !strstr(output, "Drive 14: Unknown device") || probes14)
         return 28;
     output[0] = 0;
@@ -344,14 +346,14 @@ int main(void)
     letters = 1;
     output[0] = 0;
     sysinfo(0);
-    if (!strstr(output, "Drive E:  CMD HD") || !strstr(output, "Drive W:  SoftIEC Drive") ||
+    if (!strstr(output, "Drive E:  CMD HD") || !strstr(output, "Drive W:  Software IEC Interface") ||
         !strstr(output, "Drive G:  Unknown device"))
         return 34;
     letters = 0;
     drivefixture = 2;
     output[0] = 0;
     sysinfo(0);
-    if (!strstr(output, "Drive 29: SD2IEC Drive\\nDrive 30: SoftIEC Drive"))
+    if (!strstr(output, "Drive 29: SD2IEC Mass Storage Device\\nDrive 30: Software IEC Interface"))
         return 35;
     drivefixture = 0;
     reset(0, "", "");

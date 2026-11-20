@@ -157,7 +157,10 @@ function diskFile(file, name) {
         'build/easyflash/external.bat', Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\r'));
     const blob = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
     fs.writeFileSync('build/easyflash/blob', blob);
-    fs.writeFileSync('build/easyflash/large', Buffer.alloc(50000, 65));
+    // Journal recovery streams a valid large file; the workflow must exceed
+    // total cartridge capacity regardless of the size of bundled resources.
+    fs.writeFileSync('build/easyflash/large',
+        Buffer.alloc(process.argv.includes('--journal') ? 50000 : 64001, 65));
     const big = Buffer.alloc(53002, 0x5a);
     Buffer.from([1, 8, 0x4c, 1, 8]).copy(big);
     fs.writeFileSync('build/easyflash/big.prg', big);

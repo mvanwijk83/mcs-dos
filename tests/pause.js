@@ -9,6 +9,8 @@ const harness=`
 #include <ctype.h>
 #include <time.h>
 #define VERSION "test"
+#define MCS_BUILD_NUMBER "test"
+#define print(...) ((void)0)
 #include "../src/sysout.h"
 #define POKE(a,b) ((void)0)
 static unsigned char aborted,copysuppress,noseparators,cachevalid,drive,quit,echoon,reboot;

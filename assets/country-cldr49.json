@@ -2,7 +2,7 @@
   "source": "Unicode CLDR 49 JSON full",
   "license": "country-cldr49-LICENSE.txt",
   "scope": "Country defaults, selected language communities and macroregions; Gregorian, Latin digits, grouping by thousands",
-  "identifiers": "ISO alpha-2 country defaults; BCP 47 language-region variants; ISO reserved fallback. Match selectors case-insensitively, retaining language-region order.",
+  "identifiers": "ISO alpha-2 country defaults; BCP 47 language-region variants; INT reserved fallback. Match selectors case-insensitively, retaining language-region order.",
   "encoding": "ASCII subset of PETSCII; no localized names or AM/PM strings",
   "enums": {
     "eciDateFormat": {
@@ -16,7 +16,7 @@
     }
   },
   "fallback": {
-    "eciCountryCode": "ISO",
+    "eciCountryCode": "INT",
     "eciDateFormat": 2,
     "eciThousands": "",
     "eciDecimal": ".",

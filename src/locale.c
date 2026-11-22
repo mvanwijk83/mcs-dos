@@ -9,11 +9,11 @@ static unsigned char ascii_upper(unsigned char c)
     return c >= 97 && c <= 122 ? c - 32 : c;
 }
 
-static void iso_locale(void)
+static void international_locale(void)
 {
     locale.order = 2; locale.thousands = 0; locale.decimal = '.';
     locale.datesep = '-'; locale.timesep = ':'; locale.hours = 1;
-    strcpy(locale_code, "iso");
+    strcpy(locale_code, "int");
 }
 
 /* Input is bounded and normalized to ASCII, independent of PETSCII case. */
@@ -26,7 +26,7 @@ static unsigned char locale_id(const char *s, char *out)
         out[n++] = c;
     }
     out[n] = 0;
-    return n == 2 || (n == 3 && out[0] == 73 && out[1] == 83 && out[2] == 79) ||
+    return n == 2 || (n == 3 && out[0] == 73 && out[1] == 78 && out[2] == 84) ||
         ((n == 5 || n == 6) && out[2] == 45);
 }
 
@@ -39,7 +39,7 @@ static unsigned char locale_load(const char *code, const char *file)
     unsigned char header[8], record[13], result = 2, i, status;
     unsigned int records;
     char id[7], request[24];
-    iso_locale();
+    international_locale();
     if (!locale_id(code, id)) return 3;
     if (!file || !*file) {
         source.dev = 0; source.dir[0] = 0;
@@ -113,7 +113,7 @@ __noinline void bank_locale_startup(void)
     char text[128], country[128], clocksource[32], *s, *eq, *end;
     unsigned char c, used = 0, overflow = 0;
     int got;
-    iso_locale();
+    international_locale();
     country[0] = clocksource[0] = 0;
     if (!skipautoexec && !resume_requested && !cart_open(2, 2, "config.sys,r")) {
         do {

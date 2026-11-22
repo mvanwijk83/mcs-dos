@@ -10,7 +10,7 @@ const base = `
 #include <string.h>
 #include "../src/datetime.h"
 LocaleFormat locale={2,0,'.','-',':',1};
-char locale_code[7]="ISO";
+char locale_code[7]="INT";
 unsigned char dir_dates,clockkind,clockdevice;
 ${extract('ascii_upper','leap','datetime_valid','digits','date_parse','time_parse','two','date_format','time_format','cmd_datetime','date_weekday')}
 `;
@@ -55,7 +55,7 @@ static unsigned char diskstatus(unsigned char d,unsigned char report){return 0;}
 static unsigned char channel_open(unsigned char f,unsigned char d,unsigned char sa,const char *s){at=0;return missing;}
 static void channel_close(unsigned char f){}
 static int channel_read(unsigned char f,void *p,unsigned int n){if(failed)return -1;if(at+n>length)n=length-at;memcpy(p,data+at,n);at+=n;return n;}
-${extract('iso_locale','locale_id','locale_load')}
+${extract('international_locale','locale_id','locale_load')}
 int main(void){
     static const unsigned char good[]={77,67,78,1,13,0,2,0,78,76,0,0,0,0,0,1,46,44,45,58,1,78,76,0,0,0,0,0,0,44,46,47,58,0};
     memcpy(data,good,sizeof(good));length=sizeof(good);
@@ -67,6 +67,11 @@ int main(void){
     missing=0;failed=1;if(locale_load("NL",0)!=2)return 6;
     failed=0;data[3]=99;if(locale_load("NL",0)!=2)return 7;
     data[3]=1;if(locale_load("CA-FR",0)!=3)return 8;
+    data[6]=3;memset(data+34,0,13);memcpy(data+34,"INT",3);
+    data[41]=2;data[43]='.';data[44]='-';data[45]=':';data[46]=1;length=47;
+    if(locale_load("INT",0)||locale.order!=2||locale.thousands||locale.hours!=1)return 9;
+    if(locale_load("int",0)||stricmp(locale_code,"INT"))return 10;
+    if(locale_load("ISO",0)!=3||stricmp(locale_code,"INT"))return 11;
     return 0;
 }
 `);
@@ -176,6 +181,7 @@ const wire = fs.readFileSync('build/COUNTRY.SYS');
 assert.equal(wire.length, 8 + wire.readUInt16LE(6) * 13);
 const codes = Array.from({length: wire.readUInt16LE(6)}, (_, i) => wire.subarray(8 + i * 13, 15 + i * 13).toString('ascii').split('\0')[0]);
 assert.equal(codes.length, 51);
+assert(codes.includes('INT') && !codes.includes('ISO'));
 assert(codes.includes('FR-CA') && codes.includes('AR-001') && codes.includes('CH') && codes.includes('IN'));
 assert(!codes.includes('FR-CH') && !codes.includes('HI-IN'));
 console.log('PASS calendar boundaries, country file errors/duplicates, locale formats, staged per-device RTC initialization and bundled records');

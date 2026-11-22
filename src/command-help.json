@@ -38,7 +38,7 @@
   "MOUNT": "Mounts a disk image.\n\nMOUNT image [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices.\n\nUltimate accepts quoted native long file\nnames, including spaces and commas.\nParent directories use MCS-DOS paths.",
   "UNMOUNT": "Unmount a disk image.\n\nUNMOUNT [drive:]\n\nThis command is only supported on SD2IEC\nor Ultimate devices.",
   "MAKEDISK": "Creates a blank disk image.\n\nMAKEDISK [drive:][path]filename\n         [/V:label] [/I:id]\n\n  /V:label  Specifies the volume label.\n  /I:id     Specifies the disk ID.",
-  "DATE": "Displays or sets the date.\n\nDATE [drive:] [/T | date]\n\n  /D  Shows the selected clock device.\n\n  /T  Shows the current date without prompt.",
-  "TIME": "Displays or sets the system time.\n\nTIME [drive:] [/T | time]\n\n  /D  Shows the selected clock device.\n\n  /T  Outputs the current time without prompt.",
+  "DATE": "Displays or sets the date.\n\nDATE [drive:] [/T | date] [/D]\n\n  /D  Shows the selected clock device.\n  /T  Shows the current date without\nprompt.",
+  "TIME": "Displays or sets the system time.\n\nTIME [drive:] [/T | time] [/D]\n\n  /D  Shows the selected clock device.\n  /T  Outputs the current time without\nprompt.",
   "NLSFUNC": "Loads locale-specific information.\n\nNLSFUNC [locale]\n        [[drive:][path]filename]\n\n  locale  Specifies a supported locale.\n\nThe locale info is loaded from a file\ncontaining locale-specific information,\nor the default COUNTRY.SYS if not\nspecified."
 }

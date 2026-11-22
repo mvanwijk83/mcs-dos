@@ -9,7 +9,7 @@ assert(records.length <= 512);
 const encoded = records.map(record => {
     const out = Buffer.alloc(13);
     const code = record.eciCountryCode.toUpperCase();
-    assert(/^(?:[A-Z]{2}|[A-Z]{2}-(?:[A-Z]{2}|[0-9]{3})|ISO)$/.test(code));
+    assert(/^(?:[A-Z]{2}|[A-Z]{2}-(?:[A-Z]{2}|[0-9]{3})|INT)$/.test(code));
     out.write(code, 0, 'ascii');
     const byte = s => { assert(s.length <= 1 && (!s || /^[\x20-\x7e]$/.test(s))); return s ? s.charCodeAt(0) : 0; };
     assert([0, 1, 2].includes(record.eciDateFormat));

@@ -6,7 +6,7 @@
 struct Path;
 struct DirectoryEntry;
 typedef struct HostCursor {
-    unsigned char dev, lfn, model, partitions, done;
+    unsigned char dev, lfn, model, partitions, done, dates;
 } HostCursor;
 /* Per-entry reporting data, discarded after printing; no filesystem cache. */
 typedef struct HostInfo {

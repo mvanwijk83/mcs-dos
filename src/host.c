@@ -83,7 +83,8 @@ static unsigned char host_begin(unsigned char dev, unsigned char lfn, unsigned c
     struct DirectoryEntry header;
     unsigned char address[2];
     char request[8];
-    strcpy(request, partitions ? "$=p" : hidden && drivemodel(dev, 0) == DRIVE_SD2IEC ? "$*=h" : "$");
+    strcpy(request, partitions ? "$=p" : hidden & 2 ? "$=t:*=l" :
+        hidden & 1 && drivemodel(dev, 0) == DRIVE_SD2IEC ? "$*=h" : "$");
     if (channel_open(lfn, dev, 0, request)) {
         channel_close(lfn);
         error(SYSOUT_ERR_READING_BANK_DIR);
@@ -104,6 +105,8 @@ __noinline unsigned char bank_host_open(const Path *p, HostCursor *cursor, unsig
     cursor->dev = p->dev; cursor->lfn = lfn; cursor->done = 0;
     cursor->model = drivemodel(p->dev, 0);
     cursor->partitions = cursor->model == DRIVE_SD2IEC && !mount_active(p->dev) && !p->dir[0];
+    cursor->dates = (hidden & 2) && !cursor->partitions && cursor->model == DRIVE_SD2IEC;
+    hidden = (hidden & 1) | (cursor->dates ? 2 : 0);
     cachevalid = 0;
     if (!location_select(p->dev, p->dir) ||
         !host_begin(p->dev, lfn, cursor->partitions, hidden)) {
@@ -118,7 +121,9 @@ __noinline unsigned char bank_host_next(HostCursor *cursor, struct DirectoryEntr
     unsigned char r;
     if (cursor->done) return 2;
     do {
-        r = cursor->partitions ? host_partition(cursor->lfn, entry) : directory_read(cursor->lfn, entry);
+        entry->modified.year = 0;
+        r = cursor->partitions ? host_partition(cursor->lfn, entry) :
+            cursor->dates ? timestamp_read(cursor->lfn, entry) : directory_read(cursor->lfn, entry);
         if (!r && cursor->partitions && (!entry->name[0] || strpbrk(entry->name, "\\:,\"*?/@") ||
             !strcmp(entry->name, ".") || !strcmp(entry->name, "..")))
             snprintf(entry->name, sizeof(entry->name), "@%u", entry->size);

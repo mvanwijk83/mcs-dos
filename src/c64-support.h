@@ -5,6 +5,7 @@
 #include <conio.h>
 #include <c64/kernalio.h>
 #include <stdarg.h>
+#include "datetime.h"
 
 #define PEEK(a) (*(volatile unsigned char *)(a))
 #define POKE(a, v) (*(volatile unsigned char *)(a) = (v))
@@ -34,6 +35,7 @@ struct DirectoryEntry {
     unsigned int size;
     unsigned char type, access;
     unsigned char remainder; /* Link low byte: optional exact host-file length. */
+    DateTime modified; /* Transient metadata from a timestamped directory stream. */
 };
 
 char *strpbrk(const char *s, const char *accept);

@@ -5,6 +5,9 @@ function line(name,blocks,type='SEQ',remainder=1){return [remainder,1,blocks&255
 const header=[1,4,...line('CARD',0,'')],end=[...line('',123,'').slice(0,4),...Buffer.from('BLOCKS FREE'),0,0,0];
 const root=[...header,...line('CHILD',0,'DIR'),...line('FILE',2,'SEQ',48),...line('IMAGE.D81',3226,'PRG'),...end];
 const child=[...header,...line('INNER',1,'SEQ',12),...end];
+const timed=[...header,...line('DATE 11/21/26',2,'PRG 11/21/26   00.18 AM',48),
+    ...line('CHILD',0,'DIR 11/22/26 03:19 PM'),...line('PLAIN',1,'SEQ'),
+    ...line('BAD',1,'SEQ 02/30/26 03:19 PM'),...end];
 const parts=[...header,...line('CARD',1,'FAT'),...line('BAD/NAME',2,'FAT'),0,0];
 const array=b=>'{'+b.join(',')+'}';
 fs.writeFileSync('build/test-host-protocol.c',`
@@ -12,6 +15,7 @@ fs.writeFileSync('build/test-host-protocol.c',`
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include "../src/datetime.h"
 #include "../src/storage.h"
 #define CBM_T_DEL 0
 #define CBM_T_OTHER 4
@@ -29,15 +33,17 @@ static unsigned char cart_channels[6];
 #define cart_directory(f,a,e) 1
 typedef struct Path {unsigned char dev;char name[17],dir[128];} Path;
 typedef struct Entry {char name[17];unsigned int blocks;unsigned char type;} Entry;
-struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access,remainder;};
-typedef struct HostCursor {unsigned char dev,lfn,model,partitions,done;} HostCursor;
+struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access,remainder;DateTime modified;};
+typedef struct HostCursor {unsigned char dev,lfn,model,partitions,done,dates;} HostCursor;
 static const unsigned char rootbytes[]=${array(root)},childbytes[]=${array(child)},partbytes[]=${array(parts)};
+static const unsigned char timedbytes[]=${array(timed)};
 static const unsigned char *streams[7];
 static unsigned int positions[7],lengths[7];
 static unsigned char model=DRIVE_SD2IEC,physical,errors,commands,closed,cachevalid=1;
 static unsigned int count;
 static Entry files[1];
 static char requests[200];
+static unsigned char timedopens;
 static unsigned char drivemodel(unsigned char d,unsigned char r){return model;}
 static void error(const char *s){++errors;}
 static unsigned char drivepresent(unsigned char d){return 1;}
@@ -53,6 +59,7 @@ unsigned char partition_info(unsigned char d,unsigned char n,PartitionInfo *p){
 }
 static unsigned char channel_open(unsigned char f,unsigned char d,unsigned char s,const char *name){
     if(!strcmp(name,"$=p")){streams[f]=partbytes;lengths[f]=sizeof(partbytes);}
+    else if(!strcmp(name,"$=t:*=l")){++timedopens;streams[f]=timedbytes;lengths[f]=sizeof(timedbytes);}
     else {streams[f]=physical?childbytes:rootbytes;lengths[f]=physical?sizeof(childbytes):sizeof(rootbytes);}
     positions[f]=0;return 0;
 }
@@ -67,6 +74,7 @@ unsigned char location_select(unsigned char d,const char *p){return host_select(
  * linked-cartridge tests exercise the optimized production reader. */
 #pragma optimize(push, 0)
 ${fn('directory_read')}
+${functions('ascii_upper','leap','datetime_valid','digits','cmd_datetime','timestamp_read')}
 #pragma optimize(pop)
 ${functions('host_partition','host_begin','host_partfind','host_dir_component','host_select','host_open','host_next','host_find','host_complete')}
 int main(void){
@@ -94,6 +102,17 @@ int main(void){
     strcpy(p.dir,"");p.dev=9;
     if(!host_open(&p,&cursor,4,1)||cursor.partitions)return 15;
     if(host_next(&cursor,&e)||strcmp(e.name,"CHILD"))return 16;
+    channel_close(4);
+    model=DRIVE_SD2IEC;strcpy(p.dir,"@1");
+    if(!host_open(&p,&cursor,4,2)||!cursor.dates||timedopens!=1)return 18;
+    if(host_next(&cursor,&e)||strcmp(e.name,"DATE 11/21/26")||e.type!=CBM_T_PRG||
+       e.modified.year!=2026||e.modified.day!=21||e.modified.hour||e.modified.minute!=18||e.remainder!=48)return 19;
+    if(host_next(&cursor,&e)||e.type!=CBM_T_DIR||e.modified.day!=22||e.modified.hour!=15)return 20;
+    if(host_next(&cursor,&e)||e.modified.year)return 21;
+    if(host_next(&cursor,&e)||e.modified.year)return 22;
+    if(host_next(&cursor,&e)!=2||timedopens!=1)return 23;
+    strcpy(p.dir,"");
+    if(!host_open(&p,&cursor,4,2)||cursor.dates||!cursor.partitions||timedopens!=1)return 24;
     channel_close(4);
     return 0;
 }

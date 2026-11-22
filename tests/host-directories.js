@@ -15,7 +15,7 @@ fs.writeFileSync('build/test-host-directories.c',`
 #define CBM_A_RO 1
 #define CBM_A_RW 3
 typedef struct Path {unsigned char dev;char name[17],dir[128];} Path;
-struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access,remainder;};
+struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access,remainder;DateTime modified;};
 typedef struct HostCursor {unsigned char dev,lfn,model,partitions,done;} HostCursor;
 typedef struct HostInfo {unsigned long bytes;unsigned char known,kind;} HostInfo;
 static unsigned long softiec_file_size;
@@ -58,6 +58,7 @@ static unsigned char page(void){return 1;}
 static unsigned char stop(void){return 0;}
 static void channel_close(unsigned char f){if(f==4)stream_open=0;}
 void file_timestamp(const char *name,unsigned char native){if(name[0]=='.')return;if(stream_open)++errors;stream_open=0;++stamp_calls;}
+void timestamp_print(const DateTime *dt){if(!dt->year)return;++stamp_calls;print(" %u",dt->day);}
 static void host_volume(const Path *p){}
 static unsigned char folder(const char *s){return strstr(s,"A\\\\B")?2:strstr(s,"\\\\A")?1:0;}
 static unsigned char host_open(const Path *p,HostCursor *c,unsigned char lfn,unsigned char h){
@@ -67,6 +68,7 @@ static unsigned char host_next(HostCursor *c,struct DirectoryEntry *e){
     if(dir_dates&&!stream_open)return 1;
     unsigned int n=indices[c->lfn]++;
     e->type=CBM_T_SEQ;e->access=CBM_A_RW;e->remainder=4;e->size=1;
+    e->modified.year=2026;e->modified.day=n+1;
     if(mode==3){
         if(n==3)return 2;
         strcpy(e->name,n==0?"DUAL SID TEST.D6":n==1?"TESTDISK.DNP":"SMALL");
@@ -109,8 +111,11 @@ int main(void){
     metadata_mode=0;metadata_calls=0;reset();
     if(!host_flat(0,255,0)||!strstr(output,"175,306+ bytes")||!strstr(output,"???"))return 16;
     mode=2;model=DRIVE_SD2IEC;dir_dates=1;stamp_calls=0;reset();
-    if(!host_flat(0,255,0)||errors||stamp_calls!=3||opens!=5||!strstr(output,"3 File(s)"))return 17;
+    if(!host_flat(0,255,0)||errors||stamp_calls!=3||opens!=1||!strstr(output,"3 File(s)"))return 17;
     stamp_calls=0;reset();if(!host_flat(4,255,0)||errors||stamp_calls!=3)return 18;
+    if(!strstr(output,"A                SEQ   2")||!strstr(output,"B                SEQ   1")||!strstr(output,"C                SEQ   3"))return 19;
+    stamp_calls=0;redirected=1;reset();
+    if(!host_flat(0,255,0)||errors||stamp_calls!=3||opens!=5)return 20;
     return 0;
 }
 `);

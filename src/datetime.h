@@ -22,6 +22,9 @@ unsigned char time_parse(const char *s, DateTime *dt);
 void date_format(const DateTime *dt, char *out);
 void time_format(const DateTime *dt, char *out);
 void file_timestamp(const char *name, unsigned char native);
+struct DirectoryEntry;
+unsigned char timestamp_read(unsigned char lfn, struct DirectoryEntry *entry);
+void timestamp_print(const DateTime *dt);
 /* Pure protocol parser shared by the RTC and directory adapters. */
 unsigned char cmd_datetime(const char *s, DateTime *dt, unsigned char seconds);
 unsigned char date_weekday(const DateTime *dt);

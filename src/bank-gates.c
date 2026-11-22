@@ -1332,6 +1332,22 @@ __noinline unsigned char date_weekday(const DateTime *dt)
 }
 
 __noinline void bank_file_timestamp(const char *name, unsigned char native);
+__noinline unsigned char bank_timestamp_read(unsigned char lfn, struct DirectoryEntry *entry);
+__noinline unsigned char timestamp_read(unsigned char lfn, struct DirectoryEntry *entry)
+{
+    BANK_PUSH(BANK_TIMESTAMP);
+    unsigned char result = bank_timestamp_read(lfn, entry);
+    BANK_POP(); return result;
+}
+
+__noinline void bank_timestamp_print(const DateTime *dt);
+__noinline void timestamp_print(const DateTime *dt)
+{
+    BANK_PUSH(BANK_TIMESTAMP);
+    bank_timestamp_print(dt);
+    BANK_POP();
+}
+
 __noinline void file_timestamp(const char *name, unsigned char native)
 {
     BANK_PUSH(BANK_TIMESTAMP);

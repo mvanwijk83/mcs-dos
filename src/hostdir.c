@@ -86,7 +86,10 @@ __noinline void bank_host_row(const struct DirectoryEntry *entry, unsigned char 
             type = entry->type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE :
                 info->kind ? imageformat(info->kind) : typename(entry->type);
             print(SYSOUT_DIR_TIMESTAMP_ENTRY, shown, type);
-            if (!partitions) file_timestamp(entry->name, 0);
+            if (!partitions) {
+                if (model == DRIVE_SD2IEC) timestamp_print(&entry->modified);
+                else file_timestamp(entry->name, 0);
+            }
             if (redirected ? outputcol : ox) newline();
             return;
         }
@@ -143,7 +146,7 @@ static unsigned char host_ordered(const Path *p, const struct DirectoryEntry *pr
     HostCursor cursor;
     struct DirectoryEntry entry;
     unsigned char found = 0, r, head = 1;
-    if (!host_open(p, &cursor, 4, 0)) return 1;
+    if (!host_open(p, &cursor, 4, dir_dates ? 2 : 0)) return 1;
     while (!(r = host_next(&cursor, &entry))) {
         if ((flags & 128) && head) {
             head = 0;
@@ -174,20 +177,20 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
         print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
         pagelines = 5;
     }
-    if (!host_open(&p1, &cursor, 4, 0)) return 0;
-    /* Timestamp lookups also use IEC secondary address zero. Close the main
-     * stream before a lookup, then reopen/skip like redirected listings. */
-    if (redirected || dir_dates) { channel_close(4); cursor.done = 1; }
+    if (!host_open(&p1, &cursor, 4, dir_dates ? 2 : 0)) return 0;
+    /* Redirected output may share the device's directory secondary address.
+     * Screen listings, including timestamps, keep a single stream open. */
+    if (redirected) { channel_close(4); cursor.done = 1; }
     if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
-        strcpy(entry.name, "."); entry.type = CBM_T_DIR;
+        strcpy(entry.name, "."); entry.type = CBM_T_DIR; entry.modified.year = 0;
         if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
         strcpy(entry.name, "..");
         if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
     }
     if (flags & 4) { channel_close(4); cursor.done = 1; }
     for (;;) {
-        if (!(flags & 4) && (redirected || dir_dates)) {
-            if (!host_open(&p1, &cursor, 4, 0)) return 0;
+        if (!(flags & 4) && redirected) {
+            if (!host_open(&p1, &cursor, 4, dir_dates ? 2 : 0)) return 0;
             skipped = 0;
             do { r = host_next(&cursor, &entry); } while (!r && skipped++ < ordinal);
             ++ordinal;

@@ -155,17 +155,36 @@ simulate('build/test-clock-command.c', {regional: true});
 fs.writeFileSync('build/test-timestamp.c', base + `
 static unsigned char io[256],stream[256];static unsigned int at,length;
 static struct {unsigned char dev;} p1={8};
+struct DirectoryEntry {char name[17];unsigned int size;unsigned char type,access,remainder;DateTime modified;};
+#define CBM_T_DEL 0
+#define CBM_T_OTHER 4
+#define CBM_T_SEQ 16
+#define CBM_T_PRG 17
+#define CBM_T_USR 18
+#define CBM_T_REL 19
+#define CBM_T_DIR 20
+#define CBM_T_CBM 21
+#define CBM_A_RW 3
+#define CBM_A_RO 1
 static void line(const char *s){stream[length++]=1;stream[length++]=1;stream[length++]=1;stream[length++]=0;strcpy((char*)stream+length,s);length+=strlen(s)+1;}
 static unsigned char channel_open(unsigned char f,unsigned char dev,unsigned char sa,const char *s){at=0;return strcmp(s,"$=t:ONE.PRG=l")!=0;}
 static void channel_close(unsigned char f){}
 static int channel_read(unsigned char f,void *p,unsigned int n){if(at+n>length)n=length-at;memcpy(p,stream+at,n);at+=n;return n;}
 static unsigned char softiec_dos(unsigned char cmd,const char *a,const char *b,unsigned char *p,unsigned int capacity,unsigned int *length,unsigned char *more){*length=12;*more=0;return 1;}
-${extract('timestamp_iec','timestamp_fat')}
+${extract('timestamp_read','timestamp_iec','timestamp_fat')}
+static unsigned char model,printed;
+static unsigned char drivemodel(unsigned char dev,unsigned char refresh){return model;}
+static unsigned char timestamp_ultimate(const char *name,unsigned char native,DateTime *dt){return 0;}
+void timestamp_print(const DateTime *dt){if(dt->year==2026&&dt->minute==18)++printed;}
+${extract('file_timestamp')}
 int main(void){
     DateTime d;unsigned int date,time;
     stream[0]=1;stream[1]=4;length=2;line("\\\"SD2IEC\\\" IK 2A");
     line("\\\"ONE.PRG\\\" PRG 11/21/26   00.18 AM");
     if(!timestamp_iec("ONE.PRG",&d)||d.year!=2026||d.month!=11||d.day!=21||d.hour||d.minute!=18)return 1;
+    model=DRIVE_CMD_HD;file_timestamp("ONE.PRG",0);if(printed!=1)return 5;
+    model=DRIVE_CMD_FD;file_timestamp("ONE.PRG",0);if(printed!=2)return 6;
+    file_timestamp(".",0);file_timestamp("..",0);if(printed!=2)return 7;
     length=2;line("\\\"SD2IEC\\\" IK 2A");line("\\\"ONE.PRG\\\" PRG");
     if(timestamp_iec("ONE.PRG",&d))return 2;
     memset(io,0,sizeof(io));if(timestamp_fat("ONE.PRG",&d))return 3;

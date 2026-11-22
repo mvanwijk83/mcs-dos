@@ -14,6 +14,9 @@ static struct Path {unsigned char dev;char dir[128];} p1={9,""};
 static unsigned char model=DRIVE_CMD_HD,root=1,parttype=1,ox,redirected,outputcol,noseparators;
 static unsigned int freeblocks=24475,used;
 static char output[512];
+static unsigned char stamp_calls;
+static void print(const char *fmt,...);
+void file_timestamp(const char *name,unsigned char native){++stamp_calls;print(SYSOUT_DIR_TIMESTAMP_SUFFIX,"2026-11-22","03:18p");}
 static unsigned char location_root(unsigned char d,const char *p){return root;}
 static unsigned char partition_info(unsigned char d,unsigned char n,PartitionInfo *p){p->type=parttype;return 1;}
 static unsigned char drivemodel(unsigned char d,unsigned char r){return model;}
@@ -58,9 +61,17 @@ int main(void){
         model=DRIVE_CMD_HD;reset();dirfooter(1000,1000,65535,0);
         if(strcmp(output,"1000 File(s)    16,776,960 bytes\\n1000 Dir(s)      6,265,600 bytes free\\n"))return 14;
         parttype=1;
+        dir_dates=1;stamp_calls=0;root=1;reset();direntry(0,"DATA",1);
+        if(stamp_calls)return 15;
+        root=0;reset();direntry(0,"CHILD",0);
+        if(stamp_calls!=1)return 16;
+        if(strcmp(output,"${'CHILD'.padEnd(17)}<DIR> 2026-11-22 03:18p\\n"))return 17;
+        files[0].type=CBM_T_SEQ;reset();direntry(0,"SIXTEENCHAR.NAME",0);
+        if(strcmp(output,"${'SIXTEENCHAR.NAME'.padEnd(17)}SEQ   2026-11-22 03:18p\\n"))return 18;
+        dir_dates=0;
     }
     return 0;
 }
 `);
-require('./simulator')('build/test-dir-layout.c');
+require('./simulator')('build/test-dir-layout.c',{timestamp:true});
 console.log('PASS exact DIR sample, 40-column rows, partition types, large blocks, aligned footers and four-digit counts');

@@ -75,6 +75,13 @@ refusal to grow a full environment by one byte.
 
 ## Selecting coverage
 
+`datetime` checks Gregorian calendar boundaries, locale input/output, malformed
+and duplicate country records, century interpretation and per-device staged RTC
+initialization in the 6502 simulator. `datetime-session` checks the linked
+cartridge's locale switching, external COUNTRY.SYS paths and error fallbacks,
+no-clock behavior and DIR /D option precedence in VICE. Physical clock reads and
+writes still require hardware checks; stock VICE drive fixtures have no such RTC.
+
 The standalone disk-wide 1581 CHKDSK experiment uses full D81 fixtures and
 normal-speed VICE timing (PAL, true drive emulation, warp off):
 

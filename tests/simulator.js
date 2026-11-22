@@ -16,7 +16,9 @@ module.exports = function simulate(source, options = {}) {
         support.slice(support.indexOf('int vsnprintf('));
     const input = source.replace(/\.c$/, '-oscar.c');
     const mounts = options.mount ? '' : '\n#define mount_active(d) 0\n#define mount_geometry(d) 0\n#define mount_guard(p) 1\n#define mount_select(d,p) 1\n#define mountcmd(o) ((void)0)\n#define makediskcmd() ((void)0)\n#define mount_reset() ((void)0)\n#define mount_restore() ((void)0)\n#define mount_invalidate() ((void)0)\n#define imagetype(n,t) typename(t)\n#define imagekind(n) 0\n#define imageformat(k) ""\n#define softiec_mount(p,d,u) 0\n';
-    fs.writeFileSync(input, helpers + mounts + '\nstatic unsigned char directory_locks[' + Math.ceil(constant('MAXFILES') / 8) + '];\n#define CBM_A_RO 1\n#define CBM_A_RW 3\n#include "../src/dir-filter.h"\n' + fs.readFileSync(source, 'utf8'));
+    let regional = options.regional ? '' : '\n#include "../src/datetime.h"\nLocaleFormat locale={2,44,46,45,58,1};\nchar locale_code[7];\nunsigned char dir_dates,clockkind,clockdevice;\nvoid file_timestamp(const char *n,unsigned char native) {}\nvoid clockcmd(unsigned char t,const char *s) {}\nvoid nlscmd(void) {}\nvoid locale_startup(void) {}\n';
+    if (options.timestamp) regional = regional.replace('void file_timestamp(const char *n,unsigned char native) {}', '');
+    fs.writeFileSync(input, helpers + mounts + regional + '\nstatic unsigned char directory_locks[' + Math.ceil(constant('MAXFILES') / 8) + '];\n#define CBM_A_RO 1\n#define CBM_A_RW 3\n#include "../src/dir-filter.h"\n' + fs.readFileSync(source, 'utf8'));
     execFileSync(tool('oscar64', 'oscar64'),
         ['-n', '-Os', '-Oo', ...(options.petscii ? ['-psci'] : []), '-e', '-o=' + source.replace(/\.c$/, '.prg'), input],
         {stdio: 'inherit', windowsHide: true, timeout: 120000});

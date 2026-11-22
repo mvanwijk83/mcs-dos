@@ -25,6 +25,9 @@
 #pragma compile("boot.c")
 #pragma compile("session.c")
 #pragma compile("tape.c")
+#pragma compile("locale.c")
+#pragma compile("clock.c")
+#pragma compile("timestamp.c")
 
 /* Initialize the shell, then alternate between batch commands and interactive input until exit. */
 int main(void)

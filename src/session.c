@@ -68,6 +68,12 @@ static unsigned char statebyte(unsigned int i)
         return ((char *)working)[i - SESSION_LOCATIONS_OFFSET];
     if (i < SESSION_MOUNTS_OFFSET + MOUNT_COUNT * MOUNT_RECORD_SIZE)
         return ((char *)mounts)[i - SESSION_MOUNTS_OFFSET];
+    if (i >= SESSION_LOCALE_OFFSET) {
+        i -= SESSION_LOCALE_OFFSET;
+        if (i < 6) return ((char *)&locale)[i];
+        if (i < 13) return locale_code[i - 6];
+        return i == 13 ? clockkind : clockdevice;
+    }
     return mount_hostdir[i - SESSION_MOUNTS_OFFSET - MOUNT_COUNT * MOUNT_RECORD_SIZE];
 }
 
@@ -126,8 +132,15 @@ static void stateput(unsigned int i, unsigned char value)
         ((char *)working)[i - SESSION_LOCATIONS_OFFSET] = value;
     else if (i < SESSION_MOUNTS_OFFSET + MOUNT_COUNT * MOUNT_RECORD_SIZE)
         ((char *)mounts)[i - SESSION_MOUNTS_OFFSET] = value;
-    else if (i < SESSION_FONT_OFFSET)
+    else if (i < SESSION_LOCALE_OFFSET)
         mount_hostdir[i - SESSION_MOUNTS_OFFSET - MOUNT_COUNT * MOUNT_RECORD_SIZE] = value;
+    else if (i < SESSION_FONT_OFFSET) {
+        i -= SESSION_LOCALE_OFFSET;
+        if (i < 6) ((char *)&locale)[i] = value;
+        else if (i < 13) locale_code[i - 6] = value;
+        else if (i == 13) clockkind = value;
+        else clockdevice = value;
+    }
     else
         POKE(0xe800 + i - SESSION_FONT_OFFSET, value);
 }
@@ -209,6 +222,9 @@ __noinline unsigned char bank_session_restore(void)
         ++pos;
     }
     prompttext[ENVVALUE] = 0;
+    locale_code[6] = 0;
+    if (locale.order > 2 || locale.hours > 1 || clockkind > 3 ||
+        (clockdevice && (clockdevice < 8 || clockdevice > 30))) return 0;
     for (i = 0; i < 10; ++i)
         history.text[i][LINE - 1] = 0;
     for (i = 0; i < LOCATIONCOUNT; ++i)

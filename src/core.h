@@ -12,6 +12,7 @@
 #include "mount.h"
 #include "dir-filter.h"
 #include "device-name.h"
+#include "datetime.h"
 extern unsigned char resume_requested;
 #include <conio.h>
 #include <stdio.h>
@@ -31,7 +32,7 @@ extern unsigned char resume_requested;
 #define ENVSIZE 256
 #define KEYBUFSIZE 256
 #define FUNCTIONKEYS 7
-#define VERSION "2.1"
+#define VERSION "2.2"
 #include "sysout.h"
 
 #define MAXFILES 296
@@ -114,7 +115,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators;
-#define COMMANDCOUNT 39
+#define COMMANDCOUNT 42
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */

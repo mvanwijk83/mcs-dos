@@ -56,7 +56,7 @@ const code=map.match(/^([\da-f]+) - ([\da-f]+) : DATA, code/m);
 // Filesystem calls temporarily expose ROML too; resident services must be
 // below $8000 even though persistent data may extend through $9FFF.
 if(!code||parseInt(code[2],16)>0x8000)throw Error('Resident code overlaps filesystem ROML');
-const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer','volume','host','hostdir','mount','ultdir','softiec','nativedir','fatdir'].map((name,i)=>{
+const commandBanks=['edit','fileutil','filemgmt','disk','boot','storage','nav','transfer','volume','host','hostdir','mount','ultdir','softiec','nativedir','fatdir','clock','locale','timestamp'].map((name,i)=>{
  const sections=[...map.matchAll(new RegExp(`^([\\da-f]+) - ([\\da-f]+) : DATA, ${name}_(?:code|data)$`,'gm'))]
   .map(m=>[parseInt(m[1],16),parseInt(m[2],16)]).filter(([a,b])=>b>a);
  if(!sections.length||sections.some(([a,b])=>a<0xa000||b>0xc000))throw Error('Command bank overflow: '+name);
@@ -110,7 +110,8 @@ for(let at=64;at<banks.length;at+=banks.readUInt32BE(at+4)){
 const driver=fs.readFileSync(`${out}/fs.bin`); if(driver.length>0x3f00)throw Error('Driver bank overflow'); driver.copy(rom,4*16384);
 const executableBytes=prg.length+commandBanks.reduce((n,b)=>n+b.used,0);
 if(run.length>120)throw Error('RUN loader exceeds transfer buffer'); insert(4,1,run,0x1f00);
-const help=fs.readFileSync(`${out}/help.bin`);insert(10,0,help);
+const help=fs.readFileSync(`${out}/help.bin`);insert(10,0,help.subarray(0,8192));
+if(help.length>8192)insert(10,1,help.subarray(8192));
 const tape=fs.readFileSync(`${out}/tape.bin`);insert(11,1,tape);
 exec(process.execPath,['scripts/make-examples.js'],{stdio:'inherit',windowsHide:true});
 for(const name of ['CGA.CPI','PET.CPI','VGA.CPI'])fs.copyFileSync('disk-content/'+name,'build/'+name);
@@ -118,10 +119,11 @@ fs.writeFileSync('build/README.TXT',require('./petscii')(fs.readFileSync('disk-c
 fs.writeFileSync('build/AUTOEXEC.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/AUTOEXEC.SAMPLE','utf8')));
 // Configuration keys use unshifted PETSCII, as written by the shell's ECHO.
 fs.writeFileSync('build/CONFIG.SAMPLE',require('./petscii')(fs.readFileSync('disk-content/CONFIG.SAMPLE','utf8').toLowerCase()));
-const names=['AUTOEXEC.SAMPLE','CGA.CPI','CONFIG.SAMPLE','PET.CPI','README.TXT','VGA.CPI'];
+exec(process.execPath,['scripts/make-country.js'],{stdio:'inherit',windowsHide:true});
+const names=['AUTOEXEC.SAMPLE','CGA.CPI','CONFIG.SAMPLE','COUNTRY.SYS','PET.CPI','README.TXT','VGA.CPI'];
 const {image,used,fileBytes,available}=require('./journal-image')(names);
 for(let i=0;i<8;i++)insert(56+i,0,image.subarray(i*8192,(i+1)*8192));
-const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.1',32);
+const header=Buffer.alloc(64);header.write('C64 CARTRIDGE   ');header.writeUInt32BE(64,16);header.writeUInt16BE(0x100,20);header.writeUInt16BE(32,22);header[24]=1;header.write('MCS-DOS 2.2',32);
 // REU-aware EasyFlash subtype: $DF00-$DF1F is free (EasyAPI uses $DF80-$DFFF).
 // Ultimate otherwise disables UCI after selecting its $DE1C relocation on load.
 header[0x1a]=1;
@@ -136,7 +138,7 @@ fs.writeFileSync(`${out}/SHA256SUMS.txt`,require('crypto').createHash('sha256').
 const bssEnd=parseInt(bss[1],16),residentBytes=bssEnd-0x0801;
 fs.writeFileSync(`${out}/layout.json`,JSON.stringify({buildNumber,entry,payload:payload.length,driver:driver.length,bridge:bridge.length,
  executableBytes,commandBanks,residentBytes,bssEnd,romWindow:{start:0xa000,end:0xc000},
- wedge:wedge.length,sessionBytes:7696,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
+ wedge:wedge.length,sessionBytes:7711,sessionBanks:[48,55],tapeBank:11,tapeBytes:tape.length,tapeBufferBytes:45056,
  freeRam:0xa000-bssEnd+0x400,freeRanges:[[bssEnd,0xa000],[0xc300,0xc700]],
  helpBank:10,helpBytes:help.length,filesystemVersion:3,used,fileBytes,available},null,2));
 fs.appendFileSync(countFile, '\n');

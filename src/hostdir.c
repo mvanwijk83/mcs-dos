@@ -82,6 +82,14 @@ __noinline void bank_host_row(const struct DirectoryEntry *entry, unsigned char 
         print(SYSOUT_DIR_WIDE_ENTRY, shown);
         if (++*col == 2) { if (redirected ? outputcol : ox) newline(); *col = 0; }
     } else {
+        if (dir_dates) {
+            type = entry->type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE :
+                info->kind ? imageformat(info->kind) : typename(entry->type);
+            print(SYSOUT_DIR_TIMESTAMP_ENTRY, shown, type);
+            if (!partitions) file_timestamp(entry->name, 0);
+            if (redirected ? outputcol : ox) newline();
+            return;
+        }
         if (entry->type == CBM_T_DIR) {
             print(SYSOUT_DIR_SUBDIR_ENTRY, shown);
             if (partitions) {
@@ -167,7 +175,9 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
         pagelines = 5;
     }
     if (!host_open(&p1, &cursor, 4, 0)) return 0;
-    if (redirected) { channel_close(4); cursor.done = 1; }
+    /* Timestamp lookups also use IEC secondary address zero. Close the main
+     * stream before a lookup, then reopen/skip like redirected listings. */
+    if (redirected || dir_dates) { channel_close(4); cursor.done = 1; }
     if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         strcpy(entry.name, "."); entry.type = CBM_T_DIR;
         if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
@@ -176,7 +186,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
     }
     if (flags & 4) { channel_close(4); cursor.done = 1; }
     for (;;) {
-        if (!(flags & 4) && redirected) {
+        if (!(flags & 4) && (redirected || dir_dates)) {
             if (!host_open(&p1, &cursor, 4, 0)) return 0;
             skipped = 0;
             do { r = host_next(&cursor, &entry); } while (!r && skipped++ < ordinal);
@@ -204,7 +214,7 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
             if (entry.type == CBM_T_DIR &&
                 !DIR_RECURSE_DIR(filter)) continue;
             snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                     p1.dir, p1.dir[0] ? "\\" : "", entry.name);
+                     p1.dir, p1.dir[0] ? SYSOUT_DIR_PATH_SEPARATOR : "", entry.name);
             if (!(flags & 2)) uppername(io, io);
             say(io);
         } else bank_host_row(&entry, cursor.model, flags, cursor.partitions, &col, &info);

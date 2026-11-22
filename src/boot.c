@@ -592,6 +592,7 @@ __noinline void bank_bootstart(void)
     screenbase = 0xe000;
     gotoxy(ox, oy);
     c = cart_init();
+    locale_startup();
     default_printer = 4;
     if (c)
         error(SYSOUT_CRT_FS_UNAVAILABLE);

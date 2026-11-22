@@ -82,7 +82,7 @@ __noinline void bank_dircmd(void)
             explicit = 1;
     if (defaults) {
         native = bank_dirdefaults(defaults, &flags) & 2;
-        if (explicit) flags = 0;
+        if (explicit) { flags = 0; dir_dates = 0; }
     }
     if (!path("", &p1))
         return;
@@ -147,6 +147,7 @@ __noinline void bank_dircmd(void)
     lower = flags & 2;
     sort = flags & 4;
     wide = flags & 8;
+    if (bare || wide || native || recursive) dir_dates = 0;
     if (!mount_guard(&p1)) return;
     path_directory(&p1);
     if (!p1.name[0])
@@ -1012,6 +1013,8 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
         *flags |= 1;
     else if (!stricmp(s, "/L"))
         *flags |= 2;
+    else if (!stricmp(s, "/D"))
+        dir_dates = 1;
     else if (s[0] == '/' && toupper(s[1]) == 'O') {
         unsigned char mode = 4;
         s += 2;

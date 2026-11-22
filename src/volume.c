@@ -11,6 +11,12 @@ __noinline void bank_direntry(unsigned int index, const char *shown, unsigned ch
     PartitionInfo info;
     char label[12];
     const char *blocks, *type;
+    if (dir_dates) {
+        print(SYSOUT_DIR_TIMESTAMP_ENTRY, shown, entry->type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE : imagetype(entry->name, entry->type));
+        file_timestamp(entry->name, 0);
+        if (redirected ? outputcol : ox) newline();
+        return;
+    }
     if (entry->type == CBM_T_DIR) {
         /* G-P does not select a partition or replace the directory cache. */
         if (location_root(p1.dev, p1.dir) && partition_info(p1.dev, entry->blocks, &info)) {

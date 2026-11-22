@@ -47,6 +47,11 @@ int main(void){
     for(i=0;i<128;++i)if(((unsigned char*)mount_hostdir)[i]!=encoded[i+447])return 3;
     stateput(SESSION_FONT_OFFSET,91);stateput(SESSION_SIZE-1,37);
     if(font[0]!=91||font[2047]!=37)return 4;
+    stateput(SESSION_LOCALE_OFFSET,1);stateput(SESSION_LOCALE_OFFSET+1,'.');
+    stateput(SESSION_LOCALE_OFFSET+6,'N');stateput(SESSION_LOCALE_OFFSET+7,'L');
+    stateput(SESSION_LOCALE_OFFSET+13,2);stateput(SESSION_LOCALE_OFFSET+14,8);
+    if(locale.order!=1||locale.thousands!='.'||locale_code[0]!='N'||locale_code[1]!='L'||
+        clockkind!=2||clockdevice!=8||statebyte(SESSION_LOCALE_OFFSET+14)!=8)return 10;
     puts("PASS session environment, history boundary, mount records, host path and font encoding");return 0;
 }
 `);

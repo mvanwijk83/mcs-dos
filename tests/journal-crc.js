@@ -5,7 +5,7 @@ const implementation = source.slice(source.indexOf('static const unsigned int cr
     source.indexOf('static unsigned char get'));
 const fixtures = [
     Buffer.from('123456789'), Buffer.from(Array.from({length: 256}, (_, i) => i)),
-    Buffer.alloc(1024, 255), require('../scripts/petscii')(fs.readFileSync('manual.txt', 'utf8'))
+    Buffer.alloc(1024, 255), require('../scripts/petscii')(fs.readFileSync('disk-content/readme.txt', 'utf8'))
 ];
 let declarations = '', checks = '';
 fixtures.forEach((b, i) => {

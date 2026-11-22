@@ -230,10 +230,20 @@ static unsigned int fat_emit(FatListing *listing, const FatRow *row, const char 
     if (listing->native) return fat_write_name(name, listing->flags);
     if (listing->recursive) {
         snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                 p1.dir, p1.dir[0] ? "\\" : "", row->file.name);
+                 p1.dir, p1.dir[0] ? SYSOUT_DIR_PATH_SEPARATOR : "", row->file.name);
         if (!(listing->flags & 2)) uppername(io, io);
         say(io);
     } else {
+        if (dir_dates) {
+            if (listing->flags & 2) strcpy(entry.name, row->file.name);
+            else uppername(row->file.name, entry.name);
+            print(SYSOUT_DIR_TIMESTAMP_ENTRY, entry.name, row->file.type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE :
+                row->file.kind ? imageformat(row->file.kind) : typename(row->file.type));
+            file_timestamp(name, 1);
+            if (redirected ? outputcol : ox) newline();
+            if (!page()) return 0;
+            return !stop();
+        }
         strcpy(entry.name, row->file.name);
         entry.type = row->file.type;
         info.bytes = row->file.bytes; info.known = row->file.known; info.kind = row->file.kind;

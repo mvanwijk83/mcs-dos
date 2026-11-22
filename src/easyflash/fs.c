@@ -414,6 +414,8 @@ static void config(void)
                             devices[j] = trial[j];
                     } else
                         bad = 1;
+                } else if (!strncmp(line, "country=", 8) || !strncmp(line, "clock=", 6)) {
+                    /* Shell locale bank parses these values, including external paths. */
                 } else
                     bad = 1;
             }
@@ -541,7 +543,7 @@ void dispatch(void)
                     c->kind = 3;
                 } else if (c->pos == 0) {
                     memset(CART_TEXT, 0, 24);
-                    strcpy(CART_TEXT, "mcs-dos 2.1");
+                    strcpy(CART_TEXT, "mcs-dos 2.2");
                     CART_MAILBOX[3] = 0;
                     ++c->pos;
                 } else if (c->pos <= count) {

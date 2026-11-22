@@ -64,6 +64,10 @@ unsigned int launchaddress;
 
 unsigned char noseparators;
 unsigned char resume_requested;
+LocaleFormat locale;
+char locale_code[7];
+unsigned char dir_dates;
+unsigned char clockkind, clockdevice;
 
 /* Both copies run in low RAM while KERNAL and the editor bank are hidden. */
 __noinline void history_recall(char *buf, unsigned char slot)
@@ -81,7 +85,7 @@ const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -261,8 +265,8 @@ __noinline char *bank_decimal(unsigned long bytes)
     unsigned char pos = 13, group = 0;
     number[pos] = 0;
     do {
-        if (group == 3 && !noseparators) {
-            number[--pos] = ',';
+        if (group == 3 && !noseparators && locale.thousands) {
+            number[--pos] = locale.thousands;
             group = 0;
         }
         number[--pos] = '0' + bytes % 10;
@@ -787,6 +791,7 @@ __noinline void bank_executecommand(char *s)
     aborted = 0;
     copysuppress = 0;
     noseparators = 0;
+    dir_dates = 0;
     while (*s == ' ')
         ++s;
     if (*s == '@')
@@ -804,10 +809,14 @@ __noinline void bank_executecommand(char *s)
         *tail = 0;
         id = commandid(s);
         *tail = c;
-        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32) {
+        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32 || id == 39 || id == 40) {
             ++tail;
             if (!strcmp(tail, "/?")) {
                 help(id);
+                return;
+            }
+            if (id == 39 || id == 40) {
+                clockcmd(id == 40, tail);
                 return;
             }
             if (id == 32) {
@@ -872,6 +881,14 @@ __noinline void bank_executecommand(char *s)
             return;
         }
     switch (id) {
+    case 39:
+    case 40:
+        args[0][0] = 0;
+        clockcmd(id == 40, args[0]);
+        break;
+    case 41:
+        nlscmd();
+        break;
     case 33:
     case 34:
     case 35:

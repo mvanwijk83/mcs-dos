@@ -14,6 +14,7 @@ module.exports = async ({command, keys, enter, check, disk}) => {
     assert(s.includes(messages.SYSOUT_PRESS_ANY_KEY.trim()), s);
     await keys('x');
     await enter('cls');
+    await check('nlsfunc US', '0:');
     const layout = JSON.parse(fs.readFileSync('build/easyflash/layout.json'));
     const capacity = layout.fileBytes + layout.available;
     s = await check('chkdsk', capacity.toLocaleString('en-US') + ' bytes total disk space');

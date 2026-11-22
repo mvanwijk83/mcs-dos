@@ -83,7 +83,7 @@ for (const generation of [2, 3, 4]) {
     }
 }
 assert.deepEqual(
-    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer', 'volume', 'host', 'hostdir', 'mount', 'ultdir', 'softiec', 'nativedir', 'fatdir']);
+    layout.commandBanks.map(b => b.name), ['edit', 'fileutil', 'filemgmt', 'disk', 'boot', 'storage', 'nav', 'transfer', 'volume', 'host', 'hostdir', 'mount', 'ultdir', 'softiec', 'nativedir', 'fatdir', 'clock', 'locale', 'timestamp']);
 for (const b of layout.commandBanks) {
     assert(b.used > 0 && b.used <= 8192);
     assert.equal(b.used + b.free, 8192);
@@ -98,7 +98,7 @@ assert.equal(prg.length, layout.payload + 2);
 assert.equal(
     layout.executableBytes, prg.length + layout.commandBanks.reduce((n, b) => n + b.used, 0));
 assert.deepEqual(
-    image.get('10:32768').subarray(0, layout.helpBytes), fs.readFileSync(base + 'help.bin'));
+    Buffer.concat([image.get('10:32768'), image.get('10:40960')]).subarray(0, layout.helpBytes), fs.readFileSync(base + 'help.bin'));
 assert.equal(layout.tapeBank, 11);
 assert.equal(layout.tapeBufferBytes, 45056);
 assert.deepEqual(
@@ -112,7 +112,7 @@ assert(layout.bssEnd <= 0xa000);
 assert.deepEqual(layout.romWindow, {start: 0xa000, end: 0xc000});
 assert(layout.wedge > 0 && layout.wedge <= 0x1e0, 'wedge must not overlap resume token');
 assert.deepEqual(layout.sessionBanks, [48, 55]);
-assert.equal(layout.sessionBytes, 7696);
+assert.equal(layout.sessionBytes, 7711);
 assert.deepEqual(layout.freeRanges[1], [0xc300, 0xc700]);
 for (let bank = 48; bank <= 55; bank++)
     for (const address of [0x8000, 0xa000]) {

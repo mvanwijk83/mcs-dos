@@ -1,0 +1,1460 @@
+{
+  "source": "Unicode CLDR 49 JSON full",
+  "license": "country-cldr49-LICENSE.txt",
+  "scope": "Country defaults, selected language communities and macroregions; Gregorian, Latin digits, grouping by thousands",
+  "identifiers": "ISO alpha-2 country defaults; BCP 47 language-region variants; ISO reserved fallback. Match selectors case-insensitively, retaining language-region order.",
+  "encoding": "ASCII subset of PETSCII; no localized names or AM/PM strings",
+  "enums": {
+    "eciDateFormat": {
+      "MDY": 0,
+      "DMY": 1,
+      "YMD": 2
+    },
+    "eciTimeFormat": {
+      "12-hour": 0,
+      "24-hour": 1
+    }
+  },
+  "fallback": {
+    "eciCountryCode": "ISO",
+    "eciDateFormat": 2,
+    "eciThousands": "",
+    "eciDecimal": ".",
+    "eciDateSep": "-",
+    "eciTimeSep": ":",
+    "eciTimeFormat": 1
+  },
+  "countries": [
+    {
+      "country": "Argentina",
+      "kind": "country",
+      "locale": "es-AR",
+      "record": {
+        "eciCountryCode": "AR",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Austria",
+      "kind": "country",
+      "locale": "de-AT",
+      "record": {
+        "eciCountryCode": "AT",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Australia",
+      "kind": "country",
+      "locale": "en-AU",
+      "record": {
+        "eciCountryCode": "AU",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Belgium",
+      "kind": "country",
+      "locale": "nl-BE",
+      "record": {
+        "eciCountryCode": "BE",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Bulgaria",
+      "kind": "country",
+      "locale": "bg",
+      "record": {
+        "eciCountryCode": "BG",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d.MM.yy 'г'.",
+        "time": "H:mm",
+        "selectedTimePattern": "HH:mm 'ч'.",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Brazil",
+      "kind": "country",
+      "locale": "pt",
+      "record": {
+        "eciCountryCode": "BR",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Canada",
+      "kind": "country",
+      "locale": "en-CA",
+      "record": {
+        "eciCountryCode": "CA",
+        "eciDateFormat": 2,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "-",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "y-MM-dd",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Switzerland",
+      "kind": "country",
+      "locale": "de-CH",
+      "record": {
+        "eciCountryCode": "CH",
+        "eciDateFormat": 1,
+        "eciThousands": "'",
+        "eciDecimal": ".",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": "'",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "China",
+      "kind": "country",
+      "locale": "zh-Hans",
+      "record": {
+        "eciCountryCode": "CN",
+        "eciDateFormat": 2,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y/M/d",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Czechia",
+      "kind": "country",
+      "locale": "cs",
+      "record": {
+        "eciCountryCode": "CZ",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "H:mm",
+        "selectedTimePattern": "H:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Germany",
+      "kind": "country",
+      "locale": "de",
+      "record": {
+        "eciCountryCode": "DE",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Denmark",
+      "kind": "country",
+      "locale": "da",
+      "record": {
+        "eciCountryCode": "DK",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ".",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.y",
+        "time": "HH.mm",
+        "selectedTimePattern": "HH.mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Estonia",
+      "kind": "country",
+      "locale": "et",
+      "record": {
+        "eciCountryCode": "EE",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Spain",
+      "kind": "country",
+      "locale": "es",
+      "record": {
+        "eciCountryCode": "ES",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "H:mm",
+        "selectedTimePattern": "H:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Finland",
+      "kind": "country",
+      "locale": "fi",
+      "record": {
+        "eciCountryCode": "FI",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ".",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d.M.y",
+        "time": "H.mm",
+        "selectedTimePattern": "H.mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "France",
+      "kind": "country",
+      "locale": "fr",
+      "record": {
+        "eciCountryCode": "FR",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "United Kingdom",
+      "kind": "country",
+      "locale": "en-GB",
+      "record": {
+        "eciCountryCode": "GB",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Greece",
+      "kind": "country",
+      "locale": "el",
+      "record": {
+        "eciCountryCode": "GR",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Croatia",
+      "kind": "country",
+      "locale": "hr",
+      "record": {
+        "eciCountryCode": "HR",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd. MM. y.",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Hungary",
+      "kind": "country",
+      "locale": "hu",
+      "record": {
+        "eciCountryCode": "HU",
+        "eciDateFormat": 2,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y. MM. dd.",
+        "time": "H:mm",
+        "selectedTimePattern": "H:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Ireland",
+      "kind": "country",
+      "locale": "en-IE",
+      "record": {
+        "eciCountryCode": "IE",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Iceland",
+      "kind": "country",
+      "locale": "is",
+      "record": {
+        "eciCountryCode": "IS",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d.M.y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Italy",
+      "kind": "country",
+      "locale": "it",
+      "record": {
+        "eciCountryCode": "IT",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "India",
+      "kind": "country",
+      "locale": "hi",
+      "record": {
+        "eciCountryCode": "IN",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping standardized to thousands"
+      ]
+    },
+    {
+      "country": "Japan",
+      "kind": "country",
+      "locale": "ja",
+      "record": {
+        "eciCountryCode": "JP",
+        "eciDateFormat": 2,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y/MM/dd",
+        "time": "H:mm",
+        "selectedTimePattern": "H:mm",
+        "preferredHours": "H",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Lithuania",
+      "kind": "country",
+      "locale": "lt",
+      "record": {
+        "eciCountryCode": "LT",
+        "eciDateFormat": 2,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "-",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y-MM-dd",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Luxembourg",
+      "kind": "country",
+      "locale": "fr-LU",
+      "record": {
+        "eciCountryCode": "LU",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Latvia",
+      "kind": "country",
+      "locale": "lv",
+      "record": {
+        "eciCountryCode": "LV",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Netherlands",
+      "kind": "country",
+      "locale": "nl",
+      "record": {
+        "eciCountryCode": "NL",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "-",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd-MM-y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Norway",
+      "kind": "country",
+      "locale": "nb",
+      "record": {
+        "eciCountryCode": "NO",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "New Zealand",
+      "kind": "country",
+      "locale": "en-NZ",
+      "record": {
+        "eciCountryCode": "NZ",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Poland",
+      "kind": "country",
+      "locale": "pl",
+      "record": {
+        "eciCountryCode": "PL",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d.MM.y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Portugal",
+      "kind": "country",
+      "locale": "pt-PT",
+      "record": {
+        "eciCountryCode": "PT",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Romania",
+      "kind": "country",
+      "locale": "ro",
+      "record": {
+        "eciCountryCode": "RO",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Russia",
+      "kind": "country",
+      "locale": "ru",
+      "record": {
+        "eciCountryCode": "RU",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Serbia",
+      "kind": "country",
+      "locale": "sr-Latn",
+      "record": {
+        "eciCountryCode": "RS",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d. M. y.",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Sweden",
+      "kind": "country",
+      "locale": "sv",
+      "record": {
+        "eciCountryCode": "SE",
+        "eciDateFormat": 2,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "-",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y-MM-dd",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Slovenia",
+      "kind": "country",
+      "locale": "sl",
+      "record": {
+        "eciCountryCode": "SI",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d. M. y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "2",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Slovakia",
+      "kind": "country",
+      "locale": "sk",
+      "record": {
+        "eciCountryCode": "SK",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d. M. y",
+        "time": "H:mm",
+        "selectedTimePattern": "H:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Turkey",
+      "kind": "country",
+      "locale": "tr",
+      "record": {
+        "eciCountryCode": "TR",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d.MM.y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Ukraine",
+      "kind": "country",
+      "locale": "uk",
+      "record": {
+        "eciCountryCode": "UA",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "United States",
+      "kind": "country",
+      "locale": "en",
+      "record": {
+        "eciCountryCode": "US",
+        "eciDateFormat": 0,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "M/d/yy",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "South Africa",
+      "kind": "country",
+      "locale": "en-ZA",
+      "record": {
+        "eciCountryCode": "ZA",
+        "eciDateFormat": 2,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y/MM/dd",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Belgium (German)",
+      "kind": "community",
+      "locale": "de-BE",
+      "record": {
+        "eciCountryCode": "de-BE",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd.MM.yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Belgium (French)",
+      "kind": "community",
+      "locale": "fr-BE",
+      "record": {
+        "eciCountryCode": "fr-BE",
+        "eciDateFormat": 1,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d/MM/yy",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized"
+      ]
+    },
+    {
+      "country": "Belgium (Dutch)",
+      "kind": "community",
+      "locale": "nl-BE",
+      "record": {
+        "eciCountryCode": "nl-BE",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Canada (English)",
+      "kind": "community",
+      "locale": "en-CA",
+      "record": {
+        "eciCountryCode": "en-CA",
+        "eciDateFormat": 2,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "-",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "y-MM-dd",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Canada (French)",
+      "kind": "community",
+      "locale": "fr-CA",
+      "record": {
+        "eciCountryCode": "fr-CA",
+        "eciDateFormat": 2,
+        "eciThousands": " ",
+        "eciDecimal": ",",
+        "eciDateSep": "-",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "y-MM-dd",
+        "time": "HH 'h' mm",
+        "selectedTimePattern": "HH 'h' mm",
+        "preferredHours": "H",
+        "thousands": " ",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Grouping space/apostrophe normalized",
+        "Literal time separator replaced with numeric-symbol separator"
+      ]
+    },
+    {
+      "country": "Latin America and the Caribbean (Spanish)",
+      "kind": "macroregion",
+      "locale": "es-419",
+      "record": {
+        "eciCountryCode": "es-419",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Arabic (general/world)",
+      "kind": "macroregion",
+      "locale": "ar",
+      "record": {
+        "eciCountryCode": "ar-001",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d‏/M‏/y",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized",
+        "Date direction markers removed"
+      ]
+    }
+  ]
+}

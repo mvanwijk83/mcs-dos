@@ -135,7 +135,7 @@ function diskFile(file, name) {
         fs.writeFileSync(
             'build/AUTOEXEC.BAT', require('../scripts/petscii')('@ECHO OFF\rECHO AUTOEXEC-RAN\r'));
         const journal = require('../scripts/journal-image')([
-            'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'PET.CPI', 'README.TXT', 'VGA.CPI',
+            'AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'COUNTRY.SYS', 'PET.CPI', 'README.TXT', 'VGA.CPI',
             'AUTOEXEC.BAT'
         ]).image;
         const bytes = fs.readFileSync(crt);
@@ -526,7 +526,7 @@ function diskFile(file, name) {
     assert.deepEqual(saved.get('BLOB').data, blob);
     assert.equal(saved.get('TEST.TXT').data.toString(), 'HELLO\rSECOND\r');
     assert.equal(saved.get('EDITED.TXT').data.toString(), 'EDITED ON CARTRIDGE\r');
-    for (const name of ['AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'PET.CPI',
+    for (const name of ['AUTOEXEC.SAMPLE', 'CGA.CPI', 'CONFIG.SAMPLE', 'COUNTRY.SYS', 'PET.CPI',
              'README.TXT', 'VGA.CPI'])
         assert.deepEqual(
             saved.get(name).data, fs.readFileSync('build/' + name), name + ' remains intact');

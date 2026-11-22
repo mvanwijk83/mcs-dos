@@ -1,5 +1,7 @@
 archive/
-assets/*
+assets/
+!assets/country-cldr49.json
+!assets/country-cldr49-LICENSE.txt
 assets/fonts/
 assets/fonts/*
 branches/
@@ -21,6 +23,8 @@ scripts/*
 !scripts/build-easyflash.js
 !scripts/journal-image.js
 !scripts/format-c.js
+!scripts/reduce-cldr-country.js
+!scripts/make-country.js
 tools/
 SYSINFO.md
 MEMORY*.md

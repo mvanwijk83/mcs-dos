@@ -1,4 +1,4 @@
-          MCS-DOS Version 2.1
+          MCS-DOS Version 2.2
    A DOS shell for the Commodore 64
 
       Copyright (C) 2026 MCS Labs

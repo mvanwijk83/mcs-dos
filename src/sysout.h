@@ -234,7 +234,7 @@
 #define SYSOUT_SPLASH_PRODUCT "MCS-DOS version " VERSION
 #define SYSOUT_COPYRIGHT "Copyright (C) 2026 MCS Labs"
 /* Cartridge filesystem statistics */
-#define SYSOUT_CRT_VOL "Volume MCS-DOS 2.1\nDisk ID is MC\n\n"
+#define SYSOUT_CRT_VOL "Volume MCS-DOS 2.2\n\n"
 /* VER banner */
 #define SYSOUT_BANNER "MCS-DOS Version " VERSION " [%s]\nCopyright (C) 2026 MCS Labs\n"
 /* Tape copy */
@@ -273,6 +273,40 @@
 #define SYSOUT_ULTIMATE_DOS_FAILED "Ultimate DOS command failed"
 #define SYSOUT_ULTIMATE_DOS_RESTORE_FAILED "Unable to restore Ultimate DOS path"
 #define SYSOUT_PARTITION_FAT "FAT"
+/* Date/time, clock sources and locale information */
+#define SYSOUT_NO_CLOCK_DEVICE "No clock device"
+#define SYSOUT_NO_CLOCK_AVAILABLE "No clock device available"
+#define SYSOUT_CLOCK_NOT_SET "Clock device not set"
+#define SYSOUT_CLOCK_DEVICE_ERROR "Clock device error"
+#define SYSOUT_CANNOT_SET_CLOCK "Cannot set date/time"
+#define SYSOUT_CLOCK_DEVICE "Clock device: %s"
+#define SYSOUT_CLOCK_VALUE_DEVICE "%s (%s)"
+#define SYSOUT_CLOCK_SOURCE_NUMBER "%s,%u"
+#define SYSOUT_CLOCK_ULTIMATE "ULTIMATE"
+#define SYSOUT_CLOCK_SD2IEC "SD2IEC"
+#define SYSOUT_CLOCK_CMDHD "CMDHD"
+#define SYSOUT_CURRENT_DATE "The current date is: %s"
+#define SYSOUT_CURRENT_TIME "The current time is: %s"
+#define SYSOUT_ENTER_DATE "Enter the new date (%s): "
+#define SYSOUT_ENTER_TIME "Enter the new time (%s): "
+#define SYSOUT_DATE_PATTERN_YMD "yyyy-mm-dd"
+#define SYSOUT_DATE_PATTERN_DMY "dd-mm-yyyy"
+#define SYSOUT_DATE_PATTERN_MDY "mm-dd-yyyy"
+#define SYSOUT_TIME_PATTERN "hh:mm[:ss]"
+#define SYSOUT_TIME_PERIOD_HINT "a/p"
+#define SYSOUT_TIME_AM 'a'
+#define SYSOUT_TIME_PM 'p'
+#define SYSOUT_INVALID_DATE "Invalid date"
+#define SYSOUT_INVALID_TIME "Invalid time"
+#define SYSOUT_INIT_CLOCK_DATE "Set DATE to initialize clock"
+#define SYSOUT_INIT_CLOCK_TIME "Set TIME to initialize clock"
+#define SYSOUT_COUNTRY_NOT_FOUND "COUNTRY.SYS not found"
+#define SYSOUT_INVALID_COUNTRY "Invalid COUNTRY.SYS"
+#define SYSOUT_INVALID_LOCALE "Invalid locale code"
+#define SYSOUT_DIR_TIMESTAMP_ENTRY "%-17s%s"
+#define SYSOUT_DIR_TIMESTAMP_TYPE "DIR"
+#define SYSOUT_DIR_TIMESTAMP_SUFFIX "  %s %6s"
+#define SYSOUT_DIR_PATH_SEPARATOR "\\"
 #endif
 
 #define SYSOUT_KEY_TOO_LONG "KEY: command too long."

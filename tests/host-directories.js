@@ -24,6 +24,7 @@ static Path p1={8,"*","@1"};
 static unsigned char mode,model=DRIVE_SD2IEC,hidden,redirected,outputcol,ox,pagelines,noseparators,errors,optionalheader;
 static unsigned char present=63,folders[6];
 static unsigned int indices[6],opens,rows,used;
+static unsigned char stream_open,stamp_calls;
 static char output[4000],io[256];
 static const char *names[]={"A","ROOT.TXT","NOTE","B","HIDDEN","INNER"};
 static unsigned char parents[]={0,0,1,1,1,2};
@@ -55,13 +56,15 @@ static void uppername(const char *s,char *p){while(*s)*p++=toupper(*s++);*p=0;}
 static void displaypath(unsigned char dev,const char *path,char *shown){uppername(path,shown);}
 static unsigned char page(void){return 1;}
 static unsigned char stop(void){return 0;}
-static void channel_close(unsigned char f){}
+static void channel_close(unsigned char f){if(f==4)stream_open=0;}
+void file_timestamp(const char *name,unsigned char native){if(name[0]=='.')return;if(stream_open)++errors;stream_open=0;++stamp_calls;}
 static void host_volume(const Path *p){}
 static unsigned char folder(const char *s){return strstr(s,"A\\\\B")?2:strstr(s,"\\\\A")?1:0;}
 static unsigned char host_open(const Path *p,HostCursor *c,unsigned char lfn,unsigned char h){
-    ++opens;c->lfn=lfn;c->dev=p->dev;c->model=model;c->partitions=c->done=0;indices[lfn]=0;folders[lfn]=folder(p->dir);hidden=h;return 1;
+    ++opens;stream_open=1;c->lfn=lfn;c->dev=p->dev;c->model=model;c->partitions=c->done=0;indices[lfn]=0;folders[lfn]=folder(p->dir);hidden=h;return 1;
 }
 static unsigned char host_next(HostCursor *c,struct DirectoryEntry *e){
+    if(dir_dates&&!stream_open)return 1;
     unsigned int n=indices[c->lfn]++;
     e->type=CBM_T_SEQ;e->access=CBM_A_RW;e->remainder=4;e->size=1;
     if(mode==3){
@@ -70,7 +73,7 @@ static unsigned char host_next(HostCursor *c,struct DirectoryEntry *e){
         e->size=n==0?689:n==1?9999:2;e->remainder=n==2?48:1;return 0;
     }
     if(!mode){if(n==1001)return 2;snprintf(e->name,17,"F%4u",n);return 0;}
-    if(mode==2){if(n==3)return 2;strcpy(e->name,n==0?"B":n==1?"A":"C");e->size=n==0?3:n==1?1:2;e->remainder=2;return 0;}
+    if(mode==2){if(n==3){stream_open=0;c->done=1;return 2;}strcpy(e->name,n==0?"B":n==1?"A":"C");e->size=n==0?3:n==1?1:2;e->remainder=2;return 0;}
     while(n<6 && (!(present&(1<<n))||parents[n]!=folders[c->lfn]||(!hidden&&n==4)))n=indices[c->lfn]++;
     if(n>=6)return 2;
     strcpy(e->name,names[n]);e->type=types[n];return 0;
@@ -105,8 +108,11 @@ int main(void){
     if(!host_flat(0,255,0)||!strstr(output,"DUAL SID TEST.D6 D64")||!strstr(output,"7,864,320")||!strstr(output,"8,039,468 bytes")||metadata_calls!=2){puts(output);printf("Metadata calls: %u\\n",metadata_calls);return 15;}
     metadata_mode=0;metadata_calls=0;reset();
     if(!host_flat(0,255,0)||!strstr(output,"175,306+ bytes")||!strstr(output,"???"))return 16;
+    mode=2;model=DRIVE_SD2IEC;dir_dates=1;stamp_calls=0;reset();
+    if(!host_flat(0,255,0)||errors||stamp_calls!=3||opens!=5||!strstr(output,"3 File(s)"))return 17;
+    stamp_calls=0;reset();if(!host_flat(4,255,0)||errors||stamp_calls!=3)return 18;
     return 0;
 }
 `);
-require('./simulator')('build/test-host-directories.c',{mount:true});
+require('./simulator')('build/test-host-directories.c',{mount:true,timestamp:true});
 console.log('PASS uncached DIR, metadata image types/exact large sizes, partial totals, sorting, recursive paths and hidden-file removal');

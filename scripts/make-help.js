@@ -18,6 +18,6 @@ const texts=commands.map(name=>Buffer.concat([petscii(help[name]),Buffer.from([0
 const offsets=Buffer.alloc((commands.length+1)*2);let offset=offsets.length;
 texts.forEach((text,i)=>{offsets.writeUInt16LE(offset,i*2);offset+=text.length;});
 offsets.writeUInt16LE(offset,commands.length*2);
-assert(offset<=8192,'Help resource exceeds bank 10 ROML');
+assert(offset<=16384,'Help resource exceeds bank 10');
 fs.writeFileSync('build/easyflash/help.bin',Buffer.concat([offsets,...texts]));
 fs.writeFileSync('build/easyflash/helpmeta.h','#define HELP_TOPICS '+commands.length+'\n');

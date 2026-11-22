@@ -1241,3 +1241,100 @@ __noinline unsigned char validate_disk(unsigned char dev)
     BANK_POP();
     return result;
 }
+
+/* Calendar and locale services always exchange RAM-backed values. */
+__noinline void bank_locale_startup(void);
+__noinline void locale_startup(void)
+{
+    BANK_PUSH(BANK_LOCALE);
+    bank_locale_startup();
+    BANK_POP();
+}
+
+__noinline void bank_nlscmd(void);
+__noinline void nlscmd(void)
+{
+    BANK_PUSH(BANK_LOCALE);
+    bank_nlscmd();
+    BANK_POP();
+}
+
+__noinline void bank_clockcmd(unsigned char time, const char *tail);
+__noinline void clockcmd(unsigned char time, const char *tail)
+{
+    BANK_PUSH(BANK_CLOCK);
+    bank_clockcmd(time, tail);
+    BANK_POP();
+}
+
+__noinline void bank_clock_config(const char *value);
+__noinline void clock_config(const char *value)
+{
+    BANK_PUSH(BANK_CLOCK);
+    bank_clock_config(value);
+    BANK_POP();
+}
+
+__noinline unsigned char bank_datetime_valid(const DateTime *dt);
+__noinline unsigned char datetime_valid(const DateTime *dt)
+{
+    BANK_PUSH(BANK_LOCALE);
+    unsigned char result = bank_datetime_valid(dt);
+    BANK_POP(); return result;
+}
+
+__noinline unsigned char bank_date_parse(const char *s, DateTime *dt);
+__noinline unsigned char date_parse(const char *s, DateTime *dt)
+{
+    BANK_PUSH(BANK_LOCALE);
+    unsigned char result = bank_date_parse(s, dt);
+    BANK_POP(); return result;
+}
+
+__noinline unsigned char bank_time_parse(const char *s, DateTime *dt);
+__noinline unsigned char time_parse(const char *s, DateTime *dt)
+{
+    BANK_PUSH(BANK_LOCALE);
+    unsigned char result = bank_time_parse(s, dt);
+    BANK_POP(); return result;
+}
+
+__noinline void bank_date_format(const DateTime *dt, char *out);
+__noinline void date_format(const DateTime *dt, char *out)
+{
+    BANK_PUSH(BANK_LOCALE);
+    bank_date_format(dt, out);
+    BANK_POP();
+}
+
+__noinline void bank_time_format(const DateTime *dt, char *out);
+__noinline void time_format(const DateTime *dt, char *out)
+{
+    BANK_PUSH(BANK_LOCALE);
+    bank_time_format(dt, out);
+    BANK_POP();
+}
+
+__noinline unsigned char bank_cmd_datetime(const char *s, DateTime *dt, unsigned char seconds);
+__noinline unsigned char cmd_datetime(const char *s, DateTime *dt, unsigned char seconds)
+{
+    BANK_PUSH(BANK_LOCALE);
+    unsigned char result = bank_cmd_datetime(s, dt, seconds);
+    BANK_POP(); return result;
+}
+
+__noinline unsigned char bank_date_weekday(const DateTime *dt);
+__noinline unsigned char date_weekday(const DateTime *dt)
+{
+    BANK_PUSH(BANK_LOCALE);
+    unsigned char result = bank_date_weekday(dt);
+    BANK_POP(); return result;
+}
+
+__noinline void bank_file_timestamp(const char *name, unsigned char native);
+__noinline void file_timestamp(const char *name, unsigned char native)
+{
+    BANK_PUSH(BANK_TIMESTAMP);
+    bank_file_timestamp(name, native);
+    BANK_POP();
+}

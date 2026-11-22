@@ -20,6 +20,8 @@ this was made for fun and novelty.
 * Classic DOS look and feel.
 * Many familiar disk commands and utilities are implemented.
 * Configuration via `AUTOEXEC.BAT` and `CONFIG.SYS`.
+* Peripheral clocks, modification timestamps and country-specific date/time and number
+  conventions; see [date/time support](DATE-TIME.md).
 * Some batch file support.
 * Supports 1541, 1541-II, 1570, 1571 and 1581, CMD HD/FD, SD2IEC and SoftIEC (Ultimate).
 * Supports partitions, subdirectories, and disk images on relevant storage devices.

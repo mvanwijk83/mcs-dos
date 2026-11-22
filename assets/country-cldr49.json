@@ -111,6 +111,34 @@
       ]
     },
     {
+      "country": "Bosnia and Herzegovina",
+      "kind": "country",
+      "locale": "bs",
+      "record": {
+        "eciCountryCode": "BA",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d. M. y.",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
       "country": "Belgium",
       "kind": "country",
       "locale": "nl-BE",
@@ -539,6 +567,34 @@
       ]
     },
     {
+      "country": "Hong Kong",
+      "kind": "country",
+      "locale": "zh-Hant-HK",
+      "record": {
+        "eciCountryCode": "HK",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d/M/y",
+        "time": "ah:mm",
+        "selectedTimePattern": "ah:mm",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
       "country": "Croatia",
       "kind": "country",
       "locale": "hr",
@@ -597,6 +653,34 @@
       ]
     },
     {
+      "country": "Indonesia",
+      "kind": "country",
+      "locale": "id",
+      "record": {
+        "eciCountryCode": "ID",
+        "eciDateFormat": 1,
+        "eciThousands": ".",
+        "eciDecimal": ",",
+        "eciDateSep": "/",
+        "eciTimeSep": ".",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d/M/yy",
+        "time": "HH.mm",
+        "selectedTimePattern": "HH.mm",
+        "preferredHours": "H",
+        "thousands": ".",
+        "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
       "country": "Ireland",
       "kind": "country",
       "locale": "en-IE",
@@ -613,6 +697,34 @@
         "date": "dd/MM/y",
         "time": "HH:mm",
         "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Israel",
+      "kind": "country",
+      "locale": "he",
+      "record": {
+        "eciCountryCode": "IL",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "d.M.y",
+        "time": "H:mm",
+        "selectedTimePattern": "H:mm",
         "preferredHours": "H",
         "thousands": ",",
         "decimal": ".",
@@ -739,6 +851,34 @@
       ]
     },
     {
+      "country": "South Korea",
+      "kind": "country",
+      "locale": "ko",
+      "record": {
+        "eciCountryCode": "KR",
+        "eciDateFormat": 2,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": ".",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "yy. M. d.",
+        "time": "a h:mm",
+        "selectedTimePattern": "a h:mm",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
       "country": "Lithuania",
       "kind": "country",
       "locale": "lt",
@@ -823,6 +963,62 @@
         "Date widths/punctuation normalized",
         "Grouping space/apostrophe normalized",
         "Group from 1,000 regardless of CLDR threshold"
+      ]
+    },
+    {
+      "country": "Malta",
+      "kind": "country",
+      "locale": "mt",
+      "record": {
+        "eciCountryCode": "MT",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 1
+      },
+      "source": {
+        "date": "dd/MM/y",
+        "time": "HH:mm",
+        "selectedTimePattern": "HH:mm",
+        "preferredHours": "H",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Malaysia",
+      "kind": "country",
+      "locale": "ms",
+      "record": {
+        "eciCountryCode": "MY",
+        "eciDateFormat": 1,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "d/MM/yy",
+        "time": "h:mm a",
+        "selectedTimePattern": "h:mm a",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
       ]
     },
     {
@@ -1162,6 +1358,34 @@
         "preferredHours": "H",
         "thousands": ".",
         "decimal": ",",
+        "numberPattern": "#,##0.###",
+        "minimumGroupingDigits": "1",
+        "numberingSystem": "latn"
+      },
+      "notes": [
+        "Date widths/punctuation normalized"
+      ]
+    },
+    {
+      "country": "Taiwan",
+      "kind": "country",
+      "locale": "zh-Hant",
+      "record": {
+        "eciCountryCode": "TW",
+        "eciDateFormat": 2,
+        "eciThousands": ",",
+        "eciDecimal": ".",
+        "eciDateSep": "/",
+        "eciTimeSep": ":",
+        "eciTimeFormat": 0
+      },
+      "source": {
+        "date": "y/M/d",
+        "time": "Bh:mm",
+        "selectedTimePattern": "Bh:mm",
+        "preferredHours": "h",
+        "thousands": ",",
+        "decimal": ".",
         "numberPattern": "#,##0.###",
         "minimumGroupingDigits": "1",
         "numberingSystem": "latn"

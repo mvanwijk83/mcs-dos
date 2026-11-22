@@ -180,8 +180,12 @@ require('child_process').execFileSync(process.execPath, ['scripts/make-country.j
 const wire = fs.readFileSync('build/COUNTRY.SYS');
 assert.equal(wire.length, 8 + wire.readUInt16LE(6) * 13);
 const codes = Array.from({length: wire.readUInt16LE(6)}, (_, i) => wire.subarray(8 + i * 13, 15 + i * 13).toString('ascii').split('\0')[0]);
-assert.equal(codes.length, 51);
+assert.equal(codes.length, 59);
 assert(codes.includes('INT') && !codes.includes('ISO'));
 assert(codes.includes('FR-CA') && codes.includes('AR-001') && codes.includes('CH') && codes.includes('IN'));
 assert(!codes.includes('FR-CH') && !codes.includes('HI-IN'));
+for (const code of ['BA', 'HK', 'ID', 'IL', 'MY', 'MT', 'KR', 'TW']) assert(codes.includes(code));
+const formatBytes = code => wire.subarray(15 + codes.indexOf(code) * 13, 21 + codes.indexOf(code) * 13);
+assert.notDeepEqual(formatBytes('HK'), formatBytes('CN'), 'Hong Kong must differ from mainland China');
+assert.equal(formatBytes('ID')[4], '.'.charCodeAt(0), 'Indonesian time separator');
 console.log('PASS calendar boundaries, country file errors/duplicates, locale formats, staged per-device RTC initialization and bundled records');

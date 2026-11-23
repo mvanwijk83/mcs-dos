@@ -225,7 +225,7 @@
 #define SYSOUT_INVALID_COLOR "Invalid color"
 #define SYSOUT_INVALID_CHARSET_NAME "Invalid charset name"
 #define SYSOUT_USE_HELP_SET "Use HELP SET"
-#define SYSOUT_ENV_STATS "%3u bytes total environment size\n%3u bytes used\n%3u bytes free\n"
+#define SYSOUT_ENV_STATS "  %3u bytes total environment size\n  %3u bytes used\n  %3u bytes free\n"
 #define SYSOUT_ENV_INVALID_VALUE "Invalid value"
 #define SYSOUT_ENV_FULL "Environment full"
 #define SYSOUT_CRT_FS_UNAVAILABLE "Cartridge filesystem unavailable"

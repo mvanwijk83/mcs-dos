@@ -101,16 +101,16 @@ int main(void)
     setcmd("driveids=dos");
     setcmd("charset=anything");
     if (fg != 15 || bg || bd || *prompttext || driveids) return 4;
-    argc = 3; args[2] = "COLORS=15, 6, 14";
+    argc = 3; args[2] = "COLOR=15, 6, 14";
     settingscmd(44, "CON:");
     if (fg != 15 || bg != 6 || bd != 14) return 5;
     args[2] = "COLOR=1,2,16";
     settingscmd(44, "con");
     if (errors != 3 || fg != 15 || bg != 6 || bd != 14) return 6;
-    args[2] = "COLORS=1,2,3,4"; settingscmd(44, "con");
-    args[2] = "COLORS=1,2"; settingscmd(44, "con");
+    args[2] = "COLOR=1,2,3,4"; settingscmd(44, "con");
+    args[2] = "COLOR=1,2"; settingscmd(44, "con");
     if (errors != 5) return 7;
-    args[2] = "COLORS=15,0,0"; settingscmd(44, "con");
+    args[2] = "COLOR=15,0,0"; settingscmd(44, "con");
     settingscmd(43, "Ready.$R$D$C$G");
     if (strcmp(prompttext, "Ready.$R$D$C$G")) return 10;
     settingscmd(43, "");
@@ -125,7 +125,7 @@ int main(void)
     if (envused != 256 || errors)
         return 12;
     setcmd("/ENV");
-    if (strcmp(output, "256 bytes total environment size\\n256 bytes used\\n  0 bytes free\\n"))
+    if (strcmp(output, "  256 bytes total environment size\\n  256 bytes used\\n    0 bytes free\\n"))
         return 20;
     settingscmd(43, "full environment");
     if (strcmp(prompttext, "full environment") || envused != ENVSIZE) return 25;
@@ -146,19 +146,19 @@ int main(void)
         return 14;
     envused = 0;
     setcmd("/eNv  ");
-    if (strcmp(output, "256 bytes total environment size\\n  0 bytes used\\n256 bytes free\\n"))
+    if (strcmp(output, "  256 bytes total environment size\\n    0 bytes used\\n  256 bytes free\\n"))
         return 15;
     setcmd("aa=12345678901234567890123456789012");
     setcmd("b=123456789");
     setcmd("/ENV");
-    if (strcmp(output, "256 bytes total environment size\\n 48 bytes used\\n208 bytes free\\n"))
+    if (strcmp(output, "  256 bytes total environment size\\n   48 bytes used\\n  208 bytes free\\n"))
         return 16;
     argc = 3; args[2] = "IDS=DOS"; settingscmd(44, "drv:");
     if (strcmp(drivename(8), "A")) return 17;
     args[2] = "IDS=C64"; settingscmd(44, "DRV");
     if (strcmp(drivename(8), "8")) return 19;
     memset((void *)0xd800, 7, 1001);
-    args[2] = "COLORS=0,15,15"; settingscmd(44, "CON");
+    args[2] = "COLOR=0,15,15"; settingscmd(44, "CON");
     for (j = 0; j < 1000; ++j)
         if (((unsigned char *)0xd800)[j] != 0)
             return 21;
@@ -168,6 +168,9 @@ int main(void)
     for (j = 0; j < 1000; ++j)
         if (((unsigned char *)0xd800)[j] != 0)
             return 23;
+    errors = 0;
+    args[2] = "COLORS=1,2,3"; settingscmd(44, "CON");
+    if (errors != 1 || fg || bg != 15 || bd != 15) return 27;
     return 0;
 }`;
 fs.writeFileSync('build/test-startup-settings.c', code);

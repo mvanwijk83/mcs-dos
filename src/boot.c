@@ -605,7 +605,7 @@ __noinline void bank_settingscmd(unsigned char kind, const char *s)
     ++value;
     if (con && !strnicmp(args[2], "CP=", 3))
         setcharset(value);
-    else if (con && (!strnicmp(args[2], "COLOR=", 6) || !strnicmp(args[2], "COLORS=", 7)))
+    else if (con && !strnicmp(args[2], "COLOR=", 6))
         setcolor(value);
     else if (drv && !strnicmp(args[2], "IDS=", 4)) {
         if (stricmp(value, "DOS") && stricmp(value, "C64"))

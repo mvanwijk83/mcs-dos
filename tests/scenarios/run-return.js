@@ -60,7 +60,7 @@ module.exports =
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
     await enter('echo set boot=must-not-run >autoexec.bat');
     await enter('set keep=preserved');
-    await enter('mode con colors=2,6,7');
+    await enter('mode con color=2,6,7');
     const fields = [['environment', 256], ['prompttext', 33]];
     const expected = [];
     for (const field of fields)

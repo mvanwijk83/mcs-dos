@@ -17,10 +17,10 @@ module.exports = async ({command, memory, keys, enter, check, defaultFont, root,
         const prompt = await keys('prompt live$p$g\\x0d');
         assert(prompt.endsWith('live0:\\>'), prompt);
         await enter('prompt ');
-        await enter('mode con colors=2,6,7');
+        await enter('mode con color=2,6,7');
         assert.deepEqual(await memory(0xd020, 0xd021), [0xf7, 0xf6]);
         assert.equal((await memory(0x286))[0], 2);
-        await enter('mode con colors=15,0,0');
+        await enter('mode con color=15,0,0');
         assert.deepEqual(await memory(0xd020, 0xd021), [0xf0, 0xf0]);
         assert.equal((await memory(0x286))[0], 15);
         await enter('echo prompt live$p$g >autoexec.bat', 4000);

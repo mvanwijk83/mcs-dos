@@ -21,14 +21,14 @@ require('./shell')('device-settings', async ({enter, keys, until}) => {
     out = await fresh('mode con');
     assert(out.includes('Text color:        2') && out.includes('Background color:  6') &&
         out.includes('Border color:      7'), out);
-    await enter('mode con colors=15,0,0');
+    await enter('mode con color=15,0,0');
     await enter('copy 0:cga.cpi "8:font two.cpi"');
     await enter('mode con "CP=8:\\font two.cpi"');
     out = await fresh('mode con');
     assert(out.includes('Character set:     FONT TWO.CPI'), out);
-    out = await fresh('mode con colors=1,2,16');
+    out = await fresh('mode con color=1,2,16');
     assert(out.includes('Invalid color'), out);
-    for (const command of ['mode con ids=dos', 'mode drv cp=cga.cpi', 'mode drv ids=bad',
+    for (const command of ['mode con colors=1,2,3', 'mode con ids=dos', 'mode drv cp=cga.cpi', 'mode drv ids=bad',
                            'mode printer', 'mode con cp=', 'chcp cga.cpi extra']) {
         out = await fresh(command);
         assert(out.includes('Invalid parameter'), out);
@@ -51,5 +51,5 @@ require('./shell')('device-settings', async ({enter, keys, until}) => {
     await keys('prompt\\x0d');
     await until(s => s.endsWith('8:\\>'));
     await enter('chcp');
-    console.log('PASS CHCP, PROMPT, MODE reports, aliases, quoted CPI paths, validation and ordinary SET variables');
+    console.log('PASS CHCP, PROMPT, MODE reports, COLOR spelling, quoted CPI paths, validation and ordinary SET variables');
 }).catch(error => { console.error(error); process.exitCode = 1; });

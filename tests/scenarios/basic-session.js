@@ -99,7 +99,7 @@ module.exports =
     // External startup resources will be removed before restoration.
     const bat = root + '/build/easyflash/session-autoexec.bat';
     fs.writeFileSync(bat,
-        Buffer.from('SET BOOT=EXTERNAL\rCHCP CGA.CPI\rMODE CON COLORS=2,6,7\rPROMPT $P$G$S\r'));
+        Buffer.from('SET BOOT=EXTERNAL\rCHCP CGA.CPI\rMODE CON COLOR=2,6,7\rPROMPT $P$G$S\r'));
     execFileSync(tool('vice', 'c1541'),
         ['-attach', disk, '-delete', 'autoexec.bat', '-write', bat, 'autoexec.bat,s'],
         {stdio: 'pipe', windowsHide: true});
@@ -108,7 +108,7 @@ module.exports =
     await enter('reboot', 3500);
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
     for (const cmd of ['set boot=changed', 'set test=preserved', 'mode drv ids=dos',
-             'chcp missing.cpi', 'mode con colors=1,0,0', 'prompt $p$g',
+             'chcp missing.cpi', 'mode con color=1,0,0', 'prompt $p$g',
              'key /f1:help /f4:dir/w /f7:"my program"', 'nlsfunc fr-CA', 'echo off'])
         await enter(cmd);
     const fields = [

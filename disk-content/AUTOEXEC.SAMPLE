@@ -1,6 +1,6 @@
 @echo off
 mode drv ids=dos
 chcp cga.cpi
-mode con colors=15,0,0
+mode con color=15,0,0
 prompt $p$g
 ver

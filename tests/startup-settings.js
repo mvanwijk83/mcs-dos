@@ -17,7 +17,7 @@ static char environment[ENVSIZE], prompttext[33], activecharset[17];
 static unsigned char driveids,argc;
 static const char *args[3];
 static unsigned int envused;
-static unsigned char fg = 15, bg, bd, errors, envready, startupdevice;
+static unsigned char fg = 15, bg, bd, errors, envready, startupdevice, colorcalls;
 static char output[160];
 
 /* Format the supplied values into captured output for independent report comparisons.
@@ -52,6 +52,7 @@ static void error(const char *s)
 static void newline(void) { strcat(output, "|"); }
 static void colors(void)
 {
+    ++colorcalls;
 }
 
 /* Provide filename conversion for controlled fixture inputs.
@@ -171,6 +172,16 @@ int main(void)
     errors = 0;
     args[2] = "COLORS=1,2,3"; settingscmd(44, "CON");
     if (errors != 1 || fg || bg != 15 || bd != 15) return 27;
+    /* Equal text/background colors must silently preserve settings and screen RAM. */
+    errors = colorcalls = 0;
+    memset((void *)0xd800, 7, 1001);
+    for (i = 0; i < 16; ++i) {
+        sprintf(b, "COLOR=%u,%u,3", i, i);
+        args[2] = b; settingscmd(44, "CON");
+        if (errors || colorcalls || fg || bg != 15 || bd != 15) return 28;
+        for (j = 0; j < 1001; ++j)
+            if (((unsigned char *)0xd800)[j] != 7) return 29;
+    }
     return 0;
 }`;
 fs.writeFileSync('build/test-startup-settings.c', code);

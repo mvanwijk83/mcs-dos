@@ -284,7 +284,7 @@ __noinline void bank_sysinfo(unsigned char probe14)
 
 /* Apply all three colors after validation and recolor the visible screen.
  *
- * s: COLOR value, or an empty string for defaults. Return zero on invalid input. */
+ * s: COLOR value, or an empty string for defaults. Return zero if not applied. */
 static unsigned char setcolor(const char *s)
 {
     unsigned char values[3], i, n;
@@ -310,6 +310,9 @@ static unsigned char setcolor(const char *s)
         } else if (*s)
             goto invalid;
     }
+    /* Keep the shell readable; leave every color untouched without reporting an error. */
+    if (values[0] == values[1])
+        return 0;
     fg = values[0];
     bg = values[1];
     bd = values[2];

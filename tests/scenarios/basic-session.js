@@ -38,11 +38,11 @@ function journal(file, replace) {
 }
 function record(bytes, slot) {
     const b = bytes.subarray(slot * 8192, (slot + 1) * 8192);
-    assert.equal(b.subarray(0, 4).toString('hex'), '4d535307');
+    assert.equal(b.subarray(0, 4).toString('hex'), '4d535308');
     assert.equal(b[15], 0xa5);
-    assert.equal(b.readUInt16LE(6), 7711);
+    assert.equal(b.readUInt16LE(6), 7728);
     let crc = 65535;
-    for (const v of b.subarray(16, 16 + 7711)) {
+    for (const v of b.subarray(16, 16 + 7728)) {
         crc ^= v << 8;
         for (let i = 0; i < 8; i++)
             crc = ((crc << 1) ^ ((crc & 32768) ? 0x1021 : 0)) & 65535;
@@ -99,7 +99,7 @@ module.exports =
     // External startup resources will be removed before restoration.
     const bat = root + '/build/easyflash/session-autoexec.bat';
     fs.writeFileSync(bat,
-        Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\rSET COLOR=2,6,7\rSET PROMPT=$P$G$S\r'));
+        Buffer.from('SET BOOT=EXTERNAL\rCHCP CGA.CPI\rMODE CON COLORS=2,6,7\rPROMPT $P$G$S\r'));
     execFileSync(tool('vice', 'c1541'),
         ['-attach', disk, '-delete', 'autoexec.bat', '-write', bat, 'autoexec.bat,s'],
         {stdio: 'pipe', windowsHide: true});
@@ -107,15 +107,15 @@ module.exports =
     await enter('echo bootdrv=8 >config.sys', 4000);
     await enter('reboot', 3500);
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
-    for (const cmd of ['set boot=changed', 'set test=preserved', 'set driveids=dos',
-             'set charset=missing', 'set color=1,0,0', 'set prompt=$p$g',
+    for (const cmd of ['set boot=changed', 'set test=preserved', 'mode drv ids=dos',
+             'chcp missing.cpi', 'mode con colors=1,0,0', 'prompt $p$g',
              'key /f1:help /f4:dir/w /f7:"my program"', 'nlsfunc fr-CA', 'echo off'])
         await enter(cmd);
     const fields = [
         ['environment', 256, 16], ['history', 1440, 272],
         ['prompttext', 33, 1712], ['keybindings', 256, 1745], ['working', 3072, 2001],
         ['mounts', 447, 5073], ['mount_hostdir', 128, 5520],
-        ['locale', 6, 5648], ['locale_code', 7, 5654], ['clockkind', 1, 5661], ['clockdevice', 1, 5662]
+        ['activecharset', 17, 5663], ['driveids', 1, 11], ['locale', 6, 5648], ['locale_code', 7, 5654], ['clockkind', 1, 5661], ['clockdevice', 1, 5662]
     ];
     await basic();
     assert.equal((await memory(0xd018))[0] & 0xfe, 0x14, 'uppercase ROM font');

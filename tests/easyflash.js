@@ -154,7 +154,7 @@ function diskFile(file, name) {
         fs.rmSync(printer2, {force: true});
     }
     fs.writeFileSync(
-        'build/easyflash/external.bat', Buffer.from('SET BOOT=EXTERNAL\rSET CHARSET=CGA\r'));
+        'build/easyflash/external.bat', Buffer.from('SET BOOT=EXTERNAL\rCHCP CGA.CPI\r'));
     const blob = Buffer.from(Array.from({length: 1024}, (_, i) => (i * 37) & 255));
     fs.writeFileSync('build/easyflash/blob', blob);
     // Journal recovery streams a valid large file; the workflow must exceed
@@ -471,7 +471,7 @@ function diskFile(file, name) {
         await bankChecks();
     }
     await enter('echo set boot=flash >autoexec.bat', 4000);
-    await enter('echo set charset=cga >>autoexec.bat', 4000);
+    await enter('echo chcp cga.cpi >>autoexec.bat', 4000);
     await enter('echo bootdrv=9,0 >config.sys', 4000);
     await command('reset 0');
     await command('x');

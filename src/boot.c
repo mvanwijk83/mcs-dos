@@ -6,7 +6,7 @@
 #include "../build/easyflash/build-number.h"
 __noinline void bank_setcmd(const char *s);
 __noinline void bank_bootstart(void);
-__noinline unsigned char bank_setcharset(const char *value, unsigned char device);
+__noinline unsigned char bank_setcharset(const char *value);
 __noinline void bank_bootsplash(unsigned char wait);
 __noinline void bank_sysinfo(unsigned char probe14);
 __noinline const char *bank_kernalname(void);
@@ -279,6 +279,9 @@ __noinline void bank_sysinfo(unsigned char probe14)
     }
 }
 
+#pragma code(storage_code)
+#pragma data(storage_data)
+
 /* Apply all three colors after validation and recolor the visible screen.
  *
  * s: COLOR value, or an empty string for defaults. Return zero on invalid input. */
@@ -321,11 +324,10 @@ invalid:
 /* Stage MCPI v1 patches on a fresh copy of the default font. Commit only after
  * validation, so switching fonts never carries over glyphs from the previous font.
  *
- * value: Validated charset stem, or an empty string to restore the default font.
- * device: Startup device from which to load the font. Return zero on failure. */
+ * value: CPI path, or an empty string to restore the ROM font. Return zero on failure. */
 #pragma code(storage_code)
 #pragma data(storage_data)
-__noinline unsigned char bank_setcharset(const char *value, unsigned char device)
+__noinline unsigned char bank_setcharset(const char *value)
 {
     char name[17];
     unsigned char count, i, j, code, previous = 0;
@@ -333,17 +335,18 @@ __noinline unsigned char bank_setcharset(const char *value, unsigned char device
     if (!*value) {
         charset_prepare();
         charset_commit();
+        activecharset[0] = 0;
         return 1;
     }
-    filename(value, name);
-    strcat(name, ".cpi");
-    if (!location_file(device, startupdir))
-        goto failed;
-    eof[2] = 0;
-    snprintf(diskcmd, sizeof(fmtbuf), "%s,s,r", name);
-    if (channel_open(2, device, 2, diskcmd))
-        goto failed;
-    if (diskstatus(device, 1) >= 20)
+    if (!path(value, &p1))
+        return 0;
+    uppername(p1.name, name);
+    i = strlen(name);
+    if (i < 5 || stricmp(name + i - 4, ".CPI") || strchr(name, '*') || strchr(name, '?')) {
+        error(SYSOUT_INVALID_CHARSET_NAME);
+        return 0;
+    }
+    if (!openread(&p1, 2))
         goto failed;
     if (readio(2, io, 6) != 6 || io[0] != 77 || io[1] != 67 || io[2] != 80 || io[3] != 73 ||
         io[4] != 1 || !io[5] || io[5] > 88)
@@ -371,6 +374,7 @@ __noinline unsigned char bank_setcharset(const char *value, unsigned char device
         goto failed;
     channel_close(2);
     charset_commit();
+    strcpy(activecharset, name);
     return 1;
 failed:
     channel_close(2);
@@ -525,9 +529,7 @@ __noinline void bank_setcmd(const char *s)
     size = strlen(v);
     while (size && v[size - 1] == ' ')
         v[--size] = 0;
-    if (*v && ((!strcmp(name, "DRIVEIDS") && stricmp(v, "C64") && stricmp(v, "DOS")) ||
-               (!strcmp(name, "CHARSET") && !charsetname(v)) ||
-               (!strcmp(name, "DIRCMD") && !dirdefaults(v, &flags)))) {
+    if (*v && !strcmp(name, "DIRCMD") && !dirdefaults(v, &flags)) {
         error(SYSOUT_ENV_INVALID_VALUE);
         return;
     }
@@ -538,12 +540,6 @@ __noinline void bank_setcmd(const char *s)
         say(SYSOUT_ENV_FULL);
         return;
     }
-    if (!strcmp(name, "CHARSET") && !setcharset(v, startupdevice))
-        return;
-    if (!strcmp(name, "COLOR") && !setcolor(v))
-        return;
-    if (!strcmp(name, "PROMPT"))
-        strcpy(prompttext, len ? eq + 1 : "$p$g");
     if (old) {
         pos = old - environment - n - 1;
         memmove(environment + pos, environment + pos + size, envused - pos - size);
@@ -556,6 +552,73 @@ __noinline void bank_setcmd(const char *s)
         envused += n + len + 2;
     }
 }
+
+#pragma code(storage_code)
+#pragma data(storage_data)
+
+/* Apply a literal prompt, select a CPI file, or configure/report a MODE device.
+ * kind: command index; s: prompt text or parsed CHCP filename (MODE uses args). */
+__noinline void bank_settingscmd(unsigned char kind, const char *s)
+{
+    unsigned char con, drv;
+    const char *value;
+    if (kind == 43) {
+        if (strlen(s) > ENVVALUE) {
+            error(SYSOUT_INVALID_PARAM);
+            return;
+        }
+        strcpy(prompttext, *s ? s : "$p$g");
+        return;
+    }
+    if (kind == 42) {
+        if (argc > 2)
+            error(SYSOUT_INVALID_PARAM);
+        else
+            setcharset(s);
+        return;
+    }
+    con = argc == 1 || !stricmp(s, "CON") || !stricmp(s, "CON:");
+    drv = argc == 1 || !stricmp(s, "DRV") || !stricmp(s, "DRV:");
+    if ((!con && !drv) || argc > 3)
+        goto invalid;
+    if (argc < 3) {
+        if (con) {
+            say("Status for device CON:");
+            say("----------------------");
+            print("  Character set:     %s\n", *activecharset ? activecharset : "C64");
+            print("  Text color:        %u\n", fg);
+            print("  Background color:  %u\n", bg);
+            print("  Border color:      %u\n", bd);
+        }
+        if (drv) {
+            if (con)
+                newline();
+            say("Status for device DRV:");
+            say("----------------------");
+            print("  Identification:    %s\n", driveids ? "DOS" : "C64");
+        }
+        return;
+    }
+    value = strchr(args[2], '=');
+    if (!value || !value[1])
+        goto invalid;
+    ++value;
+    if (con && !strnicmp(args[2], "CP=", 3))
+        setcharset(value);
+    else if (con && (!strnicmp(args[2], "COLOR=", 6) || !strnicmp(args[2], "COLORS=", 7)))
+        setcolor(value);
+    else if (drv && !strnicmp(args[2], "IDS=", 4)) {
+        if (stricmp(value, "DOS") && stricmp(value, "C64"))
+            goto invalid;
+        driveids = !stricmp(value, "DOS");
+    } else {
+invalid:
+        error(SYSOUT_INVALID_PARAM);
+    }
+}
+
+#pragma code(boot_code)
+#pragma data(boot_data)
 
 /* Reset shell state, mount cartridge storage and search configured devices for AUTOEXEC. */
 __noinline void bank_bootstart(void)
@@ -574,6 +637,7 @@ __noinline void bank_bootstart(void)
     memset(&history, 0, sizeof(history));
     memset(keybindings, 0, sizeof(keybindings));
     strcpy(prompttext, "$p$g");
+    activecharset[0] = driveids = 0;
     batchpos = batchlen = 0;
     memset(eof, 0, sizeof(eof));
     echoon = 1;

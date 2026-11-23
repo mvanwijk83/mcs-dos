@@ -125,6 +125,6 @@ fs.writeFileSync('build/test-prompt.c', harness);
 require('./simulator')('build/test-prompt.c');
 
 const help = JSON.parse(fs.readFileSync('src/command-help.json'));
-assert(!help.PROMPT && !help.COLOR);
+assert(help.PROMPT && help.CHCP && help.MODE && !help.COLOR);
 console.log(
     'PASS prompt codes, case, graphics bytes, dynamic drives, literals, defaults, removed command help and no-device rendering');

@@ -75,6 +75,8 @@ extern char keybindings[KEYBUFSIZE];
 extern unsigned char envready;
 extern char line[LINE];
 extern char prompttext[ENVVALUE + 1];
+extern char activecharset[17];
+extern unsigned char driveids;
 #define RAWMAP ((LINE + 7) / 8)
 typedef struct History {
     char text[10][LINE];
@@ -115,7 +117,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators;
-#define COMMANDCOUNT 42
+#define COMMANDCOUNT 45
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */
@@ -162,7 +164,7 @@ const char *drivename(unsigned char dev);
 void showprompt(void);
 unsigned char diroption(const char *s, unsigned char *flags);
 unsigned char dirdefaults(const char *s, unsigned char *flags);
-unsigned char charsetname(const char *s);
+void settingscmd(unsigned char kind, const char *s);
 void setcmd(const char *s);
 unsigned char output_append(void);
 unsigned char output_open(unsigned char kind, unsigned char append);
@@ -181,7 +183,7 @@ unsigned char path(const char *s, Path *p);
 unsigned char statuschannel(unsigned char dev);
 unsigned char diskstatus(unsigned char dev, unsigned char report);
 int readio(unsigned char lfn, void *buf, unsigned int size);
-unsigned char setcharset(const char *value, unsigned char device);
+unsigned char setcharset(const char *value);
 unsigned char command(unsigned char dev, const char *s);
 unsigned char directory(unsigned char dev);
 int findfile(const Path *p);

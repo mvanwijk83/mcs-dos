@@ -689,17 +689,16 @@ __noinline void diskcopycmd(void)
     BANK_POP();
 }
 
-__noinline unsigned char bank_setcharset(const char *value, unsigned char device);
+__noinline unsigned char bank_setcharset(const char *value);
 
 /* Validate and stage a .CPI font before replacing the active RAM charset.
  * Resident gate: restore the previous bank after the service returns.
  *
- * value: Validated charset stem, or an empty string to restore the default font.
- * device: Startup device from which to load the font. Return zero on failure. */
-__noinline unsigned char setcharset(const char *value, unsigned char device)
+ * value: CPI path, or an empty string to restore the ROM font. Return zero on failure. */
+__noinline unsigned char setcharset(const char *value)
 {
     BANK_PUSH(BANK_STORAGE);
-    unsigned char result = bank_setcharset(value, device);
+    unsigned char result = bank_setcharset(value);
     BANK_POP();
     return result;
 }
@@ -1352,5 +1351,15 @@ __noinline void file_timestamp(const char *name, unsigned char native)
 {
     BANK_PUSH(BANK_TIMESTAMP);
     bank_file_timestamp(name, native);
+    BANK_POP();
+}
+
+__noinline void bank_settingscmd(unsigned char kind, const char *s);
+
+/* Apply shell settings in the storage bank; restore the caller's bank on return. */
+__noinline void settingscmd(unsigned char kind, const char *s)
+{
+    BANK_PUSH(BANK_STORAGE);
+    bank_settingscmd(kind, s);
     BANK_POP();
 }

@@ -46,11 +46,11 @@ module.exports = async ({command, memory, enter, check, kernalName, root}) => {
     assert.deepEqual(await memory(0xdf1c, 0xdf1f), [0, 0xc9, 0xaa, 0xbb],
         'false UCI signature leaves IO2 RAM intact');
     await command('> df1c ' + io2.map(b => b.toString(16).padStart(2, '0')).join(' '));
-    await enter('set driveids=dos');
+    await enter('mode drv ids=dos');
     await enter('cls');
     s = await check('sysinfo', 'Drive A:  ');
     assert(!s.includes('Drive 8:'), s);
-    await enter('set driveids=c64');
+    await enter('mode drv ids=c64');
     // A read-only UCI bus ID is used only after the UCI transport was verified.
     // Substitute the target handshake to exercise disk-command rejection. A stock 1541 ROM
     // cannot execute SoftIEC directory commands; those have separate fixtures.

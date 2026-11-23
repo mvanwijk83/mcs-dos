@@ -55,12 +55,12 @@ module.exports =
     await command(`attach "${disk}" 8`);
     for (const name of Object.keys(fixtures))
         await enter('copy 8:' + name + ' 0:' + name);
-    await enter('echo set charset=cga >autoexec.bat');
+    await enter('echo chcp cga.cpi >autoexec.bat');
     await enter('reboot', 3500);
     await defaultFont(fs.readFileSync('build/CGA.CPI'));
     await enter('echo set boot=must-not-run >autoexec.bat');
     await enter('set keep=preserved');
-    await enter('set color=2,6,7');
+    await enter('mode con colors=2,6,7');
     const fields = [['environment', 256], ['prompttext', 33]];
     const expected = [];
     for (const field of fields)

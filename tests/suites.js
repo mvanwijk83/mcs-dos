@@ -11,7 +11,7 @@ const groups = {
     shell: [
         cartridge('commands', '--commands'), cartridge('find-files', '--find-redirection'),
         cartridge('delete-files', '--delete'), cartridge('initialize-disk', '--diskinit'),
-        entry('datetime-session'), entry('input-history'), entry('key-session'), entry('key-scanner'), entry('implicit-batch'), entry('filename-completion'), entry('petscii-completion'), entry('sample-startup'),
+        entry('device-settings'), entry('datetime-session'), entry('input-history'), entry('key-session'), entry('key-scanner'), entry('implicit-batch'), entry('filename-completion'), entry('petscii-completion'), entry('sample-startup'),
         entry('editor-session'), entry('copy-wildcards'), entry('find-vice'), entry('help-session'),
         cartridge('cartridge-workflow', '--banked')
     ],

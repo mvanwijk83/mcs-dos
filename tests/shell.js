@@ -37,7 +37,32 @@ module.exports = async function withShell(name, test, prepare) {
     child.on('error', error => { launchError = error; });
     child.stderr.on('data', data => { log += data; });
     child.stdout.on('data', data => { log += data; });
-    const command = require('./vice-command')(() => socket);
+    // Keep the accepted monitor connection open: closing it can terminate
+    // VICE's monitor listener before the next request reconnects.
+    async function command(text) {
+        if (text === 'x' || text.startsWith('reset ')) {
+            socket.write(text + '\n');
+            await delay(100);
+            return '';
+        }
+        return new Promise((resolve, reject) => {
+            let out = '', idle;
+            const deadline = setTimeout(() => finish(Error('Monitor timeout: ' + text)), 5000);
+            function finish(error) {
+                clearTimeout(deadline);
+                clearTimeout(idle);
+                socket.off('data', data);
+                error ? reject(error) : resolve(out);
+            }
+            function data(chunk) {
+                out += chunk;
+                clearTimeout(idle);
+                idle = setTimeout(() => finish(), 100);
+            }
+            socket.on('data', data);
+            socket.write(text + '\n');
+        });
+    }
     const monitor = require('./monitor');
     async function memory(first, last = first) {
         if (first >= 0xe000)

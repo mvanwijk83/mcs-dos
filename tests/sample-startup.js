@@ -12,9 +12,10 @@ require('./shell')('sample-startup', async ({enter, keys, until}) => {
     assert(
         !boot.includes('Bad command') && !boot.includes('Cannot load') && !boot.includes('Invalid'),
         boot);
-    await keys('set\\x0d');
+    await keys('mode\\x0d');
     const settings = await until(s => s.endsWith('0:\\>'));
-    for (const line of ['DRIVEIDS=dos', 'CHARSET=cga', 'COLOR=15,0,0', 'PROMPT=$p$g'])
+    for (const line of ['Character set:     CGA.CPI', 'Text color:        15',
+                        'Background color:  0', 'Border color:      0', 'Identification:    DOS'])
         assert(settings.includes(line), settings);
     console.log(
         'PASS public config samples copied to active files, startup device, batch settings and prompt applied');

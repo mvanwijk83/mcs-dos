@@ -28,6 +28,8 @@ char keybindings[KEYBUFSIZE];
 unsigned char envready;
 char line[LINE];
 char prompttext[ENVVALUE + 1];
+char activecharset[17];
+unsigned char driveids;
 /* Completed bytes live in the command itself, never as cache indices. */
 unsigned char rawline[RAWMAP];
 #pragma bss(history_ram)
@@ -85,7 +87,7 @@ const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC", "CHCP", "PROMPT", "MODE"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -449,15 +451,10 @@ char *envget(const char *name)
     return 0;
 }
 
-/* Return nonzero when the active DRIVEIDS setting selects DOS drive letters. */
+/* Return nonzero when MODE DRV selects DOS drive letters. */
 unsigned char dosdrives(void)
 {
-    char *v = envready ? envget("DRIVEIDS") : (char *)0;
-    if (!v)
-        return 0;
-    while (*v == ' ')
-        ++v;
-    return toupper(*v) == 'D';
+    return driveids;
 }
 
 /* Format a device using the current drive naming setting; result uses static storage.
@@ -547,23 +544,6 @@ __noinline void bank_showprompt(void)
 }
 #pragma code(code)
 #pragma data(data)
-
-/* A 12-character stem leaves room for .CPI in a native 16-byte filename.
- *
- * Check that a charset stem is valid and leaves room for its .CPI suffix.
- *
- * s: Terminated stem; return nonzero if accepted. */
-unsigned char charsetname(const char *s)
-{
-    unsigned char n = 0;
-    while (s[n]) {
-        /* Literal '_' is remapped to $a4 by cc65; native filenames use $5f. */
-        if (n == 12 || (!isalnum(s[n]) && s[n] != ' ' && s[n] != '-' && s[n] != 95))
-            return 0;
-        ++n;
-    }
-    return n != 0;
-}
 
 /* Closing a 1541 command channel also closes its data channels. Keep two
  * command channels resident so two-drive copying never closes a live file.
@@ -809,10 +789,14 @@ __noinline void bank_executecommand(char *s)
         *tail = 0;
         id = commandid(s);
         *tail = c;
-        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32 || id == 39 || id == 40) {
+        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32 || id == 39 || id == 40 || id == 43) {
             ++tail;
             if (!strcmp(tail, "/?")) {
                 help(id);
+                return;
+            }
+            if (id == 43) {
+                settingscmd(43, tail);
                 return;
             }
             if (id == 39 || id == 40) {
@@ -881,6 +865,12 @@ __noinline void bank_executecommand(char *s)
             return;
         }
     switch (id) {
+    case 42:
+    case 43:
+    case 44:
+        if (argc == 1) args[0][0] = 0;
+        settingscmd(id, argc > 1 ? args[1] : args[0]);
+        break;
     case 39:
     case 40:
         args[0][0] = 0;

@@ -86,7 +86,7 @@ async function main(){
         out=await run('dir');assert(out.includes('1581'),out);
         await s.enter('cls',prompt);prompt='8:\\@4>';out=await s.enter('unmount',prompt);assert(out.includes('Drive 8 unmounted'),out);
         out=await run('dir game.d64');assert(/GAME\.D64\s+D64\s/.test(out),out);
-        await s.enter('set driveids=dos','A:\\@4>');prompt='A:\\@4>';
+        await s.enter('mode drv ids=dos','A:\\@4>');prompt='A:\\@4>';
         await s.enter('cls',prompt);prompt='A:\\>';out=await s.enter('mount game.d64',prompt);assert(out.includes('mounted to drive A'),out);
         await s.enter('unmount','A:\\@4>');
         console.log('PASS linked mount/unmount, disk roots, DIR image types, CHKDSK, cancellation/replacement/rollback, BASIC restoration and DRIVEIDS');

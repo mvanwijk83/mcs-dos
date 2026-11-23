@@ -54,6 +54,8 @@ static unsigned char statebyte(unsigned int i)
             return envready;
         case 10:
             return default_printer;
+        case 11:
+            return driveids;
         default:
             return 0;
         }
@@ -68,6 +70,8 @@ static unsigned char statebyte(unsigned int i)
         return ((char *)working)[i - SESSION_LOCATIONS_OFFSET];
     if (i < SESSION_MOUNTS_OFFSET + MOUNT_COUNT * MOUNT_RECORD_SIZE)
         return ((char *)mounts)[i - SESSION_MOUNTS_OFFSET];
+    if (i >= SESSION_CHARSET_OFFSET)
+        return activecharset[i - SESSION_CHARSET_OFFSET];
     if (i >= SESSION_LOCALE_OFFSET) {
         i -= SESSION_LOCALE_OFFSET;
         if (i < 6) return ((char *)&locale)[i];
@@ -119,6 +123,9 @@ static void stateput(unsigned int i, unsigned char value)
             /* Older sessions store zero in this reserved byte. */
             default_printer = value == 5 ? 5 : 4;
             break;
+        case 11:
+            driveids = value != 0;
+            break;
         }
     } else if (i < SESSION_HISTORY_OFFSET)
         environment[i - SESSION_ENV_OFFSET] = value;
@@ -134,13 +141,15 @@ static void stateput(unsigned int i, unsigned char value)
         ((char *)mounts)[i - SESSION_MOUNTS_OFFSET] = value;
     else if (i < SESSION_LOCALE_OFFSET)
         mount_hostdir[i - SESSION_MOUNTS_OFFSET - MOUNT_COUNT * MOUNT_RECORD_SIZE] = value;
-    else if (i < SESSION_FONT_OFFSET) {
+    else if (i < SESSION_CHARSET_OFFSET) {
         i -= SESSION_LOCALE_OFFSET;
         if (i < 6) ((char *)&locale)[i] = value;
         else if (i < 13) locale_code[i - 6] = value;
         else if (i == 13) clockkind = value;
         else clockdevice = value;
     }
+    else if (i < SESSION_FONT_OFFSET)
+        activecharset[i - SESSION_CHARSET_OFFSET] = value;
     else
         POKE(0xe800 + i - SESSION_FONT_OFFSET, value);
 }
@@ -222,6 +231,7 @@ __noinline unsigned char bank_session_restore(void)
         ++pos;
     }
     prompttext[ENVVALUE] = 0;
+    activecharset[16] = 0;
     locale_code[6] = 0;
     if (locale.order > 2 || locale.hours > 1 || clockkind > 3 ||
         (clockdevice && (clockdevice < 8 || clockdevice > 30))) return 0;

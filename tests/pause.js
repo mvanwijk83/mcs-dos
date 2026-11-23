@@ -32,6 +32,7 @@ static void help(int id) {helpid=id;}
 static int commandid(const char *s) {return !stricmp(s,"PAUSE")?15:-1;}
 static int tokenize(char *s) {argc=1;args[0]=s;return 1;}
 #define volcmd(n) ((void)0)
+#define settingscmd(k,s) ((void)0)
 #define clear() ((void)0)
 #define copycmd(n) ((void)0)
 #define delcmd() ((void)0)

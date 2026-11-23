@@ -33,7 +33,7 @@ if (list) {
     process.exit(0);
 }
 const standalone = [
-    'banked-image', 'drive-compat', 'datetime-session', 'input-history', 'petscii-completion', 'sample-startup',
+    'banked-image', 'device-settings', 'drive-compat', 'datetime-session', 'input-history', 'petscii-completion', 'sample-startup',
     'editor-session', 'copy-wildcards', 'find-vice', 'help-session', 'cmd-hd', 'cmd-rel', 'cmd-sysinfo', 'cmd-overview', 'directories', 'dos-directories', 'partition-channels'
 ];
 if ([...selected.values()].some(

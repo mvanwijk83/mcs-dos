@@ -1,19 +1,20 @@
 #ifndef MCS_SESSION_FORMAT_H
 #define MCS_SESSION_FORMAT_H
 
-/* Version 7 saves bytes in this order. Fixed offsets make the flash format
+/* Version 8 saves bytes in this order. Fixed offsets make the flash format
  * independent of compiler padding and pointer representation. Update the
  * format version when changing the size or placement of fields. */
 #define SESSION_ENV_OFFSET 16U
 #define SESSION_HISTORY_OFFSET 272U
 #define SESSION_RAW_HISTORY_OFFSET 1552U
 #define SESSION_PROMPT_OFFSET 1712U
-#define SESSION_VERSION 7
+#define SESSION_VERSION 8
 #define SESSION_KEYS_OFFSET 1745U
 #define SESSION_LOCATIONS_OFFSET 2001U
 #define SESSION_MOUNTS_OFFSET 5073U
 #define SESSION_LOCALE_OFFSET 5648U
-#define SESSION_FONT_OFFSET 5663U
+#define SESSION_CHARSET_OFFSET 5663U
+#define SESSION_FONT_OFFSET 5680U
 #define SESSION_FONT_SIZE 2048U
 #define SESSION_SIZE (SESSION_FONT_OFFSET + SESSION_FONT_SIZE)
 #if SESSION_SIZE > 8176U

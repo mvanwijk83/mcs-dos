@@ -7,7 +7,8 @@ fs.writeFileSync('build/test-session-encoding.c',`
 #include "../src/session-format.h"
 #include "../src/mount.h"
 static unsigned char fg,bg,bd,drive,echoon,histcount,histnext,envready;
-static unsigned char default_printer;
+static unsigned char default_printer,driveids;
+static char activecharset[17];
 static unsigned int envused;
 static char environment[${constant('ENVSIZE')}],prompttext[33],keybindings[256],working[24][128];
 static struct {char text[10][128];unsigned char raw[10][16];} history;
@@ -23,6 +24,9 @@ int main(void){
     low=statebyte(7);high=statebyte(8);
     envused=0;stateput(7,low);stateput(8,high);
     if(envused!=sizeof(environment))return 5;
+    stateput(11,1);
+    stateput(SESSION_CHARSET_OFFSET,67);stateput(SESSION_FONT_OFFSET-1,0);
+    if(!driveids||statebyte(11)!=1||activecharset[0]!=67||statebyte(SESSION_CHARSET_OFFSET)!=67)return 11;
     stateput(10,5);
     if(default_printer!=5||statebyte(10)!=5)return 8;
     stateput(10,0);

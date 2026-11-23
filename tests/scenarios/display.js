@@ -14,32 +14,32 @@ module.exports = async ({command, memory, keys, enter, check, defaultFont, root,
     await command(`screenshot "${root}/build/easyflash/display-${
         process.argv.includes('--ntsc') ? 'ntsc' : 'pal'}.png" 2`);
     if (process.argv.includes('--display-fonts')) {
-        const prompt = await keys('set prompt=live$p$g\\x0d');
+        const prompt = await keys('prompt live$p$g\\x0d');
         assert(prompt.endsWith('live0:\\>'), prompt);
-        await enter('set prompt=');
-        await enter('set color=2,6,7');
+        await enter('prompt ');
+        await enter('mode con colors=2,6,7');
         assert.deepEqual(await memory(0xd020, 0xd021), [0xf7, 0xf6]);
         assert.equal((await memory(0x286))[0], 2);
-        await enter('set color=');
+        await enter('mode con colors=15,0,0');
         assert.deepEqual(await memory(0xd020, 0xd021), [0xf0, 0xf0]);
         assert.equal((await memory(0x286))[0], 15);
-        await enter('echo set prompt=live$p$g >autoexec.bat', 4000);
-        await enter('echo set prompt= >>autoexec.bat', 4000);
+        await enter('echo prompt live$p$g >autoexec.bat', 4000);
+        await enter('echo prompt  >>autoexec.bat', 4000);
         const batch = await enter('reboot', 3500);
-        assert(batch.includes('live0:\\>set prompt='), batch);
+        assert(batch.includes('live0:\\>prompt'), batch);
 
         const patch = fs.readFileSync('build/CGA.CPI');
         for (const name of ['CGA', 'VGA']) {
-            await enter('set charset=' + name.toLowerCase());
+            await enter('chcp ' + name.toLowerCase() + '.cpi');
             await defaultFont(fs.readFileSync('build/' + name + '.CPI'));
             await command(`screenshot "${root}/build/easyflash/display-${name.toLowerCase()}.png" 2`);
         }
-        await check('set charset=missing', 'Cannot load MISSING.CPI');
-        await check('set', 'CHARSET=vga');
+        await check('chcp missing.cpi', 'Cannot load MISSING.CPI');
+        await check('mode con', 'Character set:     VGA.CPI');
         await defaultFont(fs.readFileSync('build/VGA.CPI'));
-        await enter('set charset=');
+        await enter('chcp');
         await defaultFont();
-        await enter('echo set charset=missing >autoexec.bat', 4000);
+        await enter('echo chcp missing.cpi >autoexec.bat', 4000);
         await enter('reboot');
         await defaultFont();
 
@@ -60,9 +60,9 @@ module.exports = async ({command, memory, keys, enter, check, defaultFont, root,
         await enter('reboot');
         await defaultFont(patch);
         await enter('0:');
-        await check('set charset=invalid', 'Cannot load INVALID.CPI');
+        await check('chcp 8:invalid.cpi', 'Cannot load INVALID.CPI');
         await defaultFont(patch);
-        await enter('set charset=partial');
+        await enter('chcp 8:partial.cpi');
         await defaultFont(valid);
         console.log('PASS live and batch display settings, external CPI loading and invalid CPI rollback');
     }

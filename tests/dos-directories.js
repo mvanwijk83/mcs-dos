@@ -55,10 +55,10 @@ async function main() {
         out = await run('cd /d 8:\\missing');
         assert(out.includes('Disk error'), out);
         await run('cd /d A:\\dir1', '8:\\DIR1>');
-        await run('set driveids=dos', 'A:\\DIR1>');
-        await run('set prompt=$i$c$g', 'A:>');
-        await run('set prompt=$p$g', 'A:\\DIR1>');
-        await run('set driveids=c64', '8:\\DIR1>');
+        await run('mode drv ids=dos', 'A:\\DIR1>');
+        await run('prompt $i$c$g', 'A:>');
+        await run('prompt $p$g', 'A:\\DIR1>');
+        await run('mode drv ids=c64', '8:\\DIR1>');
         await run('cd/d 0:', '0:\\>');
         await run('cd/d 8:', '8:\\DIR1>');
         console.log('PASS DOS directory presentation, recursive paths, compact CD, /D and $I/$P');

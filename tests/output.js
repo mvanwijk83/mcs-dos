@@ -40,12 +40,12 @@ function resolve(name, seen = new Set()) {
     if (!definitions.has(name) || seen.has(name))
         throw Error('Unknown or circular output: ' + name);
     const expression = definitions.get(name);
-    const tokens = expression.match(/"(?:\\.|[^"\\])*"|\b\w+\b/g) || [];
+    const tokens = expression.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b\w+\b/g) || [];
     if (tokens.join('').replace(/\s/g, '') !== expression.replace(/\s/g, ''))
         throw Error('Unsupported output expression: ' + name);
     const next = new Set([...seen, name]);
     return tokens
-        .map(token => token.startsWith('"') ? decode(token.slice(1, -1)) : resolve(token, next))
+        .map(token => /^["']/.test(token) ? decode(token.slice(1, -1)) : resolve(token, next))
         .join('');
 }
 const output = {};

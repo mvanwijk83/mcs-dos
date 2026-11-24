@@ -65,6 +65,10 @@ int main(void)
 {
     unsigned int i, j, tmp, order[6], count = 6;
     unsigned char flags, sort; ${checks}
+    if(!diroption("/C",&flags)||dir_dates!=2)return 140;
+    if(!diroption("/D",&flags)||dir_dates!=1)return 141;
+    if(!dirdefaults("/D /C /ON",&flags)||dir_dates!=2)return 142;
+    if(diroption("/CX",&flags))return 143;
     return 0;
 }
 `;

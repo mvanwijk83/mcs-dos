@@ -118,6 +118,14 @@ int main(void) {
     args[2]="/AL";args[3]="/TP";errors=seen=0;dircmd();if(errors||seen!=1)return 34;
     args[2]="/TP";args[3]="/AL";errors=seen=0;dircmd();if(errors||seen!=1)return 35;
     args[2]="/OF";argc=3;errors=seen=0;dircmd();if(errors!=1||seen)return 36;
+    model=DRIVE_SD2IEC;envready=0;argc=2;args[1]="/C";dir_dates=0;dircmd();
+    if(dir_dates!=2)return 37;
+    argc=3;args[2]="/B";dircmd();if(dir_dates)return 38;
+    args[2]="/W";dircmd();if(dir_dates)return 39;
+    args[2]="/N";dircmd();if(dir_dates)return 40;
+    args[2]="/S";dircmd();if(dir_dates)return 41;
+    envready=1;defaults="/C";argc=1;dircmd();if(dir_dates!=2)return 42;
+    argc=2;args[1]="/L";dircmd();if(dir_dates)return 43;
     return 0;
 }
 `;

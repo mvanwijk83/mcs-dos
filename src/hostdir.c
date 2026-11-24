@@ -83,9 +83,8 @@ __noinline void bank_host_row(const struct DirectoryEntry *entry, unsigned char 
         if (++*col == 2) { if (redirected ? outputcol : ox) newline(); *col = 0; }
     } else {
         if (dir_dates) {
-            type = entry->type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE :
-                info->kind ? imageformat(info->kind) : typename(entry->type);
-            print(SYSOUT_DIR_TIMESTAMP_ENTRY, shown, type);
+            timestamp_entry(shown, entry->type, entry->type == CBM_T_DIR ? 0 : info->kind,
+                entry->type == CBM_T_DIR ? 0 : info->bytes, entry->type == CBM_T_DIR ? 1 : info->known);
             if (!partitions) {
                 if (model == DRIVE_SD2IEC) timestamp_print(&entry->modified);
                 else file_timestamp(entry->name, 0);

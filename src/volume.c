@@ -12,7 +12,9 @@ __noinline void bank_direntry(unsigned int index, const char *shown, unsigned ch
     char label[12];
     const char *blocks, *type;
     if (dir_dates) {
-        print(SYSOUT_DIR_TIMESTAMP_ENTRY, shown, entry->type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE : imagetype(entry->name, entry->type));
+        timestamp_entry(shown, entry->type,
+            entry->type == CBM_T_DIR || entry->type == CBM_T_CBM ? 0 : imagekind(entry->name),
+            (unsigned long)entry->blocks * 256, 1);
         if (!location_root(p1.dev, p1.dir)) file_timestamp(entry->name, 0);
         if (redirected ? outputcol : ox) newline();
         return;

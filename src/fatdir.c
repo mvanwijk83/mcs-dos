@@ -237,8 +237,7 @@ static unsigned int fat_emit(FatListing *listing, const FatRow *row, const char 
         if (dir_dates) {
             if (listing->flags & 2) strcpy(entry.name, row->file.name);
             else uppername(row->file.name, entry.name);
-            print(SYSOUT_DIR_TIMESTAMP_ENTRY, entry.name, row->file.type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE :
-                row->file.kind ? imageformat(row->file.kind) : typename(row->file.type));
+            timestamp_entry(entry.name, row->file.type, row->file.kind, row->file.bytes, row->file.known);
             file_timestamp(name, 1);
             if (redirected ? outputcol : ox) newline();
             if (!page()) return 0;

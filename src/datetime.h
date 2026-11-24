@@ -10,7 +10,7 @@ typedef struct DateTime {
 } DateTime;
 extern LocaleFormat locale;
 extern char locale_code[7];
-extern unsigned char dir_dates;
+extern unsigned char dir_dates; /* 0: ordinary, 1: full timestamps (/D), 2: compact (/C). */
 extern unsigned char clockkind, clockdevice;
 void locale_startup(void);
 void nlscmd(void);
@@ -25,6 +25,8 @@ void file_timestamp(const char *name, unsigned char native);
 struct DirectoryEntry;
 unsigned char timestamp_read(unsigned char lfn, struct DirectoryEntry *entry);
 void timestamp_print(const DateTime *dt);
+void timestamp_entry(const char *name, unsigned char type, unsigned char kind,
+                     unsigned long bytes, unsigned char known);
 /* Pure protocol parser shared by the RTC and directory adapters. */
 unsigned char cmd_datetime(const char *s, DateTime *dt, unsigned char seconds);
 unsigned char date_weekday(const DateTime *dt);

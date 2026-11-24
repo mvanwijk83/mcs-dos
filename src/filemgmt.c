@@ -1015,6 +1015,8 @@ __noinline unsigned char bank_diroption(const char *s, unsigned char *flags)
         *flags |= 2;
     else if (!stricmp(s, "/D"))
         dir_dates = 1;
+    else if (!stricmp(s, "/C"))
+        dir_dates = 2;
     else if (s[0] == '/' && toupper(s[1]) == 'O') {
         unsigned char mode = 4;
         s += 2;

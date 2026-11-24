@@ -41,6 +41,10 @@ require('./shell')('datetime', async ({enter: rawEnter, command, memory}) => {
     assert(row && !/[0-9]/.test(row), screen);
     await enter('cls'); screen = await check('dir 0:country.sys /d /b', 'COUNTRY.SYS');
     assert(!screen.includes('SEQ'), screen);
+    await enter('cls'); screen = await check('dir 0:country.sys /c', 'COUNTRY.SYS');
+    assert(/^COUNTRY.SYS\s+S\s+\d+$/m.test(screen), screen);
+    await enter('cls'); screen = await check('dir 0:country.sys /c /d', 'COUNTRY.SYS');
+    assert(/^COUNTRY.SYS\s+SEQ\s*$/m.test(screen), screen);
     const helpTitle = JSON.parse(fs.readFileSync('src/command-help.json', 'utf8')).NLSFUNC.split('\n')[0];
     await enter('cls'); await check('help nlsfunc', helpTitle.slice(0, 35));
     await enter('echo country=fr-CA,8:country.sys >0:config.sys');

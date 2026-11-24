@@ -7,6 +7,7 @@ fs.writeFileSync('build/test-dir-layout.c',`
 #include <stdarg.h>
 #define CBM_T_DIR 20
 #define CBM_T_SEQ 16
+#define CBM_T_CBM 21
 typedef struct Entry {char name[17];unsigned int blocks;unsigned char type;} Entry;
 typedef struct PartitionInfo {unsigned char type;} PartitionInfo;
 static Entry files[1];
@@ -28,7 +29,7 @@ static void outs(const char *s){
 }
 static void print(const char *fmt,...){char text[160];va_list a;va_start(a,fmt);vsnprintf(text,sizeof(text),fmt,a);va_end(a);outs(text);}
 static void reset(void){used=ox=outputcol=0;output[0]=0;}
-${functions('decimal','allocated','direntry','dirfooter')}
+${functions('compact_size','timestamp_entry','decimal','allocated','direntry','dirfooter')}
 int main(void){
     unsigned char pass;
     for(pass=0;pass<2;++pass){

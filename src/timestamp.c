@@ -133,7 +133,50 @@ __noinline void bank_timestamp_print(const DateTime *dt)
     char date[11], time[7];
     if (!dt->year) return;
     date_format(dt, date); time_format(dt, time);
+    if (dir_dates == 2) {
+        char *year = date + (locale.order == 2 ? 0 : 6);
+        memmove(year, year + 2, strlen(year + 2) + 1);
+    }
     print(SYSOUT_DIR_TIMESTAMP_SUFFIX, date, time);
+}
+
+/* Compact magnitudes are rounded to the nearest binary K/M, without grouping.
+ * Divide before rounding so even a 32-bit maximum cannot overflow. */
+static void compact_size(unsigned long bytes, unsigned char known, char *out)
+{
+    unsigned long value = bytes;
+    unsigned char suffix = 0, n = 5;
+    char digits[6];
+    if (known == 2) { strcpy(out, SYSOUT_HOST_SIZE_UNKNOWN); return; }
+    if (bytes > 99999UL) {
+        value = bytes / 1024 + (bytes % 1024 >= 512);
+        suffix = SYSOUT_DIR_COMPACT_K[0];
+        if (value > 9999) {
+            value = bytes / 1048576UL + (bytes % 1048576UL >= 524288UL);
+            suffix = SYSOUT_DIR_COMPACT_M[0];
+        }
+    }
+    digits[5] = 0;
+    do { digits[--n] = '0' + value % 10; value /= 10; } while (value);
+    strcpy(out, digits + n);
+    if (suffix) { n = strlen(out); out[n++] = suffix; out[n] = 0; }
+}
+
+/* Shared by cached CBM, streamed IEC and Ultimate FAT listings. Only RAM names
+ * cross the bank gate; type labels are resolved within the selected bank. */
+__noinline void bank_timestamp_entry(const char *name, unsigned char type, unsigned char kind,
+                                    unsigned long bytes, unsigned char known)
+{
+    char amount[6];
+    if (dir_dates != 2) {
+        print(SYSOUT_DIR_TIMESTAMP_ENTRY, name, type == CBM_T_DIR ? SYSOUT_DIR_TIMESTAMP_TYPE :
+            kind ? imageformat(kind) : typename(type));
+    } else if (type == CBM_T_DIR)
+        print(SYSOUT_DIR_COMPACT_DIRECTORY, name, SYSOUT_DIR_TIMESTAMP_TYPE);
+    else {
+        compact_size(bytes, known, amount);
+        print(SYSOUT_DIR_COMPACT_ENTRY, name, kind ? SYSOUT_DIR_COMPACT_IMAGE[0] : typename(type)[0], amount);
+    }
 }
 
 /* Emit only a timestamp suffix. Callers own filename/type columns and newline. */

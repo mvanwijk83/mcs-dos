@@ -140,6 +140,12 @@ static void host_row(const struct DirectoryEntry *entry, unsigned char model, un
     sizes[rows] = info->bytes; kinds[rows] = info->kind; types[rows++] = entry->type;
     outc('x'); newline();
 }
+void file_timestamp(const char *name,unsigned char native) {}
+void timestamp_entry(const char *name,unsigned char type,unsigned char kind,unsigned long bytes,unsigned char known){
+    struct DirectoryEntry entry;HostInfo info;unsigned char col=0;
+    strcpy(entry.name,name);entry.type=type;info.bytes=bytes;info.known=known;info.kind=kind;
+    host_row(&entry,DRIVE_SOFTIEC,0,0,&col,&info);
+}
 ${functions('imagekind','imageformat','match','softiec_hex','softiec_alias','fat_type','fat_fold','fat_compare_text','fat_match','fat_fullname','fat_compare','fat_swap','fat_down','fat_sort','fat_keep','fat_begin','fat_stat','fat_write_name','fat_emit','fat_selected','fat_collect','fat_listing','fat_dir')}
 static void setup(unsigned int count, unsigned char m, const char *pattern)
 {
@@ -229,9 +235,12 @@ int main(void)
     if(!fat_dir(4,DIR_TYPE_MASK|DIR_ATTR_D,0)||!finished()||footerFiles||footerDirs!=2) return 28;
     setup(30,0,"*");
     if(!fat_dir(4,DIR_TYPE_MASK|DIR_ATTR_D|DIR_ATTR_NOT,0)||!finished()||footerFiles!=30||footerDirs) return 29;
+    setup(12,0,"*");dir_dates=2;
+    if(!fat_dir(0,255,0)||!finished()||rows!=14||footerFiles!=12)return 31;
+    for(i=2;i<rows;++i)if(sizes[i]!=(atoi(aliases[i]+1)*37)%101+1)return 32;
     puts("PASS native alias/FAT listings, global sort, packed overflow, duplicate aliases, filters, redirection and cleanup");
     return 0;
 }
 `);
-require('./simulator')('build/test-fat-listing.c',{mount:true});
-require('./simulator')('build/test-fat-listing.c',{mount:true,petscii:true});
+require('./simulator')('build/test-fat-listing.c',{mount:true,timestamp:true});
+require('./simulator')('build/test-fat-listing.c',{mount:true,petscii:true,timestamp:true});

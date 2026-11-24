@@ -86,7 +86,7 @@ static unsigned char scratch(const Path *p){unsigned char i;for(i=0;i<6;++i)if(!
 static unsigned char command(unsigned char d,const char *s){unsigned char i;for(i=0;i<6;++i)if(!strcmp(s+3,names[i]))present&=~(1<<i);return 1;}
 static int host_find(const Path *p){unsigned char i;for(i=0;i<6;++i)if(!strcmp(p->name,names[i])&&(present&(1<<i)))return 0;return -1;}
 static void reset(void){used=ox=outputcol=rows=opens=errors=0;output[0]=0;}
-${functions('imagekind','imageformat','imagetype','match','decimal','host_bytes','host_number','host_info','host_row','host_footer','host_compare','host_ordered','host_flat','host_dir','host_remove')}
+${functions('imagekind','imageformat','imagetype','match','decimal','compact_size','timestamp_entry','host_bytes','host_number','host_info','host_row','host_footer','host_compare','host_ordered','host_flat','host_dir','host_remove')}
 int main(void){
     struct DirectoryEntry e;unsigned char known;Path p={8,"A","@1"};
     e.type=CBM_T_SEQ;e.size=2;e.remainder=48;
@@ -116,6 +116,9 @@ int main(void){
     if(!strstr(output,"A                SEQ   2")||!strstr(output,"B                SEQ   1")||!strstr(output,"C                SEQ   3"))return 19;
     stamp_calls=0;redirected=1;reset();
     if(!host_flat(0,255,0)||errors||stamp_calls!=3||opens!=5)return 20;
+    dir_dates=2;redirected=0;stamp_calls=0;reset();
+    if(!host_flat(0,255,0)||errors||stamp_calls!=3||opens!=1)return 21;
+    if(!strstr(output,"A                S   254 2")||!strstr(output,"B                S   762 1"))return 22;
     return 0;
 }
 `);

@@ -20,6 +20,7 @@ ${macros}
 typedef struct Path { unsigned char dev; } Path;
 typedef struct HostRecord { unsigned char type; } HostRecord;
 static unsigned char failed, errors;
+static unsigned char writeanswer;
 static char text[] = "banked result";
 static void error(const char *s) { ++errors; }
 static void filename(const char *s, char *d) { strcpy(d, s); }
@@ -29,12 +30,16 @@ __noinline char *bank_decimal(unsigned long bytes);
 __noinline int bank_host_find(const Path *p);
 __noinline unsigned char bank_softiec_list(const Path *p, HostRecord *records, unsigned char count, char *names);
 __noinline unsigned char bank_path(const char *s, Path *p);
+__noinline int bank_preparewrite(const Path *p);
+__noinline int bank_copyfile(unsigned char moving);
 ${gate('editcmd')}
 ${gate('imagekind')}
 ${gate('decimal')}
 ${gate('host_find')}
 ${gate('softiec_list')}
 ${gate('path')}
+${gate('preparewrite')}
+${gate('copyfile')}
 __noinline unsigned char irq(void) {
     return __asm { php; pla; and #4; sta accu };
 }
@@ -75,6 +80,14 @@ __noinline unsigned char bank_path(const char *s, Path *p) {
     p->dev = 22;
     return 1;
 }
+__noinline int bank_preparewrite(const Path *p) {
+    if (BANK_CURRENT != BANK_FILEMGMT || p->dev != 29) failed = 19;
+    return writeanswer;
+}
+__noinline int bank_copyfile(unsigned char moving) {
+    if (BANK_CURRENT != BANK_TRANSFER || moving != 1) failed = 22;
+    return writeanswer;
+}
 int main(void) {
     unsigned char i, j, k, sp, disabled;
     char longname[129];
@@ -87,6 +100,13 @@ int main(void) {
             bank_leave(j == 0 ? BANK_NONE : j == 1 ? BANK_BOOT : BANK_MOUNT);
             sp = cpu_sp();
             for (k = 0; k < 100; ++k) editcmd();
+            p.dev = 29;
+            writeanswer = 0;
+            if (preparewrite(&p)) return 20;
+            if (copyfile(1)) return 23;
+            writeanswer = 1;
+            if (!preparewrite(&p)) return 21;
+            if (!copyfile(1)) return 24;
             errors = 0;
             if (path(longname, &p) || errors != 1) return 18;
             if (failed) return failed;

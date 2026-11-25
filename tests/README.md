@@ -230,6 +230,10 @@ including native directory headers, preserved contents and conflict rejection.
 It also verifies implicit COPY destinations for single files and wildcards,
 both within one drive and from another drive, using independent byte decoding.
 
+`overwrite-refusal` runs cartridge and disk COPY/MOVE through the linked bank
+gates, checking that No and RUN/STOP preserve both files, `/-P` overrides
+COPYCMD, and Yes permits replacement.
+
 `dir-layout-session` verifies full-width screen rows and redirected listings,
 CMD root partition types, and aligned file/free byte counts on 1581 and 1541
 media. The `dir-layout` unit fixture also checks the exact sample layout,

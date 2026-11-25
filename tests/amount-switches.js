@@ -25,6 +25,8 @@ static int argc, errors, prompts, deleted, answer = 1;
 static char *args[12], argstore[2][20];
 static char out[1000], volume[17] = "TEST", io[256];
 static unsigned char drive = 8, redirected, idoff = 162, aborted;
+static unsigned char envready;
+static char *envget(const char *name) { return 0; }
 static unsigned int count = 2;
 static unsigned int freeblocks = 660;
 static char BSSEnd;

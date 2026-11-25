@@ -176,7 +176,7 @@ unsigned char raw_reader_open(const Path *p, unsigned char lfn);
 int raw_reader_read(unsigned char lfn, void *buffer, unsigned int size);
 void raw_reader_clone(void);
 unsigned char deletable(const Path *p);
-unsigned char copyfile(unsigned char moving);
+int copyfile(unsigned char moving);
 unsigned char path(const char *s, Path *p);
 /* Channel services and shared file helpers. Success is nonzero unless a
  * routine explicitly returns a count, status code or directory index. */
@@ -190,7 +190,7 @@ int findfile(const Path *p);
 unsigned char match(const char *p, const char *s);
 const char *typename(unsigned char t);
 unsigned char scratch(const Path *p);
-unsigned char preparewrite(const Path *p);
+int preparewrite(const Path *p);
 unsigned char openreadtype(const Path *p, unsigned char lfn, unsigned char type);
 unsigned char openread(const Path *p, unsigned char lfn);
 unsigned char openwrite(const Path *p, unsigned char type);

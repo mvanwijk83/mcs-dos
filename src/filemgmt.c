@@ -5,7 +5,7 @@
 #pragma data(filemgmt_data)
 __noinline unsigned char bank_directory(unsigned char dev);
 __noinline int bank_findfile(const Path *p);
-__noinline unsigned char bank_preparewrite(const Path *p);
+__noinline int bank_preparewrite(const Path *p);
 __noinline unsigned char bank_openreadtype(const Path *p, unsigned char lfn, unsigned char type);
 __noinline unsigned char bank_openread(const Path *p, unsigned char lfn);
 __noinline unsigned char bank_openwrite(const Path *p, unsigned char type);
@@ -399,10 +399,13 @@ __noinline void bank_copycmd(unsigned char moving)
     int found;
     char *source = 0, *destination = 0;
     char pattern[17];
-    copysuppress = 0;
+    char *defaults = envready ? envget("COPYCMD") : (char *)0;
+    copysuppress = defaults && !stricmp(defaults, "/P");
     for (i = 1; i < argc; ++i) {
         if (!stricmp(args[i], "/P"))
             copysuppress = 1;
+        else if (!stricmp(args[i], "/-P"))
+            copysuppress = 0;
         else if (args[i][0] == '/' || (source && destination))
             break;
         else if (!source)
@@ -444,7 +447,7 @@ __noinline void bank_copycmd(unsigned char moving)
             return;
         if (found >= 0 && (directory_entries[found].type == CBM_T_DIR ||
                            directory_entries[found].type == CBM_T_CBM)) {
-            /* REN consumes exactly two operands; /P has already been parsed. */
+            /* REN consumes exactly two operands; prompt switches have already been parsed. */
             i = argc;
             argc = 3;
             renamecmd();
@@ -541,9 +544,13 @@ __noinline void bank_delcmd(void)
     unsigned int entry, matches = 0;
     char *name = 0;
     char pattern[17], shown[17], request[24];
+    char *defaults = envready ? envget("DELCMD") : (char *)0;
+    suppress = defaults && !stricmp(defaults, "/P");
     for (i = 1; i < argc; ++i) {
         if (!stricmp(args[i], "/P"))
             suppress = 1;
+        else if (!stricmp(args[i], "/-P"))
+            suppress = 0;
         else if (args[i][0] == '/' || name)
             break;
         else
@@ -892,7 +899,7 @@ static int write_target(const Path *p)
 /* Validate a destination and ask before replacement; disks scratch the old file first.
  *
  * p: Exact destination path; return nonzero when writing may proceed. */
-__noinline unsigned char bank_preparewrite(const Path *p)
+__noinline int bank_preparewrite(const Path *p)
 {
     int i = write_target(p);
     if (i == -2)

@@ -14,6 +14,8 @@ typedef struct {
 
 static Path p1;
 static unsigned char aborted;
+static unsigned char envready;
+static char *envget(const char *name) { return 0; }
 static unsigned int count;
 static int argc, errors, prompts, deleted, loads, faildir, failscratch, locked;
 static char *args[4], patternarg[17], switcharg[3] = "/P";

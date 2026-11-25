@@ -800,16 +800,17 @@ __noinline int findfile(const Path *p)
     return result;
 }
 
-__noinline unsigned char bank_preparewrite(const Path *p);
+__noinline int bank_preparewrite(const Path *p);
 
 /* Validate a destination and ask before replacement; disks scratch the old file first.
  * Resident gate: restore the previous bank after the service returns.
  *
  * p: Exact destination path; return nonzero when writing may proceed. */
-__noinline unsigned char preparewrite(const Path *p)
+/* Use a word result across the gate: Oscar64 can miscompile the byte return. */
+__noinline int preparewrite(const Path *p)
 {
     BANK_PUSH(BANK_FILEMGMT);
-    unsigned char result = bank_preparewrite(p);
+    int result = bank_preparewrite(p);
     BANK_POP();
     return result;
 }
@@ -1103,7 +1104,7 @@ __noinline unsigned char partition_lookup(unsigned char dev, const char *name, P
     return result;
 }
 
-__noinline unsigned char bank_copyfile(unsigned char moving);
+__noinline int bank_copyfile(unsigned char moving);
 __noinline void bank_dirwalk(unsigned char flags, unsigned char filter);
 __noinline void dirwalk(unsigned char flags, unsigned char filter)
 {
@@ -1112,10 +1113,10 @@ __noinline void dirwalk(unsigned char flags, unsigned char filter)
     BANK_POP();
 }
 
-__noinline unsigned char copyfile(unsigned char moving)
+__noinline int copyfile(unsigned char moving)
 {
     BANK_PUSH(BANK_TRANSFER);
-    unsigned char result = bank_copyfile(moving);
+    int result = bank_copyfile(moving);
     BANK_POP();
     return result;
 }

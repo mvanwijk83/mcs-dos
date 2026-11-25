@@ -34,7 +34,7 @@ if (list) {
 }
 const standalone = [
     'banked-image', 'device-settings', 'drive-compat', 'datetime-session', 'input-history', 'petscii-completion', 'sample-startup',
-    'editor-session', 'copy-wildcards', 'find-vice', 'help-session', 'cmd-hd', 'cmd-rel', 'cmd-sysinfo', 'cmd-overview', 'directories', 'dos-directories', 'partition-channels'
+    'editor-session', 'copy-wildcards', 'overwrite-refusal', 'find-vice', 'help-session', 'cmd-hd', 'cmd-rel', 'cmd-sysinfo', 'cmd-overview', 'directories', 'dos-directories', 'partition-channels'
 ];
 if ([...selected.values()].some(
         test => test.file === 'easyflash' || standalone.includes(test.file)) &&

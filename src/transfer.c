@@ -147,7 +147,7 @@ static unsigned char switchedcopy(unsigned char type)
     return 1;
 }
 
-__noinline unsigned char bank_copyfile(unsigned char moving)
+__noinline int bank_copyfile(unsigned char moving)
 {
     int n = -1, i;
     unsigned char type, ok = 1, sourcehost = host_device(p1.dev), targethost = host_device(p2.dev);

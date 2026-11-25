@@ -521,7 +521,9 @@ __noinline void bank_navcmd(unsigned char operation)
     unsigned char i, recursive = 0, suppress = 0, changedrive = 0;
     unsigned long sectors = 0;
     char *target = 0, *end;
+    char *defaults = operation == 2 && envready ? envget("DELCMD") : (char *)0;
     int exists;
+    suppress = defaults && !stricmp(defaults, "/P");
     for (i = 1; i < argc; ++i) {
         if (!operation && !stricmp(args[i], "/D"))
             changedrive = 1;
@@ -533,6 +535,8 @@ __noinline void bank_navcmd(unsigned char operation)
             recursive = 1;
         else if (operation == 2 && !stricmp(args[i], "/P"))
             suppress = 1;
+        else if (operation == 2 && !stricmp(args[i], "/-P"))
+            suppress = 0;
         else if (target || args[i][0] == '/') {
             goto syntax;
         } else

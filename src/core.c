@@ -18,6 +18,9 @@ unsigned char copysuppress;
 unsigned int ultimatebase;
 /* Optional DIR disk-ID lookup must not turn an otherwise valid listing into errors. */
 unsigned char optionalheader;
+/* Zero outside COPY/MOVE, one while running, two after a reported error.
+ * Probes may distinguish a file from a directory only while no error occurred. */
+unsigned char transfer_errors;
 unsigned char pagelines, aborted, editprompt;
 unsigned int screenbase = 0x0400;
 char environment[ENVSIZE];
@@ -196,6 +199,11 @@ void error(const char *s)
 {
     if (optionalheader)
         return;
+    if (transfer_errors) {
+        if (!strcmp(s, SYSOUT_PARTITION_NOT_FOUND) || !strcmp(s, SYSOUT_DIRECTORY_NOT_FOUND))
+            s = SYSOUT_PATH_NOT_FOUND;
+        transfer_errors = 2;
+    }
     if (editprompt) {
         editprompt = 0;
         screen_reverse(0);

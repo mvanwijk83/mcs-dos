@@ -98,7 +98,7 @@ function verifyDistribution(file) {
     ];
     assert.equal(files.size, names.length);
     assert.deepEqual([...files.keys()], names, 'bundled files in alphabetical order');
-    assert.deepEqual(files.get('CONFIG.SAMPLE').data, Buffer.from('LDAUTOEX=1\rBOOTDRV=0\r'),
+    assert.deepEqual(files.get('CONFIG.SAMPLE').data, Buffer.from('LDAUTOEX=1\rBOOTDRV=0\rCOUNTRY=INT'),
         'sample startup settings');
     for (const name of ['CGA.CPI', 'PET.CPI', 'VGA.CPI'])
         assert.deepEqual(files.get(name).data, fs.readFileSync('disk-content/' + name), name);

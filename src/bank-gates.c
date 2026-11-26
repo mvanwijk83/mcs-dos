@@ -478,9 +478,11 @@ __noinline void bank_copycmd(unsigned char moving);
  * moving: Nonzero selects MOVE; zero selects COPY. */
 __noinline void copycmd(unsigned char moving)
 {
+    transfer_errors = 1;
     BANK_PUSH(BANK_FILEMGMT);
     bank_copycmd(moving);
     BANK_POP();
+    transfer_errors = 0;
 }
 
 __noinline void bank_delcmd(void);

@@ -12,6 +12,12 @@ async function main(){
         const out=await s.enter(line,expected||next);await s.wait(next);prompt=next;
         console.log('PASS '+line);return out;
     }
+    async function cmdPathFailures(){
+        await run('9:',null,'9:\\>');await run('cd \\@4',null,'9:\\NATIVE>');
+        await require('./path-failures')(run,s.command,hd,9,'8:\\one.txt',
+            ['\\missing\\one.txt', '\\@254\\one.txt', '\\@254', '\\native\\missing\\one.txt',
+             '\\@1\\missing\\one.txt', '\\@2\\missing\\one.txt', '\\@3\\missing\\one.txt']);
+    }
     try{
         await s.command('resourceset "Drive8Type" "1581"');
         await s.command('attach "'+monitorPath(disk)+'" 8');
@@ -23,6 +29,12 @@ async function main(){
         await run('copy 8:\\part1\\one.txt /p',messages.SYSOUT_ONE_FILE_COPIED.trim());
         await run('copy one.txt',messages.SYSOUT_FILE_COPY_ON_SELF);
         await run('copy \\part1\\*.missing',messages.SYSOUT_FILE_NOT_FOUND);
+        await require('./path-failures')(run,s.command,disk,8,'one.txt',
+            ['\\missing\\one.txt', '\\part1\\missing\\one.txt', '\\missing\\']);
+        await require('./path-failures')(run,s.command,disk,8,'*.txt', ['\\missing\\'], ['copy']);
+        await require('./path-failures')(run,s.command,disk,8,'missing\\one.txt', ['one.txt']);
+        await require('./path-failures')(run,s.command,disk,8,'part1', ['missing\\renamed'], ['move']);
+        if(process.argv.includes('--path-failures')) { await cmdPathFailures(); return; }
         await run('move part1 renamed /p');await run('cd renamed',null,'8:\\RENAMED>');
         await run('type one.txt','alpha');await run('cd\\',null,'8:\\>');
         await run('md occupied /size:120');
@@ -40,9 +52,10 @@ async function main(){
         assert.equal(source.size,3);assert.deepEqual(root.get('ONE.TXT').data,source.get('ONE.TXT').data);
         assert.equal(decode(bytes,40,root.get('OCCUPIED').track).get('TWO.TXT').data.toString(),'BETA\r');
         await s.command('attach "'+monitorPath(disk)+'" 8');
-        await run('9:',null,'9:\\>');await run('cd \\@4',null,'9:\\NATIVE>');
+        await cmdPathFailures();
         await run('md old');await run('cd old',null,'9:\\NATIVE\\OLD>');
         await run('echo native > note');await run('cd..',null,'9:\\NATIVE>');
+        await require('./path-failures')(run,s.command,hd,9,'old', ['missing\\new'], ['move']);
         await run('move old new');await run('cd new',null,'9:\\NATIVE\\NEW>');
         await run('type note','native');
         await run('copy 8:\\one.txt',messages.SYSOUT_ONE_FILE_COPIED.trim());

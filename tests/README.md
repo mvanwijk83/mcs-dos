@@ -229,6 +229,13 @@ and partition 13. System and non-CBM regions are not validated.
 including native directory headers, preserved contents and conflict rejection.
 It also verifies implicit COPY destinations for single files and wildcards,
 both within one drive and from another drive, using independent byte decoding.
+It also checks rejected COPY/MOVE paths on 1581 and every supported CMD
+partition type, requiring one `Path not found` message and byte-identical disk
+images. `host-session` applies the same checks to the SoftIEC and SD2IEC protocol
+stand-ins, including absent partitions, nested directories and trailing slashes.
+Use `node tests/host-session.js --path-failures` (optionally with `--sd2iec`)
+for just those host regressions, or `node tests/dos-fileops.js --path-failures`
+for the 1581/CMD cases. Physical hardware verification is still needed.
 
 `overwrite-refusal` runs cartridge and disk COPY/MOVE through the linked bank
 gates, checking that No and RUN/STOP preserve both files, `/-P` overrides

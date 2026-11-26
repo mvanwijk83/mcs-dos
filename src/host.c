@@ -157,8 +157,12 @@ __noinline unsigned char bank_host_partfind(unsigned char dev, const char *name,
 {
     struct DirectoryEntry entry;
     unsigned char number = 0, r;
+    /* Keep one observable result on every exit. Oscar64 can otherwise omit
+     * the zero return value in the linked cartridge's failure epilogue. */
+    static volatile unsigned char result;
     unsigned int value;
     const char *s;
+    result = 0;
     if (name[0] == '@') {
         value = 0; s = name + 1;
         if (!*s) goto absent;
@@ -167,24 +171,29 @@ __noinline unsigned char bank_host_partfind(unsigned char dev, const char *name,
             if (value > 254) goto absent;
         }
         if (*s || !value) goto absent;
-        if (!partition_info(dev, value, info)) return 0;
+        if (!partition_info(dev, value, info)) goto finished;
         if (!info->type || info->type == 255) goto absent;
-        return 1;
+        result = 1;
+        goto finished;
     }
-    if (!host_begin(dev, 6, 1, 0)) return 0;
+    if (!host_begin(dev, 6, 1, 0)) goto finished;
     while (!(r = host_partition(6, &entry)))
         if (entry.size && entry.size <= 254 && !stricmp(entry.name, name)) {
             if (number) {
-                channel_close(6); error(SYSOUT_AMBIGUOUS_PARTITION); return 0;
+                channel_close(6); error(SYSOUT_AMBIGUOUS_PARTITION); goto finished;
             }
             number = entry.size;
         }
     channel_close(6);
-    if (r != 2) { error(SYSOUT_ERR_READING_BANK_DIR); return 0; }
-    if (number) return partition_info(dev, number, info);
+    if (r != 2) { error(SYSOUT_ERR_READING_BANK_DIR); goto finished; }
+    if (number) {
+        result = partition_info(dev, number, info);
+        goto finished;
+    }
 absent:
     error(SYSOUT_PARTITION_NOT_FOUND);
-    return 0;
+finished:
+    return result;
 }
 
 __noinline unsigned char bank_host_select(unsigned char dev, const char *dir, unsigned char model)

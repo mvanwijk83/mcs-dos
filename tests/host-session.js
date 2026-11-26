@@ -66,6 +66,14 @@ async function main(){
         await run('md forbidden',messages.SYSOUT_VIRTUAL_ROOT_NO_FILES);
         if(sd)await run('cd \\@1',null,'9:\\1541>');
         await run('cd usb1',null,'9:\\USB1>');await run('echo original > note');
+        await require('./path-failures')(run,s.command,hd,9,'0:readme.txt',
+            ['9:\\doesnotexist\\readme.txt', '9:\\usb1\\utilss\\readme.txt',
+             ...(sd ? ['9:\\@254\\readme.txt', '9:\\@254'] : [])]);
+        await require('./path-failures')(run,s.command,hd,9,'note',
+            ['missing\\note', 'missing\\']);
+        await require('./path-failures')(run,s.command,hd,9,'n*', ['missing\\'], ['copy']);
+        await require('./path-failures')(run,s.command,hd,9,'missing\\note', ['note']);
+        if(process.argv.includes('--path-failures')) return;
         if(process.argv.includes('--listing')){
             if(process.argv.includes('--native')){
                 out=await run('dir /n',messages.SYSOUT_ULTIMATE_DOS_FAILED);

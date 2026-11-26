@@ -60,6 +60,7 @@ typedef char DirectoryLocksFit[(MAXFILES + 7) / 8 <= 128 ? 1 : -1];
 extern unsigned int count;
 extern unsigned char cachedev, cachevalid, drive;
 extern unsigned char optionalheader;
+extern unsigned char transfer_errors;
 extern char working[LOCATIONCOUNT][PATHSIZE], cachedir[PATHSIZE];
 extern unsigned int freeblocks;
 extern char volume[17], diskid[3];

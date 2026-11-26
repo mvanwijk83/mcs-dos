@@ -177,6 +177,9 @@ __noinline unsigned char cmd_lookup(unsigned char dev, const char *name, Partiti
 {
     unsigned int i, number = 0;
     const char *q;
+    /* Match the host lookup's single, observable failure result. */
+    static volatile unsigned char result;
+    result = 0;
     if (name[0] == '@') {
         q = name + 1;
         if (!*q)
@@ -190,7 +193,7 @@ __noinline unsigned char cmd_lookup(unsigned char dev, const char *name, Partiti
             goto absent;
     } else {
         if (!cmd_root(dev))
-            return 0;
+            goto finished;
         for (i = 0; i < count; ++i)
             if (!strcmp(directory_entries[i].name, name)) {
                 number = directory_entries[i].blocks;
@@ -200,12 +203,15 @@ __noinline unsigned char cmd_lookup(unsigned char dev, const char *name, Partiti
             goto absent;
     }
     if (!cmd_partition(dev, number, info))
-        return 0;
-    if (info->type && info->type != 255)
-        return 1;
+        goto finished;
+    if (info->type && info->type != 255) {
+        result = 1;
+        goto finished;
+    }
 absent:
     error(SYSOUT_PARTITION_NOT_FOUND);
-    return 0;
+finished:
+    return result;
 }
 
 #pragma code(code)

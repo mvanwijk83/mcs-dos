@@ -21,6 +21,7 @@ __noinline void bank_attribcmd(void);
 __noinline void bank_concatcmd(void);
 __noinline void bank_renamecmd(void);
 static int write_target(const Path *p);
+static unsigned char transfer_parent(const Path *p);
 
 #pragma code(ultdir_code)
 #pragma data(ultdir_data)
@@ -342,7 +343,8 @@ static void copy_console(const char *destination)
               SYSOUT_INVALID_FILE_NAME);
         return;
     }
-    if (!path(destination, &p2) || (found = write_target(&p2)) == -2)
+    if (!path(destination, &p2) || !transfer_parent(&p2) ||
+        (found = write_target(&p2)) == -2)
         return;
     do {
         more = input(line, LINE, INPUT_COPY_CON);
@@ -388,6 +390,19 @@ static void copy_console(const char *destination)
 write_failed:
     console_discard(out);
     error(SYSOUT_WRITE_FAULT_ERR);
+}
+
+/* Validate parents before probing destination names or changing any files.
+ * Backend selection errors are replaced by one DOS path diagnostic. */
+static unsigned char transfer_parent(const Path *p)
+{
+    unsigned char quiet = optionalheader, ok;
+    optionalheader = 1;
+    ok = location_select(p->dev, p->dir);
+    optionalheader = quiet;
+    if (!ok)
+        error(SYSOUT_PATH_NOT_FOUND);
+    return ok;
 }
 
 /* Execute COPY or MOVE, including wildcard expansion and concatenation handling.
@@ -441,6 +456,8 @@ __noinline void bank_copycmd(unsigned char moving)
     }
     if (!path(source, &p1) || !path(destination, &p2))
         return;
+    if (!transfer_parent(&p1) || !transfer_parent(&p2))
+        return;
     if (moving) {
         found = findfile(&p1);
         if (found == -2)
@@ -456,6 +473,9 @@ __noinline void bank_copycmd(unsigned char moving)
         }
     }
     path_directory(&p2);
+    /* A failed directory/partition probe must never become a filename target. */
+    if (transfer_errors == 2)
+        return;
     if (!moving && strpbrk(p1.name, "*?")) {
         if (host_device(p1.dev)) {
             host_wildcopy();
@@ -698,7 +718,7 @@ __noinline void bank_concatcmd(void)
     unsigned char len, first = 1;
     char *source = args[1], *next;
     char request[41];
-    if (!path(args[2], &p1))
+    if (!path(args[2], &p1) || !transfer_parent(&p1))
         return;
     if (!p1.name[0] || strpbrk(p1.name, "*?=@")) {
         error(SYSOUT_INVALID_DEST);
@@ -711,7 +731,7 @@ __noinline void bank_concatcmd(void)
         next = strchr(source, '+');
         if (next)
             *next++ = 0;
-        if (!path(source, &p2))
+        if (!path(source, &p2) || !transfer_parent(&p2))
             return;
         if (!sameplace(&p1, &p2)) {
             error(SYSOUT_FILES_SAME_DISK);

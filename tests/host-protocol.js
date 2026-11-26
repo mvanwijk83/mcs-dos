@@ -89,6 +89,7 @@ int main(void){
     if(host_select(8,"@1\\\\IMAGE.D81",model)||strstr(requests,"cd:IMAGE"))return 5;
     if(!host_partfind(8,"CARD",&info)||info.number!=1)return 6;
     if(host_partfind(8,"@0",&info)||host_partfind(8,"@256",&info))return 7;
+    if(host_partfind(8,"MISSING",&info)||host_partfind(8,"@2",&info))return 25;
     strcpy(p.dir,"@1");strcpy(p.name,"FILE");
     if(host_find(&p)!=0||cachevalid||count!=1||strcmp(files[0].name,"FILE"))return 8;
     if(!host_open(&p,&cursor,4,0))return 9;

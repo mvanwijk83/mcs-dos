@@ -4,9 +4,10 @@ const fs = require('fs'), {functions} = require('./source');
 const harness = `
 static char volume[17]="TEST", diskid[3];
 static unsigned char io[256], idoff=10, ox, optionalheader, redirected;
-static unsigned char ready, ids, errors, failures, editprompt;
+static unsigned char ready, ids, errors, failures, editprompt, transfer_errors;
+static const char *message;
 static unsigned char rootmetadata(unsigned char d,char *name,char *id) { return 0; }
-static void consoleout(const char *s) { ++errors; }
+static void consoleout(const char *s) { ++errors; message=s; }
 static void consoleline(void) {}
 static void screen_reverse(int enable) {}
 static void clear(void) {}
@@ -30,6 +31,14 @@ int main(void) {
     if(ids!=1 || strcmp(diskid,"MC") || optionalheader || errors!=1)return 3;
     volumeheader(0);
     if(ids!=1 || optionalheader || failures!=1)return 4;
+    transfer_errors=1;error(SYSOUT_PARTITION_NOT_FOUND);
+    if(strcmp(message,SYSOUT_PATH_NOT_FOUND)||transfer_errors!=2)return 5;
+    error(SYSOUT_DIRECTORY_NOT_FOUND);
+    if(strcmp(message,SYSOUT_PATH_NOT_FOUND))return 6;
+    error(SYSOUT_INVALID_FILE_NAME);
+    if(strcmp(message,SYSOUT_INVALID_FILE_NAME))return 7;
+    transfer_errors=0;error(SYSOUT_PARTITION_NOT_FOUND);
+    if(strcmp(message,SYSOUT_PARTITION_NOT_FOUND))return 8;
     return 0;
 }
 `;

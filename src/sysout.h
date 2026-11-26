@@ -143,6 +143,7 @@
 #define SYSOUT_FILE_OR_DIRECTORY_EXISTS "File or directory already exists"
 #define SYSOUT_UNSUPPORTED_DIRECTORY_OP "Unsupported directory operation"
 #define SYSOUT_DIRECTORY_NOT_FOUND "Directory not found"
+#define SYSOUT_PATH_NOT_FOUND "Path not found"
 #define SYSOUT_CANNOT_REMOVE_CURRENT_DIRECTORY "Cannot remove current directory"
 #define SYSOUT_REMOVE_DIRECTORY_TREE "Remove directory and all its contents"
 #define SYSOUT_SYNTAX_CD "Syntax: CD [/D] [path]"

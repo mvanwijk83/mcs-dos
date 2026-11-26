@@ -8,6 +8,7 @@ static char working[24][128], cachedir[128];
 #define location_list(d,p) directory(d)
 #define location_file(d,p) 1
 #define location_select(d,p) 1
+#define transfer_parent(p) 1
 #define location_root(d,p) 0
 #define path_directory(p) 0
 #define displaypath(d,p,o) uppername(p,o)

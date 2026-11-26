@@ -19,6 +19,7 @@ typedef struct { unsigned char dev; char name[17], dir[128]; } Path;
 static Path p1, p2, navpath;
 static struct { char name[17]; unsigned char type; } files[1];
 static unsigned char envready = 1, copysuppress, aborted, cachevalid, cachedev, drive;
+static unsigned char transfer_errors, probefail;
 static unsigned char filesystem = FS_HOST, physicaldev;
 static unsigned int count;
 static int argc, errors, prompts, mutations, mode;
@@ -26,7 +27,7 @@ static char *args[8], *copyenv, *delenv;
 static char argstore[8][17];
 static char cachedir[128], working[1][128], full[128], diskcmd[160];
 static char *envget(const char *name) { return !strcmp(name,"COPYCMD") ? copyenv : delenv; }
-static void error(const char *s) { ++errors; }
+static void error(const char *s) { ++errors; if(transfer_errors)transfer_errors=2; }
 static void say(const char *s) {}
 #define print(...) ((void)0)
 static int yesno(const char *s) { ++prompts; return 0; }
@@ -43,7 +44,8 @@ static void host_remove(const Path *p,unsigned char r) { ++mutations; }
 #define typecmd(n) ((void)0)
 #define concatcmd() ((void)0)
 #define renamecmd() ((void)0)
-#define path_directory(p) ((void)0)
+#define path_directory(p) (probefail ? error(SYSOUT_PATH_NOT_FOUND) : (void)0)
+#define transfer_parent(p) 1
 #define host_device(d) 0
 #define host_wildcopy() ((void)0)
 #define host_delete(s) ((void)0)
@@ -98,6 +100,9 @@ int main(void)
         copyenv=delenv=(char *)0;
         if(!check(cmd,0,0,0)) return 8;
     }
+    mode=0;argc=3;errors=prompts=mutations=0;probefail=1;transfer_errors=1;
+    strcpy(args[1],"source");strcpy(args[2],"target");copycmd(0);
+    if(errors!=1||prompts||mutations||transfer_errors!=2)return 9;
     return 0;
 }
 `);

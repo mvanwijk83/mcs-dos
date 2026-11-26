@@ -15,6 +15,10 @@ static Path p1={8,"source",""},p2={9,"target",""};
 static struct Entry {unsigned char type;} files[1]={{CBM_T_SEQ}};
 static char io[256],diskcmd[64],statusbuf[64];
 static unsigned char cachevalid,fail,selections,reads,deleted,aborts,closes,written,host,rawcalls,readfail;
+/* Keep the fixture's output mode observable across the mocked selection call. */
+static volatile unsigned char optionalheader;
+static unsigned char errors;
+static const char *message;
 static int sameplace(const Path *a,const Path *b){return a->dev==b->dev&&!strcmp(a->dir,b->dir);}
 static int host_device(unsigned char d){return host&&d!=0;}
 static int findfile(const Path *p){return 0;}
@@ -25,8 +29,12 @@ static int switchedcopy(unsigned char t){++rawcalls;return 0;}
 static int command(unsigned char d,const char *s){return 1;}
 static int openreadtype(const Path *p,unsigned char n,unsigned char t){return 1;}
 static int openwrite(const Path *p,unsigned char t){return 1;}
+static void error(const char *s);
 static int location_select(unsigned char d,const char *s){
-    return !(d==8 && ++selections==2 && fail);
+    if(d==8 && ++selections==2 && fail){
+        error(SYSOUT_DISK_ERR);error(SYSOUT_DIRECTORY_NOT_FOUND);return 0;
+    }
+    return 1;
 }
 static int readio(unsigned char n,void *b,unsigned int size){return ++reads==1?3:readfail?-1:0;}
 static int channel_write(unsigned char n,const void *b,unsigned int size){written+=size;return size;}
@@ -38,9 +46,9 @@ static int scratch(const Path *p){++deleted;return 1;}
 static void uppername(const char *s,char *d){strcpy(d,s);}
 static void outs(const char *s){}
 static void say(const char *s){}
-static void error(const char *s){}
+static void error(const char *s){if(!optionalheader){++errors;message=s;}}
 static void newline(void){}
-${functions('copyfile')}
+${functions('transfer_parent', 'copyfile')}
 int main(void){
     if(!copyfile(1)||deleted!=1||aborts||closes!=2||written!=3)return 1;
     fail=1;selections=reads=deleted=aborts=closes=written=0;
@@ -52,6 +60,15 @@ int main(void){
     if(!copyfile(0)||rawcalls||selections!=2||deleted||aborts||closes!=2||written!=3)return 4;
     readfail=1;selections=reads=deleted=aborts=closes=written=0;
     if(copyfile(1)||rawcalls||deleted||aborts!=1||closes!=2||written!=3)return 5;
+    fail=1;selections=1;errors=0;
+    if(transfer_parent(&p1))return 6;
+    if(errors!=1)return 9;
+    if(strcmp(message,SYSOUT_PATH_NOT_FOUND))return 10;
+    if(optionalheader)return 11;
+    fail=0;selections=0;errors=0;
+    if(!transfer_parent(&p1)||errors||optionalheader)return 7;
+    optionalheader=1;
+    if(!transfer_parent(&p1)||!optionalheader)return 8;
     return 0;
 }
 `;

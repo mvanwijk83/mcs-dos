@@ -34,6 +34,16 @@ require('./shell')('help-session',
         await until(s => s.includes(pager));
         await keys('\\x03');
         await until(s => s.endsWith('8:\\>'));
+        await enter('set page=oFf');
+        await enter('cls');
+        text = await enter('help set');
+        assert(text.includes('fixture end') && !text.includes(pager), text);
+        await enter('set page=');
+        await enter('cls');
+        await keys('help set\\x0d');
+        await until(s => s.includes(pager));
+        await keys('\\x03');
+        await until(s => s.endsWith('8:\\>'));
         text = await enter('help set >help.txt');
         assert(!text.includes(pager), text);
         await command('detach 8');
@@ -42,7 +52,7 @@ require('./shell')('help-session',
         await command(`attach "${disk}" 8`);
         assert((await enter('echo recovered')).includes('recovered'));
         console.log(
-            'PASS help pages, cancellation, unpaged file output and cartridge-only recovery');
+            'PASS help pages, PAGE=OFF/reset, cancellation, unpaged file output and cartridge-only recovery');
     },
     crt => {
         // Extend SET in the disposable ROM to force two pagination boundaries.

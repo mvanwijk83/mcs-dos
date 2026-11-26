@@ -375,11 +375,12 @@ unsigned char yesno(const char *s)
     return toupper(c) == 'Y';
 }
 
-/* Pause after a screenful of output; return zero if the user aborts. */
+/* Pause after a screenful unless PAGE=OFF; return zero if the user aborts. */
 unsigned char page(void)
 {
     unsigned char c;
-    if (redirected)
+    char *setting = !redirected && envready ? envget("PAGE") : (char *)0;
+    if (redirected || (setting && !stricmp(setting, "OFF")))
         return !aborted && !stop();
     if (++pagelines < 22)
         return !stop();

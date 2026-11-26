@@ -109,8 +109,8 @@ static __noinline void ultimate_emit(const HostRecord *r, unsigned char flags, u
     }
     if (recursive) {
         if (r->type != CBM_T_DIR || DIR_RECURSE_DIR(filter)) {
-            snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                     p1.dir, p1.dir[0] ? "\\" : "", r->name);
+            snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.logical), 0x5c,
+                     pathdir(&p1), *pathdir(&p1) ? "\\" : "", r->name);
             if (!(flags & 2)) uppername(io, io);
             say(io);
         }
@@ -230,10 +230,10 @@ __noinline unsigned char bank_ultimate_dir(unsigned char flags, unsigned char fi
     memset(&total, 0, sizeof(total)); total.summary = 1; cachevalid = 0;
     if (!recursive && !(flags & 1)) {
         if (!location_root(p1.dev, p1.dir)) host_volume(&p1);
-        uppername(p1.dir, io);
-        print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io); pagelines = 5;
+        pathdisplay(&p1, io);
+        print(SYSOUT_DIR_HEADER, drivename(p1.logical), 0x5c, io); pagelines = 5;
     }
-    if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
+    if (!recursive && *pathdir(&p1) && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         dot->type = CBM_T_DIR; dot->bytes = dot->kind = 0; dot->known = 1;
         strcpy(dot->name, ".");
         if (match(p1.name, dot->name)) {

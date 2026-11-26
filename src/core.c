@@ -90,7 +90,7 @@ const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
     "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC", "CHCP", "PROMPT", "MODE"};
+    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC", "CHCP", "PROMPT", "MODE", "SUBST"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -197,6 +197,10 @@ void say(const char *s)
  * s: Error message. */
 void error(const char *s)
 {
+    if (subst_validating) {
+        subst_diagnostic(s);
+        return;
+    }
     if (optionalheader)
         return;
     if (transfer_errors) {
@@ -517,7 +521,10 @@ __noinline void bank_showprompt(void)
                 outs(drivename(drive));
                 outc(':');
                 outc(0x5c);
-                displaypath(drive, working[location_index(drive)], io);
+                if (subst_find(drive))
+                    uppername(subst_cwd(drive), io);
+                else
+                    displaypath(drive, working[location_index(drive)], io);
                 outs(io);
                 ++s;
                 continue;
@@ -717,7 +724,9 @@ const char *typename(unsigned char t)
 }
 
 /* Load p1 into the separate batch buffer and schedule execution; reject nesting or overflow. */
-void runbatch(void)
+#pragma code(volume_code)
+#pragma data(volume_data)
+__noinline void bank_runbatch(void)
 {
     int n;
     if (batching) {
@@ -857,7 +866,7 @@ __noinline void bank_executecommand(char *s)
         if (!path(args[0], &p1))
             return;
         if (!p1.name[0]) {
-            drive = p1.dev;
+            drive = p1.logical;
             cachevalid = 0;
             return;
         }
@@ -873,6 +882,9 @@ __noinline void bank_executecommand(char *s)
             return;
         }
     switch (id) {
+    case 45:
+        substcmd();
+        break;
     case 42:
     case 43:
     case 44:

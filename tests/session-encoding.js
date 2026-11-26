@@ -14,6 +14,7 @@ static char environment[${constant('ENVSIZE')}],prompttext[33],keybindings[256],
 static struct {char text[10][128];unsigned char raw[10][16];} history;
 MountRecord mounts[MOUNT_COUNT];
 char mount_hostdir[128];
+static Substitution substitutions[5];
 static unsigned char font[2048],encoded[MOUNT_STATE_SIZE];
 #define POKE(a,v) (font[(a)-0xe800]=(v))
 ${functions('statebyte','stateput')}
@@ -25,7 +26,9 @@ int main(void){
     envused=0;stateput(7,low);stateput(8,high);
     if(envused!=sizeof(environment))return 5;
     stateput(11,1);
-    stateput(SESSION_CHARSET_OFFSET,67);stateput(SESSION_FONT_OFFSET-1,0);
+    stateput(SESSION_CHARSET_OFFSET,67);stateput(SESSION_SUBST_OFFSET-1,0);
+    stateput(SESSION_SUBST_OFFSET,9);stateput(SESSION_FONT_OFFSET-1,37);
+    if(substitutions[0].dev!=9||substitutions[4].length!=37||statebyte(SESSION_SUBST_OFFSET)!=9)return 12;
     if(!driveids||statebyte(11)!=1||activecharset[0]!=67||statebyte(SESSION_CHARSET_OFFSET)!=67)return 11;
     stateput(10,5);
     if(default_printer!=5||statebyte(10)!=5)return 8;

@@ -1082,10 +1082,46 @@ __noinline void navcmd(unsigned char operation)
 __noinline void bank_nav_finish(void);
 __noinline void nav_finish(void)
 {
-    BANK_PUSH(BANK_NAV);
+    BANK_PUSH(BANK_VOLUME);
     bank_nav_finish();
     BANK_POP();
 
+}
+
+__noinline void bank_substcmd(void);
+__noinline void substcmd(void)
+{
+    BANK_PUSH(BANK_VOLUME);
+    bank_substcmd();
+    BANK_POP();
+}
+
+/* Directory decoding and batch loading share volume ROM to keep the resident
+ * load image within the compiler's cartridge bootstrap limit. */
+__noinline unsigned char bank_directory_open(char f, char d);
+__noinline unsigned char directory_open(char f, char d)
+{
+    BANK_PUSH(BANK_VOLUME);
+    unsigned char result = bank_directory_open(f, d);
+    BANK_POP();
+    return result;
+}
+
+__noinline unsigned char bank_directory_read(char f, struct DirectoryEntry *e);
+__noinline unsigned char directory_read(char f, struct DirectoryEntry *e)
+{
+    BANK_PUSH(BANK_VOLUME);
+    unsigned char result = bank_directory_read(f, e);
+    BANK_POP();
+    return result;
+}
+
+__noinline void bank_runbatch(void);
+__noinline void runbatch(void)
+{
+    BANK_PUSH(BANK_VOLUME);
+    bank_runbatch();
+    BANK_POP();
 }
 
 __noinline unsigned char cmd_root(unsigned char dev);

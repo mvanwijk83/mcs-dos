@@ -19,7 +19,10 @@ module.exports = function simulate(source, options = {}) {
     let regional = options.regional ? '' : '\n#include "../src/datetime.h"\nLocaleFormat locale={2,44,46,45,58,1};\nchar locale_code[7];\nunsigned char dir_dates,clockkind,clockdevice;\nvoid file_timestamp(const char *n,unsigned char native) {}\nvoid clockcmd(unsigned char t,const char *s) {}\nvoid nlscmd(void) {}\nvoid locale_startup(void) {}\n';
     if (options.timestamp) regional = regional.replace('void file_timestamp(const char *n,unsigned char native) {}', '');
     else if (!options.regional) regional += '\nvoid timestamp_entry(const char *n,unsigned char t,unsigned char k,unsigned long b,unsigned char known) {}\n';
-    fs.writeFileSync(input, helpers + mounts + regional + '\nstatic unsigned char directory_locks[' + Math.ceil(constant('MAXFILES') / 8) + '];\n#define CBM_A_RO 1\n#define CBM_A_RW 3\n#include "../src/dir-filter.h"\n' + fs.readFileSync(source, 'utf8'));
+    const subst = options.subst ? '' : '\n#include "../tests/subst-fixture.h"\n';
+    let fixture = fs.readFileSync(source, 'utf8');
+    if (!options.subst) fixture = fixture.replaceAll('.logical', '.dev').replaceAll('->logical', '->dev');
+    fs.writeFileSync(input, helpers + mounts + regional + subst + '\nstatic unsigned char directory_locks[' + Math.ceil(constant('MAXFILES') / 8) + '];\n#define CBM_A_RO 1\n#define CBM_A_RW 3\n#include "../src/dir-filter.h"\n' + fixture);
     execFileSync(tool('oscar64', 'oscar64'),
         ['-n', '-Os', '-Oo', ...(options.petscii ? ['-psci'] : []), '-e', '-o=' + source.replace(/\.c$/, '.prg'), input],
         {stdio: 'inherit', windowsHide: true, timeout: 120000});

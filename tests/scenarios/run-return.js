@@ -61,7 +61,8 @@ module.exports =
     await enter('echo set boot=must-not-run >autoexec.bat');
     await enter('set keep=preserved');
     await enter('mode con color=2,6,7');
-    const fields = [['environment', 256], ['prompttext', 33]];
+    await enter('subst d: 0:');
+    const fields = [['environment', 256], ['prompttext', 33], ['substitutions', 15], ['working', 3072]];
     const expected = [];
     for (const field of fields)
         expected.push(await variable(...field));
@@ -78,7 +79,7 @@ module.exports =
         assert.deepEqual(await memory(0xd020, 0xd021), colors, 'shell colors restored');
         await defaultFont(fs.readFileSync('build/CGA.CPI'));
     }
-    for (const [device, prefix] of [[8, 'run '], [0, 'run '], [8, ''], [0, '']])
+    for (const [device, prefix] of [[8, 'run '], [0, 'run '], [11, 'run '], [8, ''], [0, ''], [11, '']])
         for (const name of ['return', 'warm', 'error']) {
             await command('> c2f0 00');
             let point;
@@ -131,11 +132,15 @@ module.exports =
         const point =
             (await command('break exec ' + at.toString(16))).match(/(?:BREAK|WATCH):\s*(\d+)/i);
         assert(point);
+        await command('> 0800 00');
         await command('keybuf run 0:return\\x0d');
         await command('x');
         await delay(1200);
         // RUN looks up the file before saving; let those driver calls finish first.
-        for (let i = 0; i < 60 && (await memory(0x800))[0] !== 14; i++) {
+        for (let i = 0; i < 60; i++) {
+            if ((await memory(0x800))[0] === 14 &&
+                (await command('r')).toLowerCase().includes(at.toString(16).padStart(4, '0')))
+                break;
             await command('x');
             await delay(100);
         }
@@ -144,7 +149,8 @@ module.exports =
         await command('delete ' + point[1]);
         await command('x');
         await delay(600);
-        const prompt = await screen();
+        const prompt = await settled(await screen(),
+            s => s.replace(/\s/g, '').includes('Runprogramanyway(Y/N)?'));
         assert(prompt.replace(/\s/g, '').includes('Runprogramanyway(Y/N)?'), prompt);
         return settled(await keys(answer, 3500), s => s.endsWith('0:\\>'));
     }

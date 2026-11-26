@@ -22,6 +22,7 @@ typedef char NativeWorkFits[sizeof(NativeWork) <= sizeof(directory_entries) ? 1 
 typedef struct NativeState {
     unsigned long bytes, skip;
     unsigned int files, dirs;
+    unsigned int aliasprefix; /* Native target spelling may exceed its IEC alias. */
     unsigned char flags, filter, recursive, partial, used, pending, more, have, limit;
     volatile unsigned char ok;
 } NativeState;
@@ -182,6 +183,7 @@ static unsigned int native_line(void)
 }
 static unsigned int native_emit(NativeState *s, NativeRow *r)
 {
+    const char *dir = p1.dir + s->aliasprefix;
     if (r->type == CBM_T_DIR) ++s->dirs;
     else {
         ++s->files;
@@ -189,9 +191,10 @@ static unsigned int native_emit(NativeState *s, NativeRow *r)
         else s->bytes += r->bytes;
     }
     if (s->recursive) {
-        outs(drivename(p1.dev)); outc(':');
-        if (!native_write(p1.dir, s->flags, 1)) return 0;
-        if (strlen(p1.dir) > 1) outc(0x5c);
+        outs(drivename(p1.logical)); outc(':');
+        if (s->aliasprefix && *dir != '/') outc(0x5c);
+        if (!native_write(dir, s->flags, 1)) return 0;
+        if (*dir && strcmp(dir, "/")) outc(0x5c);
     }
     return native_write(r->name, s->flags, s->recursive) && native_line();
 }
@@ -331,12 +334,14 @@ static unsigned int native_stream(NativeState *s)
         if (!softiec_reply(io, sizeof(io), &length, &more)) return 0;
     }
 }
-static unsigned int native_begin(unsigned char *saved)
+static unsigned int native_begin(unsigned char *saved, NativeState *s)
 {
     unsigned int length;
     unsigned char more, n;
     char component[17];
     const char *q = p1.dir;
+    Substitution *alias = subst_find(p1.logical);
+    if (alias && !alias->length) s->aliasprefix = 1;
     softiec_files = 0;
     if (!ultimatebase || PEEK(ultimatebase + 1) != 0xc9 ||
         !softiec_dos(0x12, 0, 0, (unsigned char *)workspace, 508, &length, &more)) return 0;
@@ -347,6 +352,10 @@ static unsigned int native_begin(unsigned char *saved)
         while (*q && (unsigned char)*q != 0x5c && n < 16) component[n++] = *q++;
         component[n] = 0;
         if (!softiec_resolve(component) || !softiec_dos(0x11, workspace + 512, 0, io, sizeof(io), &length, &more)) return 0;
+        if (alias && s->recursive && q - p1.dir == alias->length) {
+            if (!softiec_dos(0x12, 0, 0, io, sizeof(io), &length, &more) || more || length >= sizeof(p1.dir)) return 0;
+            s->aliasprefix = length;
+        }
         if (*q) ++q;
     }
     return 1;
@@ -404,11 +413,11 @@ __noinline void bank_native_dir(unsigned char flags, unsigned char filter, unsig
     fast = !recursive && !(flags & 4) && filter == 255 && !strcmp(p2.dir, "*");
     if (!recursive) {
         if (!location_root(p1.dev, p1.dir)) host_volume(&p1);
-        uppername(p1.dir, io); print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io); pagelines = 5;
+        pathdisplay(&p1, io); print(SYSOUT_DIR_HEADER, drivename(p1.logical), 0x5c, io); pagelines = 5;
     }
     if (fast && !native_summary(&state)) goto finish;
-    if (!native_begin(&saved)) goto finish;
-    if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
+    if (!native_begin(&saved, &state)) goto finish;
+    if (!recursive && *pathdir(&p1) && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         if (native_match(p2.dir, ".")) { outc('.'); if (!native_line()) goto finish; ++state.dirs; }
         if (native_match(p2.dir, "..")) { outc('.'); outc('.'); if (!native_line()) goto finish; ++state.dirs; }
     }

@@ -229,8 +229,8 @@ static unsigned int fat_emit(FatListing *listing, const FatRow *row, const char 
     }
     if (listing->native) return fat_write_name(name, listing->flags);
     if (listing->recursive) {
-        snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                 p1.dir, p1.dir[0] ? SYSOUT_DIR_PATH_SEPARATOR : "", row->file.name);
+        snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.logical), 0x5c,
+                 pathdir(&p1), *pathdir(&p1) ? SYSOUT_DIR_PATH_SEPARATOR : "", row->file.name);
         if (!(listing->flags & 2)) uppername(io, io);
         say(io);
     } else {
@@ -383,11 +383,11 @@ __noinline unsigned int bank_fat_dir(unsigned char flags, unsigned char filter, 
     }
     if (!listing.recursive && !(flags & 1)) {
         if (!location_root(p1.dev, p1.dir)) host_volume(&p1);
-        uppername(p1.dir, io);
-        print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
+        pathdisplay(&p1, io);
+        print(SYSOUT_DIR_HEADER, drivename(p1.logical), 0x5c, io);
         pagelines = 5;
     }
-    if (!listing.recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
+    if (!listing.recursive && *pathdir(&p1) && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         memset(&dot, 0, sizeof(dot)); dot.file.type = CBM_T_DIR; dot.file.known = 1;
         strcpy(dot.file.name, ".");
         if (listing.native ? fat_match(p2.dir, ".") : match(p1.name, "."))

@@ -63,7 +63,7 @@ __noinline void bank_host_volume(const Path *p)
         channel_close(6); uppername(header.name, shown);
         if (!location_select(p->dev, p->dir)) return;
     }
-    print(SYSOUT_VOL_HEADER, drivename(p->dev));
+    print(SYSOUT_VOL_HEADER, drivename(p->logical));
     if ((redirected ? outputcol : ox) + strlen(shown) > 40) newline();
     say(shown);
 }
@@ -172,15 +172,15 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
     if (drivemodel(p1.dev, 0) == DRIVE_SOFTIEC) return ultimate_dir(flags, filter, recursive);
     if (!recursive && !(flags & 1)) {
         if (!location_root(p1.dev, p1.dir)) bank_host_volume(&p1);
-        displaypath(p1.dev, p1.dir, io);
-        print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
+        pathdisplay(&p1, io);
+        print(SYSOUT_DIR_HEADER, drivename(p1.logical), 0x5c, io);
         pagelines = 5;
     }
     if (!host_open(&p1, &cursor, 4, dir_dates ? 2 : 0)) return 0;
     /* Redirected output may share the device's directory secondary address.
      * Screen listings, including timestamps, keep a single stream open. */
     if (redirected) { channel_close(4); cursor.done = 1; }
-    if (!recursive && p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
+    if (!recursive && *pathdir(&p1) && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         strcpy(entry.name, "."); entry.type = CBM_T_DIR; entry.modified.year = 0;
         if (match(p1.name, entry.name)) { bank_host_row(&entry, cursor.model, flags, 0, &col, &info); ++dirs; }
         strcpy(entry.name, "..");
@@ -215,8 +215,8 @@ static unsigned char host_flat(unsigned char flags, unsigned char filter, unsign
         if (recursive) {
             if (entry.type == CBM_T_DIR &&
                 !DIR_RECURSE_DIR(filter)) continue;
-            snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                     p1.dir, p1.dir[0] ? SYSOUT_DIR_PATH_SEPARATOR : "", entry.name);
+            snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.logical), 0x5c,
+                     pathdir(&p1), *pathdir(&p1) ? SYSOUT_DIR_PATH_SEPARATOR : "", entry.name);
             if (!(flags & 2)) uppername(io, io);
             say(io);
         } else bank_host_row(&entry, cursor.model, flags, cursor.partitions, &col, &info);

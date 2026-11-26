@@ -352,6 +352,7 @@ __noinline void bank_volcmd(unsigned char stats)
             return;
     } else if (argc > 2 || (argc == 2 && !path(args[1], &p1)))
         return;
+    if (stats && !subst_guard(&p1, SYSOUT_SUBST_CHKDSK)) return;
     model = p1.dev ? drivemodel(p1.dev, 0) : 0;
     whole1581 = stats && (model == DRIVE_1581 || mount_geometry(p1.dev) == 3);
     if (model >= DRIVE_SOFTIEC && !mount_geometry(p1.dev)) {
@@ -452,7 +453,7 @@ __noinline void bank_volcmd(unsigned char stats)
         if (!validate)
             bank_driveinfo(p1.dev);
     } else
-        volumeheader(p1.dev);
+        volumeheader(p1.logical);
 }
 
 /* Validate LABEL and update the volume name in the disk header. */
@@ -471,7 +472,7 @@ __noinline void bank_labelcmd(void)
         }
         ++a;
     }
-    if (!disk_location(&p1))
+    if (!subst_guard(&p1, SYSOUT_SUBST_LABEL) || !disk_location(&p1))
         return;
     if (argc > a + 1) {
         error(SYSOUT_SYNTAX_LABEL);
@@ -487,7 +488,7 @@ __noinline void bank_labelcmd(void)
         if (!directory(p1.dev) || !bank_bam(p1.dev))
             return;
         uppername(volume, name);
-        print(SYSOUT_LABEL_VOLUME, drivename(p1.dev), name);
+        print(SYSOUT_LABEL_VOLUME, drivename(p1.logical), name);
         print(SYSOUT_LABEL_DISK_ID, toupper(io[idoff]), toupper(io[idoff + 1]));
         outs(SYSOUT_LABEL_PROMPT);
         if (!input(line, 17, 0))
@@ -551,6 +552,7 @@ __noinline void bank_formatcmd(void)
     root[n] = 0x5c; root[n + 1] = 0;
     if (!path(root, &p1))
         return;
+    if (!subst_guard(&p1, SYSOUT_SUBST_FORMAT)) return;
     if (p1.name[0] || p1.dir[0]) {
         error(SYSOUT_INVALID_DRIVE_SPEC);
         return;
@@ -602,7 +604,7 @@ __noinline void bank_formatcmd(void)
         return;
     if (diskid && !quick && !format_id(diskid, id))
         return;
-    print(SYSOUT_INSERT_DISK, drivename(p1.dev));
+    print(SYSOUT_INSERT_DISK, drivename(p1.logical));
     say(SYSOUT_ALL_DATA_LOST);
     if (format)
         print(SYSOUT_FORMAT_TYPE, format);
@@ -661,7 +663,7 @@ __noinline void bank_diskinitcmd(void)
         error(SYSOUT_SYNTAX_DISKINIT);
         return;
     }
-    p1.dev = drive;
+    if (!path("", &p1)) return;
     if (argc == 2) {
         if (!path(args[1], &p1))
             return;
@@ -670,6 +672,7 @@ __noinline void bank_diskinitcmd(void)
             return;
         }
     }
+    if (!subst_guard(&p1, SYSOUT_SUBST_INIT)) return;
     if (!p1.dev) {
         error(SYSOUT_UNSUPPORTED_OP_CRT);
         return;
@@ -689,8 +692,7 @@ __noinline void bank_diskidcmd(void)
 {
     char id[3];
     unsigned char a = 1, ok, se;
-    p1.dev = drive;
-    p1.name[0] = 0;
+    if (!path("", &p1)) return;
     if (argc > 1 && strchr(args[1], ':')) {
         if (!path(args[1], &p1) || p1.name[0]) {
             error(SYSOUT_INVALID_DRIVE_SPEC);
@@ -703,6 +705,7 @@ __noinline void bank_diskidcmd(void)
         return;
     }
     /* Reject unsupported media before asking for an ID. */
+    if (!subst_guard(&p1, SYSOUT_SUBST_LABEL)) return;
     if (!drivetype(p1.dev, 1))
         return;
     if (argc == a + 1) {
@@ -757,6 +760,7 @@ __noinline void bank_diskcopycmd(void)
         error(SYSOUT_SYNTAX_DISKCOPY);
         return;
     }
+    if (!subst_guard(&p1, SYSOUT_SUBST_COPY) || !subst_guard(&p2, SYSOUT_SUBST_COPY)) return;
     if (p1.dev == p2.dev) {
         say(SYSOUT_TWO_DIFF_DRIVES);
         return;

@@ -60,9 +60,9 @@ __noinline void bank_dirwalk(unsigned char flags, unsigned char filter)
                      !DIR_RECURSE_DIR(filter)) ||
                     !match(pattern, directory_entries[j].name))
                     continue;
-                displaypath(p1.dev, p1.dir, diskcmd);
-                snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.dev), 0x5c,
-                         diskcmd, p1.dir[0] ? "\\" : "", directory_entries[j].name);
+                pathdisplay(&p1, diskcmd);
+                snprintf(io, sizeof(io), SYSOUT_FULL_PATH, drivename(p1.logical), 0x5c,
+                         diskcmd, *pathdir(&p1) ? "\\" : "", directory_entries[j].name);
                 if (!(flags & 2))
                     uppername(io, io);
                 say(io);

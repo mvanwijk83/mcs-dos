@@ -144,7 +144,8 @@ __noinline unsigned char bank_path(const char *s, Path *p)
             s = q + 1;
         }
     }
-    strcpy(p->dir, working[location_index(p->dev)]);
+    subst_check(p->dev);
+    strcpy(p->dir, subst_cwd(p->dev));
     if ((unsigned char)*s == 0x5c) {
         p->dir[0] = 0;
         ++s;
@@ -184,6 +185,7 @@ __noinline unsigned char bank_path(const char *s, Path *p)
         error(SYSOUT_PATH_TOO_LONG);
         return 0;
     }
+    if (!subst_resolve(p)) return 0;
     if (modelof(p->dev) >= DRIVE_SOFTIEC && (strchr(p->name, '/') || strchr(p->dir, '/'))) {
         error(SYSOUT_INVALID_FILE_NAME);
         return 0;
@@ -551,23 +553,27 @@ __noinline void bank_navcmd(unsigned char operation)
         if (!target || !*target || target[strlen(target) - 1] == ':') {
             if (changedrive && target) {
                 if (select_ok(navpath.dev, navpath.dir))
-                    drive = navpath.dev;
+                    drive = navpath.logical;
                 return;
             }
-            bank_displaypath(navpath.dev, working[location_index(navpath.dev)], full);
-            print(SYSOUT_CURRENT_DIRECTORY, drivename(navpath.dev), 0x5c,
+            pathdisplay(&navpath, full);
+            print(SYSOUT_CURRENT_DIRECTORY, drivename(navpath.logical), 0x5c,
                   full);
             return;
         }
         if (!bank_path_join(&navpath) || !select_ok(navpath.dev, navpath.dir))
             return;
-        strcpy(working[location_index(navpath.dev)], navpath.dir);
+        strcpy(working[location_index(navpath.logical)], navpath.dir);
         if (changedrive)
-            drive = navpath.dev;
+            drive = navpath.logical;
         return;
     }
     /* A trailing slash denotes the directory itself; split it back into a
      * parent and a leaf for MD/RD. Never allow either command to target root. */
+    if (subst_root(&navpath)) {
+        error(SYSOUT_INVALID_DEST);
+        return;
+    }
     if (!navpath.name[0] && navpath.dir[0]) {
         char *slash = strrchr(navpath.dir, 0x5c);
         strcpy(navpath.name, slash ? slash + 1 : navpath.dir);
@@ -612,7 +618,7 @@ __noinline void bank_navcmd(unsigned char operation)
     strcpy(full, navpath.dir);
     if (!appendpart(full, navpath.name))
         return;
-    end = working[location_index(navpath.dev)];
+    end = working[location_index(navpath.logical)];
     i = strlen(full);
     if (!strncmp(end, full, i) && (!end[i] || (unsigned char)end[i] == 0x5c)) {
         error(SYSOUT_CANNOT_REMOVE_CURRENT_DIRECTORY);
@@ -653,9 +659,12 @@ syntax:
 
 /* Restore every device touched by a command. Failed paths recover to their
  * device root; an unreachable selected device falls back to cartridge zero. */
+#pragma code(volume_code)
+#pragma data(volume_data)
 __noinline void bank_nav_finish(void)
 {
     unsigned char i, dev;
+    Substitution *s;
     rawreadmask = rawreading = 0;
     touched[location_index(drive)] = 1;
     for (i = 0; i < LOCATIONCOUNT; ++i) {
@@ -663,16 +672,27 @@ __noinline void bank_nav_finish(void)
             continue;
         touched[i] = 0;
         dev = i ? i + 7 : 0;
+        s = subst_find(dev);
+        if (s) {
+            /* Never lose the target prefix or recover above the alias root. */
+            if (!location_select(s->target, working[i])) {
+                working[i][s->length] = 0;
+                if (!location_select(s->target, working[i]) && drive == dev)
+                    drive = 0;
+                say(SYSOUT_WORKING_DIRECTORY_RESET);
+            }
+            continue;
+        }
         if (dev && !drivepresent(dev)) {
             working[i][0] = 0;
             if (drive == dev)
                 drive = 0;
             continue;
         }
-        if (!select_ok(dev, working[i])) {
+        if (!location_select(dev, working[i])) {
             working[i][0] = 0;
             physicaldev = 255;
-            if (!select_ok(dev, "") && drive == dev)
+            if (!location_select(dev, "") && drive == dev)
                 drive = 0;
             say(SYSOUT_WORKING_DIRECTORY_RESET);
         }
@@ -714,6 +734,9 @@ void nav_invalidate(void)
 void nav_reset(void)
 {
     mount_reset();
+    memset(substitutions, 0, sizeof(substitutions));
+    subst_validating = 0;
+    subst_begin();
     memset(working, 0, sizeof(working));
     startupdir[0] = 0;
     rawreadmask = rawreading = 0;

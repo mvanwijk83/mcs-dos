@@ -170,10 +170,10 @@ __noinline void bank_dircmd(void)
     soft = location_root(p1.dev, p1.dir) || host_device(p1.dev);
     if (!bare) {
         if (!location_root(p1.dev, p1.dir))
-            volumeheader(p1.dev);
+            volumeheader(p1.logical);
         headerlines += partitionheader(p1.dev);
-        displaypath(p1.dev, p1.dir, io);
-        print(SYSOUT_DIR_HEADER, drivename(p1.dev), 0x5c, io);
+        pathdisplay(&p1, io);
+        print(SYSOUT_DIR_HEADER, drivename(p1.logical), 0x5c, io);
     }
     /* Sort an index rather than the shared entries, preserving lookup and completion order. */
     for (i = 0; i < count; ++i)
@@ -190,7 +190,7 @@ __noinline void bank_dircmd(void)
         }
     pagelines = headerlines;
     /* These are display entries, never cached files or traversal targets. */
-    if (p1.dir[0] && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
+    if (*pathdir(&p1) && DIR_MATCH(filter, ".", CBM_T_DIR, CBM_A_RW)) {
         for (j = 0; j < 2; ++j) {
             const char *dot = j ? ".." : ".";
             if (!match(p1.name, dot))
@@ -456,6 +456,7 @@ __noinline void bank_copycmd(unsigned char moving)
     }
     if (!path(source, &p1) || !path(destination, &p2))
         return;
+    if (moving && subst_root(&p1)) { error(SYSOUT_INVALID_DEST); return; }
     if (!transfer_parent(&p1) || !transfer_parent(&p2))
         return;
     if (moving) {
@@ -773,12 +774,14 @@ __noinline void bank_renamecmd(void)
     }
     if (!path(args[1], &p1) || !path(args[2], &p2))
         return;
+    if (subst_root(&p1)) { error(SYSOUT_INVALID_DEST); return; }
     if (reserved_device(p2.name)) {
         error(SYSOUT_INVALID_FILE_NAME);
         return;
     }
     if (!strchr(args[2], ':') && !strchr(args[2], 0x5c)) {
         p2.dev = p1.dev;
+        p2.logical = p1.logical;
         strcpy(p2.dir, p1.dir);
     }
     if (!mount_guard(&p1) || !mount_guard(&p2)) return;

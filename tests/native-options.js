@@ -30,6 +30,10 @@ static char pwd[128],workspace[960],io[256],statusbuf[64],output[9000];
 static Path p1={11,"*","USB1"},p2;
 static unsigned int ultimatebase=0xde1c;
 static unsigned char softiec_files;
+static unsigned char aliasactive;
+static Substitution aliasrecord={11,8,4};
+#undef subst_find
+#define subst_find(d) (aliasactive?&aliasrecord:((Substitution *)0))
 static unsigned char peek(unsigned int p){return p==ultimatebase+1?0xc9:0;}
 static void poke(unsigned int p,unsigned char v){if(p==ultimatebase&&v==4){++abortcalls;active=0;}}
 #define PEEK(p) peek(p)
@@ -144,7 +148,9 @@ int main(void){
     setup(30,6,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_L|DIR_ATTR_NOT,0);if(errors||footerFiles!=15||footerDirs!=2)return 20;
     setup(30,0,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_D,0);if(errors||footerFiles||footerDirs!=2)return 21;
     setup(30,0,"*");native_dir(4,DIR_TYPE_MASK|DIR_ATTR_D|DIR_ATTR_NOT,0);if(errors||footerFiles!=30||footerDirs)return 22;
-    puts("PASS native DIR names, filtering, all sort directions, overflow, lowercase, type selection, recursion, fast path and cleanup");return 0;
+    setup(5,2,"*.D64");aliasactive=1;native_dir(0,255,1);
+    if(errors||strstr(output,"11:\\\\ROOT\\\\")||!strstr(output,"11:\\\\ROOT.D64")||!strstr(output,"11:\\\\LONG NATIVE FOLDER NAME\\\\NESTED\\\\DEEP.D64"))return 23;
+    puts("PASS native DIR names, filtering, all sort directions, overflow, lowercase, type selection, recursion, virtual roots, fast path and cleanup");return 0;
 }
 `);
 require('./simulator')('build/test-native-options.c',{mount:true});

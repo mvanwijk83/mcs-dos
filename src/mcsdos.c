@@ -13,6 +13,7 @@
 #pragma compile("storage-cbm.c")
 #pragma compile("storage-cmd.c")
 #pragma compile("navigation.c")
+#pragma compile("subst.c")
 #pragma compile("transfer.c")
 #pragma compile("volume.c")
 #pragma compile("host.c")

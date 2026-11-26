@@ -367,7 +367,7 @@ static unsigned char target_device(const char *text, unsigned char *dev)
     Path p;
     unsigned int size = strlen(text);
     if (!size || size > 3 || text[size - 1] != ':' || !path(text, &p) || p.name[0]) return 0;
-    *dev = p.dev; return p.dev != 0;
+    *dev = p.logical; return p.logical != 0;
 }
 /* This prompt is complete text; yesno() would append its own DOS suffix. */
 static unsigned char mount_confirm(void)
@@ -430,6 +430,10 @@ __noinline void bank_mountcmd(unsigned char unmount)
         uppername(shown, shown);
     }
     if (argc == (unmount ? 2 : 3) && !target_device(args[argc - 1], &dev)) goto syntax;
+    if (subst_check(dev)) {
+        error(unmount ? SYSOUT_SUBST_UNMOUNT : SYSOUT_SUBST_MOUNT);
+        return;
+    }
     if (outputkind == OUTPUT_FILE && outputpath.dev == dev) goto unavailable;
     model = drivemodel(dev, 0);
     if (model == DRIVE_SD2IEC) {

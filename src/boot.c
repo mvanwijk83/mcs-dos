@@ -260,6 +260,7 @@ __noinline void bank_sysinfo(unsigned char probe14)
     for (dev = 8; dev <= 30; ++dev) {
         if (!drivepresent(dev))
             continue;
+        subst_remove(dev);
         /* Xetec printer interfaces on 14 may hang on M-R. Keep this safeguard
          * in automatic enumeration; explicitly targeted disk commands work on 14. */
         model = dev == 14 && !probe14 ? 0 : drivemodel(dev, 0);

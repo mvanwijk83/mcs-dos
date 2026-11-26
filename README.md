@@ -26,6 +26,7 @@ this was made for fun and novelty.
 * Supports 1541, 1541-II, 1570, 1571 and 1581, CMD HD/FD, SD2IEC and SoftIEC (Ultimate).
 * Supports partitions, subdirectories, and disk images on relevant storage devices.
 * Drives can be optionally displayed and addressed with DOS-style drive letters.
+* [SUBST](SUBST.md) maps up to five unused drive letters or numbers to directories.
 * Simple built-in text editor.
 * Run programs and use BASIC, with return to the MCS-DOS shell (under some conditions).
 * Quality of life features such as command history, file name auto-completion, and key bindings.

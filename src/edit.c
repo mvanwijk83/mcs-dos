@@ -790,6 +790,7 @@ __noinline void bank_execute(char *s)
     unsigned char quote = 0, append = 0, helping, kind, modifies = 0;
     int id, i;
     aborted = 0;
+    subst_begin();
     /* KEY stores redirection text rather than opening its future destination. */
     r = s;
     while (*r == ' ' || *r == '@')

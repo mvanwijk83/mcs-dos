@@ -110,7 +110,7 @@ __noinline void bank_tapecopycmd(void)
         memcpy(TAPE_LABEL, destination, n);
         TAPE_LABEL[n] = 0;
     } else
-        strcpy(TAPE_LABEL, drivename(p1.dev));
+        strcpy(TAPE_LABEL, drivename(p1.logical));
     start();
 }
 

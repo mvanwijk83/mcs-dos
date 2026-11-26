@@ -118,12 +118,14 @@ finished:
 __noinline void bank_volumeheader(unsigned char dev)
 {
     char shown[17];
-    unsigned char ok, root;
+    unsigned char ok, root, logical = dev;
+    Substitution *s = subst_find(dev);
+    if (s) dev = s->target;
     optionalheader = 1;
     root = bank_rootmetadata(dev, shown, diskid);
     optionalheader = 0;
     uppername(root == 1 ? shown : volume, shown);
-    print(SYSOUT_VOL_HEADER, drivename(dev));
+    print(SYSOUT_VOL_HEADER, drivename(logical));
     if (ox + strlen(shown) > 40)
         newline();
     outs(shown);

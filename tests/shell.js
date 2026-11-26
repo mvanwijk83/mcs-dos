@@ -99,7 +99,7 @@ module.exports = async function withShell(name, test, prepare) {
     }
     async function enter(text) {
         for (let i = 0; i < text.length; i += 40)
-            await keys(text.slice(i, i + 40));
+            await keys(text.slice(i, i + 40).replaceAll('\\', '\\x5c'));
         await keys('\\x0d');
         // Device-selection commands may finish at a different default prompt.
         return until(s => /(?:^|\n)[0-9A-W]+:\\>$/.test(s));

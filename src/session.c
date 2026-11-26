@@ -7,6 +7,8 @@
 #endif
 typedef char HistorySessionSize[
     sizeof(History) == SESSION_PROMPT_OFFSET - SESSION_HISTORY_OFFSET ? 1 : -1];
+typedef char SubstSessionSize[
+    sizeof(substitutions) == SESSION_FONT_OFFSET - SESSION_SUBST_OFFSET ? 1 : -1];
 /* Session persistence belongs with RUN in the file utility bank. Keeping it
  * out of the startup bank leaves room for hardware probes and configuration. */
 #pragma code(fileutil_code)
@@ -70,6 +72,8 @@ static unsigned char statebyte(unsigned int i)
         return ((char *)working)[i - SESSION_LOCATIONS_OFFSET];
     if (i < SESSION_MOUNTS_OFFSET + MOUNT_COUNT * MOUNT_RECORD_SIZE)
         return ((char *)mounts)[i - SESSION_MOUNTS_OFFSET];
+    if (i >= SESSION_SUBST_OFFSET)
+        return ((char *)substitutions)[i - SESSION_SUBST_OFFSET];
     if (i >= SESSION_CHARSET_OFFSET)
         return activecharset[i - SESSION_CHARSET_OFFSET];
     if (i >= SESSION_LOCALE_OFFSET) {
@@ -148,8 +152,10 @@ static void stateput(unsigned int i, unsigned char value)
         else if (i == 13) clockkind = value;
         else clockdevice = value;
     }
-    else if (i < SESSION_FONT_OFFSET)
+    else if (i < SESSION_SUBST_OFFSET)
         activecharset[i - SESSION_CHARSET_OFFSET] = value;
+    else if (i < SESSION_FONT_OFFSET)
+        ((char *)substitutions)[i - SESSION_SUBST_OFFSET] = value;
     else
         POKE(0xe800 + i - SESSION_FONT_OFFSET, value);
 }

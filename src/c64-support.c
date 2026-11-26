@@ -200,7 +200,9 @@ int channel_write(char f, const void *p, unsigned int n)
  *
  * f: Logical file number.
  * d: Device; return zero on success. */
-unsigned char directory_open(char f, char d)
+#pragma code(volume_code)
+#pragma data(volume_data)
+__noinline unsigned char bank_directory_open(char f, char d)
 {
     char address[2];
     if (!d)
@@ -214,7 +216,7 @@ unsigned char directory_open(char f, char d)
  *
  * f: Open directory logical file.
  * e: Output entry; return 0 for an item, 2 for free blocks, or 1 on error. */
-unsigned char directory_read(char f, struct DirectoryEntry *e)
+__noinline unsigned char bank_directory_read(char f, struct DirectoryEntry *e)
 {
     unsigned char h[4], c, n = 0, quoted = 0, seen = 0, t = 0, second = 0;
     if (f >= 0 && f < CART_CHANNEL_COUNT && cart_channels[f])
@@ -263,6 +265,9 @@ unsigned char directory_read(char f, struct DirectoryEntry *e)
         e->type = CBM_T_REL;
     return 0;
 }
+
+#pragma code(code)
+#pragma data(data)
 
 /* The shell needs only %s, %u, %c, %% and left/right field widths.
  * Return the full length, even when the destination is truncated.

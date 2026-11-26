@@ -43,7 +43,30 @@ typedef struct Path {
     unsigned char dev; /* 0 is cartridge storage; disk devices are 8-30. */
     char name[17];     /* Native filename bytes, at most 16 plus a terminator. */
     char dir[PATHSIZE]; /* Absolute parent directory; empty means the root. */
+    unsigned char logical; /* Original shell drive; dev/dir are resolved for I/O. */
 } Path;
+
+/* A substituted drive's working path contains its immutable target prefix,
+ * followed by its independent current directory. No second path buffer is needed. */
+#define SUBST_COUNT 5
+typedef struct Substitution {
+    unsigned char dev, target, length;
+} Substitution;
+extern Substitution substitutions[SUBST_COUNT];
+extern unsigned char subst_validating;
+extern char subst_error[64];
+void subst_diagnostic(const char *message);
+Substitution *subst_find(unsigned char dev);
+Substitution *subst_check(unsigned char dev);
+void subst_begin(void);
+void subst_remove(unsigned char dev);
+const char *subst_cwd(unsigned char dev);
+unsigned char subst_resolve(Path *p);
+unsigned char subst_guard(const Path *p, const char *message);
+unsigned char subst_root(const Path *p);
+const char *pathdir(const Path *p);
+void pathdisplay(const Path *p, char *dst);
+void substcmd(void);
 
 typedef struct Entry {
     char name[17];
@@ -118,7 +141,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators;
-#define COMMANDCOUNT 45
+#define COMMANDCOUNT 46
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */

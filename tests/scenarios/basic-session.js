@@ -38,11 +38,11 @@ function journal(file, replace) {
 }
 function record(bytes, slot) {
     const b = bytes.subarray(slot * 8192, (slot + 1) * 8192);
-    assert.equal(b.subarray(0, 4).toString('hex'), '4d535308');
+    assert.equal(b.subarray(0, 4).toString('hex'), '4d535309');
     assert.equal(b[15], 0xa5);
-    assert.equal(b.readUInt16LE(6), 7728);
+    assert.equal(b.readUInt16LE(6), 7743);
     let crc = 65535;
-    for (const v of b.subarray(16, 16 + 7728)) {
+    for (const v of b.subarray(16, 16 + 7743)) {
         crc ^= v << 8;
         for (let i = 0; i < 8; i++)
             crc = ((crc << 1) ^ ((crc & 32768) ? 0x1021 : 0)) & 65535;
@@ -111,7 +111,9 @@ module.exports =
              'chcp missing.cpi', 'mode con color=1,0,0', 'prompt $p$g',
              'key /f1:help /f4:dir/w /f7:"my program"', 'nlsfunc fr-CA', 'echo off'])
         await enter(cmd);
+    await enter('subst d: 0:');
     const fields = [
+        ['substitutions', 15, 5680],
         ['environment', 256, 16], ['history', 1440, 272],
         ['prompttext', 33, 1712], ['keybindings', 256, 1745], ['working', 3072, 2001],
         ['mounts', 447, 5073], ['mount_hostdir', 128, 5520],

@@ -16,7 +16,7 @@ __noinline unsigned char bank_copyrel(void);
 __noinline void bank_volcmd(unsigned char stats);
 __noinline void bank_labelcmd(void);
 __noinline void bank_formatcmd(void);
-__noinline void bank_diskidcmd(void);
+static void labelid(const char *value);
 __noinline void bank_diskinitcmd(void);
 __noinline void bank_diskcopycmd(void);
 
@@ -456,7 +456,7 @@ __noinline void bank_volcmd(unsigned char stats)
         volumeheader(p1.logical);
 }
 
-/* Validate LABEL and update the volume name in the disk header. */
+/* Validate LABEL and update either the volume name or the two-character ID. */
 __noinline void bank_labelcmd(void)
 {
     unsigned char i, a = 1;
@@ -474,6 +474,18 @@ __noinline void bank_labelcmd(void)
     }
     if (!subst_guard(&p1, SYSOUT_SUBST_LABEL) || !disk_location(&p1))
         return;
+    if (a < argc && !argquoted[a] && !stricmp(args[a], "/I")) {
+        ++a;
+        if (argc > a + 1 || (argc > a && !argquoted[a] && args[a][0] == '/'))
+            error(SYSOUT_SYNTAX_LABEL);
+        else
+            labelid(argc > a ? args[a] : (const char *)0);
+        return;
+    }
+    if (a < argc && !argquoted[a] && args[a][0] == '/') {
+        error(SYSOUT_SYNTAX_LABEL);
+        return;
+    }
     if (argc > a + 1) {
         error(SYSOUT_SYNTAX_LABEL);
         return;
@@ -688,32 +700,19 @@ __noinline void bank_diskinitcmd(void)
 }
 
 /* Read or change the two-byte disk ID after validating the disk header. */
-__noinline void bank_diskidcmd(void)
+static void labelid(const char *value)
 {
     char id[3];
-    unsigned char a = 1, ok, se;
-    if (!path("", &p1)) return;
-    if (argc > 1 && strchr(args[1], ':')) {
-        if (!path(args[1], &p1) || p1.name[0]) {
-            error(SYSOUT_INVALID_DRIVE_SPEC);
-            return;
-        }
-        ++a;
-    }
-    if (argc > a + 1) {
-        error(SYSOUT_SYNTAX_DISKID);
-        return;
-    }
+    unsigned char ok, se;
     /* Reject unsupported media before asking for an ID. */
-    if (!subst_guard(&p1, SYSOUT_SUBST_LABEL)) return;
     if (!drivetype(p1.dev, 1))
         return;
-    if (argc == a + 1) {
-        if (strlen(args[a]) != 2) {
+    if (value) {
+        if (strlen(value) != 2) {
             say(SYSOUT_DISK_ID_FORMAT);
             return;
         }
-        filename(args[a], id);
+        filename(value, id);
     } else {
         outs(SYSOUT_DISK_ID_PROMPT);
         if (!input(line, LINE, 0))

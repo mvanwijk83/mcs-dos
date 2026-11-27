@@ -8,7 +8,7 @@ typedef struct Path { unsigned char dev; } Path;
 static Path p1;
 static struct { char bytes[BATCHMAX + 1]; unsigned char guard; } storage;
 #define batch storage.bytes
-static unsigned char batching, io[256], opened, closed, messages, failopen, failread;
+static unsigned char batching, batchstop, io[256], opened, closed, messages, failopen, failread;
 static unsigned int batchpos, batchlen, available, position;
 static const char *message;
 static unsigned char openread(const Path *p, unsigned char lfn) {

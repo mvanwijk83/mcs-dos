@@ -638,7 +638,7 @@ __noinline void volcmd(unsigned char stats)
 
 __noinline void bank_labelcmd(void);
 
-/* Validate LABEL and update the volume name in the disk header.
+/* Validate LABEL and update the volume name or disk ID.
  * Resident gate: restore the previous bank after the service returns. */
 __noinline void labelcmd(void)
 {
@@ -666,17 +666,6 @@ __noinline void diskinitcmd(void)
 {
     BANK_PUSH(BANK_DISK);
     bank_diskinitcmd();
-    BANK_POP();
-}
-
-__noinline void bank_diskidcmd(void);
-
-/* Read or change the two-byte disk ID after validating the disk header.
- * Resident gate: restore the previous bank after the service returns. */
-__noinline void diskidcmd(void)
-{
-    BANK_PUSH(BANK_DISK);
-    bank_diskidcmd();
     BANK_POP();
 }
 
@@ -710,7 +699,7 @@ __noinline void bank_bootsplash(unsigned char wait);
 /* Display the startup logo and manage the temporary screen and NMI state.
  * Resident gate: restore the previous bank after the service returns.
  *
- * wait: 0=interactive splash, 1=timed startup, 4=SYSINFO without the splash. */
+ * wait: 1=timed startup, 4=SYSINFO, 5=SYSINFO with device 14 probing. */
 __noinline void bootsplash(unsigned char wait)
 {
     BANK_PUSH(BANK_BOOT);

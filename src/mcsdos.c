@@ -67,7 +67,9 @@ again:
     while (!quit) {
         if (batching) {
             memset(rawline, 0, sizeof(rawline));
-            if (stop() || batchpos >= batchlen) {
+            stop();
+            batchcheck();
+            if (!batching || batchpos >= batchlen) {
                 batching = 0;
                 newline();
                 continue;
@@ -109,6 +111,7 @@ again:
         /* Unwind the old batch before restarting startup processing. */
         if (reboot)
             goto restart;
+        batchcheck();
         if (aborted)
             batching = 0;
         if (!batching && !quit)

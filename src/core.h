@@ -22,6 +22,12 @@ extern unsigned char resume_requested;
 #include <stdarg.h>
 #include <time.h>
 
+/* Record RUN/STOP even when a command consumes it in a prompt or PAUSE. */
+int shell_getch(void);
+#define getch() shell_getch()
+void batchcheck(void);
+extern unsigned char batchstop;
+
 /* Classic DOS limits include the terminating byte. */
 #define LINE 128
 #define INPUT_COPY_CON 2
@@ -141,7 +147,7 @@ extern char launchname[17];
 extern unsigned char launchdevice, launchlength, launchabsolute;
 extern unsigned int launchaddress;
 extern unsigned char noseparators;
-#define COMMANDCOUNT 46
+#define COMMANDCOUNT 44
 #include "tape.h"
 extern const char *const commands[COMMANDCOUNT];
 /* Display and loader services implemented in resident RAM or generated code. */
@@ -240,7 +246,6 @@ void delcmd(void);
 void volcmd(unsigned char stats);
 void labelcmd(void);
 void formatcmd(void);
-void diskidcmd(void);
 void diskinitcmd(void);
 void diskcopycmd(void);
 void attribcmd(void);

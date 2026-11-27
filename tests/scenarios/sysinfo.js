@@ -73,13 +73,13 @@ module.exports = async ({command, memory, enter, check, kernalName, root}) => {
     await command('> ' + address.toString(16) + ' 1c df');
     await command('> df1b 08 00 c9');
     await enter('cls');
-    s = await check('diskid 8:', 'Unsupported drive type');
+    s = await check('label 8: /i', 'Unsupported drive type');
     assert(!s.includes('New disk ID'), s);
     await command('> ' + identify.toString(16) + ' ' + savedIdentify.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await command('> ' + address.toString(16) + ' ' + savedBase.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await command('> df1b ' + savedIo.map(b => b.toString(16).padStart(2,'0')).join(' '));
     await enter('cls');
-    s = await enter('splash');
+    s = await check('splash', 'Bad command or file name');
     assert(!s.includes('KB RAM'), s);
     console.log('PASS SYSINFO machine, RAM, raster standard, CPU, KERNAL and SPLASH exclusion');
     return;

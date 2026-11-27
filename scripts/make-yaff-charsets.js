@@ -35,6 +35,9 @@ for(const [name,file,hash,bank,backslash] of sources){
   });
   for(const label of labels){assert(!glyphs.has(label),'duplicate glyph');glyphs.set(label,bitmap)}
  }
+ // PETSCII $5f must display PC filename underscores in every font.
+ mapping.set(31, -1);
+ glyphs.set(-1, [0,0,0,0,0,0,0x7e,0]);
  const bytes=[77,67,80,73,1,mapping.size];let sum=0;
  for(const [screen,source] of [...mapping].sort((a,b)=>a[0]-b[0])){
   assert(glyphs.has(source),file+' missing glyph '+source);

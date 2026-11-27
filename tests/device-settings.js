@@ -7,7 +7,7 @@ require('./shell')('device-settings', async ({enter, keys, until}) => {
     }
     let out = await fresh('mode');
     assert(out.includes('Status for device CON:\n----------------------\n' +
-        '  Character set:     C64 ROM\n  Text color:        15\n' +
+        '  Character set:     C64\n  Text color:        15\n' +
         '  Background color:  0\n  Border color:      0\n\n' +
         'Status for device DRV:\n----------------------\n  Identification:    C64'), out);
     await enter('chcp 0:\\cga.cpi');

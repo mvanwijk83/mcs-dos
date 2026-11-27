@@ -3,16 +3,16 @@ const entry = (id, file = id, args = []) => ({id, file, args});
 const cartridge = (id, ...args) => entry(id, 'easyflash', args);
 const groups = {
     unit: [
-        'helpers', 'subst', 'datetime', 'compact-directory', 'banking', 'batch-loading', 'session-encoding', 'mount-lifecycle', 'image-names', 'native-options', 'wildcard-match', 'amount-switches', 'chkdsk-stats', 'disk-validation', 'root-metadata', 'channel-buffer', 'host-protocol', 'host-directories', 'ultimate-listing', 'fat-listing', 'softiec-target', 'softiec-rename', 'rename-dispatch', 'cache-capacity', 'concat-limits', 'delete-wildcards', 'prompt-defaults',
+        'helpers', 'subst', 'datetime', 'compact-directory', 'banking', 'batch-loading', 'batch-interrupt', 'label-id', 'session-encoding', 'mount-lifecycle', 'image-names', 'native-options', 'wildcard-match', 'amount-switches', 'chkdsk-stats', 'disk-validation', 'root-metadata', 'channel-buffer', 'host-protocol', 'host-directories', 'ultimate-listing', 'fat-listing', 'softiec-target', 'softiec-rename', 'rename-dispatch', 'cache-capacity', 'concat-limits', 'delete-wildcards', 'prompt-defaults',
         'dir-sort', 'dir-filter', 'dir-layout', 'directory-walk', 'attrib-display', 'optional-diskid', 'diskinit', 'path-resolution', 'path-display', 'location-selection', 'raw-readers', 'transfer-failures', 'output-flush', 'cmd-storage', 'cmd-part-directory', 'format-label', 'makedisk', 'editor-lines', 'find', 'find-redirection', 'help-wrap', 'print',
-        'prompt', 'pagination', 'pause', 'run-command', 'key-bindings', 'key-input', 'startup-settings', 'type-wrap', 'type-options', 'journal-crc'
+        'prompt', 'pagination', 'pause', 'run-command', 'key-bindings', 'key-input', 'startup-settings', 'charset-patches', 'type-wrap', 'type-options', 'journal-crc'
     ].map(id => entry(id)),
     image: [entry('banked-image')],
     shell: [
         cartridge('commands', '--commands'), cartridge('find-files', '--find-redirection'),
         cartridge('delete-files', '--delete'), cartridge('initialize-disk', '--diskinit'),
         entry('device-settings'), entry('subst-session'), entry('datetime-session'), entry('input-history'), entry('key-session'), entry('key-scanner'), entry('implicit-batch'), entry('filename-completion'), entry('petscii-completion'), entry('sample-startup'),
-        entry('editor-session'), entry('copy-wildcards'), entry('overwrite-refusal'), entry('find-vice'), entry('help-session'),
+        entry('editor-session'), entry('batch-interrupt-session'), entry('label-id-session'), entry('copy-wildcards'), entry('overwrite-refusal'), entry('find-vice'), entry('help-session'),
         cartridge('cartridge-workflow', '--banked')
     ],
     storage: [

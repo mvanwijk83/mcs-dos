@@ -15,3 +15,6 @@ preset shell themes may arrive as well.
 Character sets have been converted from Rob Hageman's "Hoard of Bitfonts"
 repository (https://github.com/robhagemans/hoard-of-bitfonts). Usage complies
 with their terms of use.
+
+All character sets display PETSCII $5F as an underscore so ASCII filenames
+retain their underscores when transferred from PCs.

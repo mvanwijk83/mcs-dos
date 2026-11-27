@@ -53,6 +53,7 @@ char batch[BATCHMAX + 1];
  * a batch can invoke any of these commands and must survive their return. */
 char workspace[EDITROWS * 40];
 unsigned int batchpos, batchlen;
+unsigned char batchstop;
 char *args[MAXARGS];
 char parsebuf[LINE + MAXARGS];
 unsigned char argc;
@@ -89,8 +90,10 @@ __noinline void history_recall(char *buf, unsigned char slot)
 const char *const commands[] = {
     "BEEP",  "CHKDSK", "CLS",    "COPY",   "DEL",   "DIR",      "DISKCOPY", "ECHO",
     "EDIT",  "BASIC",  "FORMAT", "HELP",   "LABEL", "MEM",      "MOVE",     "PAUSE",
-    "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "DISKID",
-    "SET",   "REBOOT", "ATTRIB", "SPLASH", "FIND",  "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD", "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC", "CHCP", "PROMPT", "MODE", "SUBST"};
+    "PRINT", "REM",    "REN",    "RUN",    "TYPE",  "VOL",      "VER",      "SET",
+    "REBOOT", "ATTRIB", "FIND", "DISKINIT", "TAPECOPY", "SYSINFO", "KEY", "CD",
+    "MD", "RD", "MOUNT", "UNMOUNT", "MAKEDISK", "DATE", "TIME", "NLSFUNC",
+    "CHCP", "PROMPT", "MODE", "SUBST"};
 
 /* Clear the screen and reset the shell cursor to its top-left corner. */
 void clear(void)
@@ -342,6 +345,30 @@ void caret_show(unsigned char x, unsigned char y)
     POKE(0xd010, (PEEK(0xd010) & 254) | (unsigned char)(sx >> 8));
     POKE(0xd027, fg);
     POKE(0xd015, PEEK(0xd015) | 1);
+}
+
+/* Remember a consumed RUN/STOP until the batch loop can ask after command cleanup. */
+#undef getch
+int shell_getch(void)
+{
+    int c = getch();
+    if (batching && c == CH_STOP)
+        batchstop = 1;
+    return c;
+}
+#define getch() shell_getch()
+
+/* Confirm a batch interruption once; No resumes at the next command. */
+void batchcheck(void)
+{
+    if (!batching || !batchstop)
+        return;
+    batchstop = 0;
+    if (yesno(SYSOUT_TERMINATE_BATCH))
+        batching = 0;
+    else
+        aborted = 0;
+    batchstop = 0;
 }
 
 /* Poll for RUN/STOP, setting the command abort flag when pressed; return nonzero on abort. */
@@ -747,6 +774,7 @@ __noinline void bank_runbatch(void)
     }
     batch[batchlen] = 0;
     batchpos = 0;
+    batchstop = 0;
     batching = 1;
 }
 
@@ -807,21 +835,22 @@ __noinline void bank_executecommand(char *s)
         *tail = 0;
         id = commandid(s);
         *tail = c;
-        if (id == 7 || id == 17 || id == 24 || id == 15 || id == 32 || id == 39 || id == 40 || id == 43) {
+        if (id == 7 || id == 17 || id == 23 || id == 15 || id == 30 || id == 37 ||
+            id == 38 || id == 41) {
             ++tail;
             if (!strcmp(tail, "/?")) {
                 help(id);
                 return;
             }
-            if (id == 43) {
-                settingscmd(43, tail);
+            if (id == 41) {
+                settingscmd(41, tail);
                 return;
             }
-            if (id == 39 || id == 40) {
-                clockcmd(id == 40, tail);
+            if (id == 37 || id == 38) {
+                clockcmd(id == 38, tail);
                 return;
             }
-            if (id == 32) {
+            if (id == 30) {
                 keycmd(tail);
                 return;
             }
@@ -833,7 +862,7 @@ __noinline void bank_executecommand(char *s)
                 consoleline();
                 return;
             }
-            if (id == 24) {
+            if (id == 23) {
                 setcmd(tail);
                 return;
             }
@@ -883,36 +912,36 @@ __noinline void bank_executecommand(char *s)
             return;
         }
     switch (id) {
-    case 45:
+    case 43:
         substcmd();
         break;
+    case 40:
+    case 41:
     case 42:
-    case 43:
-    case 44:
         if (argc == 1) args[0][0] = 0;
         settingscmd(id, argc > 1 ? args[1] : args[0]);
         break;
-    case 39:
-    case 40:
+    case 37:
+    case 38:
         args[0][0] = 0;
-        clockcmd(id == 40, args[0]);
+        clockcmd(id == 38, args[0]);
         break;
-    case 41:
+    case 39:
         nlscmd();
         break;
+    case 31:
+    case 32:
     case 33:
+        navcmd(id - 31);
+        break;
     case 34:
     case 35:
-        navcmd(id - 33);
+        mountcmd(id - 34);
         break;
     case 36:
-    case 37:
-        mountcmd(id - 36);
-        break;
-    case 38:
         makediskcmd();
         break;
-    case 32:
+    case 30:
         args[0][0] = 0;
         keycmd(args[0]);
         break;
@@ -1015,9 +1044,6 @@ __noinline void bank_executecommand(char *s)
         print(SYSOUT_BANNER, MCS_BUILD_NUMBER);
         break;
     case 23:
-        diskidcmd();
-        break;
-    case 24:
         if (argc > 2) {
             error(SYSOUT_INVALID_PARAM);
             break;
@@ -1025,33 +1051,26 @@ __noinline void bank_executecommand(char *s)
         if (argc == 1) args[0][0] = 0;
         setcmd(argc == 2 ? args[1] : args[0]);
         break;
-    case 25:
+    case 24:
         if (argc != 1) {
             error(SYSOUT_INVALID_PARAM);
             break;
         }
         reboot = 1;
         break;
-    case 28:
+    case 26:
         findcmd();
         break;
-    case 29:
+    case 27:
         diskinitcmd();
         break;
-    case 30:
+    case 28:
         tapecopycmd();
         break;
-    case 26:
+    case 25:
         attribcmd();
         break;
-    case 27:
-        if (argc != 1) {
-            error(SYSOUT_INVALID_PARAM);
-            break;
-        }
-        bootsplash(0);
-        break;
-    case 31:
+    case 29:
         if (argc > 2 || (argc == 2 && stricmp(args[1], "/probe14"))) {
             error(SYSOUT_INVALID_PARAM);
             break;

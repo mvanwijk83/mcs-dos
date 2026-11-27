@@ -55,7 +55,7 @@ renaming; its SD2IEC mode still exercises the ordinary IEC rename path.
 
 `cmd-storage` checks SoftIEC identification through a verified UCI bus ID,
 its IO1/IO2 mappings, and rejection of raw geometry operations. `sysinfo-pal`
-checks MODE DRV letters and numbers, plus DISKID rejection with a simulated
+checks MODE DRV letters and numbers, plus LABEL /I rejection with a simulated
 SoftIEC identification and a substituted target
 handshake. A stock emulated 1541 is not a SoftIEC filesystem backend.
 
@@ -70,7 +70,15 @@ state, and CPU stack balance across repeated calls.
 
 `batch-loading` checks the configured batch-size boundary, terminator storage,
 oversized-file rejection, adjacent RAM, read/open failures, and nested-batch
-protection. `startup-settings` checks the 256-byte environment capacity and
+protection. `batch-interrupt` checks RUN/STOP tracking and Y/N confirmation;
+`batch-interrupt-session` exercises PAUSE and BEEP interruption in VICE.
+`label-id` checks LABEL /I parsing, prompts, validation, current/explicit drives,
+volume-name isolation and all three 1581 ID copies.
+`label-id-session` verifies argument and prompted IDs on 1541 and 1581 images,
+preserved volume names, command help and removal of DISKID in VICE.
+`charset-patches` verifies the exact underscore bitmap and checksum in every
+shipped CPI; `fonts-pal` compares their complete loaded fonts in VICE.
+`startup-settings` checks the 256-byte environment capacity and
 refusal to grow a full environment by one byte. It also checks immediate color
 and prompt changes, invalid values, and settings independent of environment
 capacity. `device-settings` exercises CHCP, PROMPT and MODE through the real

@@ -22,7 +22,7 @@ this was made for fun and novelty.
 * Configuration via `AUTOEXEC.BAT` and `CONFIG.SYS`.
 * Peripheral clocks, modification timestamps and country-specific date/time and number
   conventions; see [date/time support](DATE-TIME.md).
-* Some batch file support.
+* Some batch file support, with RUN/STOP and a Y/N prompt to terminate a job.
 * Supports 1541, 1541-II, 1570, 1571 and 1581, CMD HD/FD, SD2IEC and SoftIEC (Ultimate).
 * Supports partitions, subdirectories, and disk images on relevant storage devices.
 * Drives can be optionally displayed and addressed with DOS-style drive letters.
@@ -35,6 +35,13 @@ this was made for fun and novelty.
 * File printing.
 * Command help easily accessible from the shell (`/?` and `HELP`).
 * Customizable shell including prompts, colors and custom character sets.
+
+`LABEL [drive:] [/I] [label]` changes a volume label, or its two-character
+disk ID when `/I` is specified. It defaults to the current drive and prompts
+when the label or ID is omitted. This replaces the former `DISKID` command.
+The splash screen appears at boot; the `SPLASH` command has been removed.
+All supplied character sets display PETSCII $5F as an underscore for filenames
+transferred from PCs.
 
 ## Notable limitations and omissions
 

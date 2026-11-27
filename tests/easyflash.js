@@ -434,7 +434,7 @@ function diskFile(file, name) {
     assert(!s.includes('REU'), s);
     await check('help cls', 'Clears', 1500);
     await check('type autoexec.sample', 'set', 1500);
-    await enter('splash');
+    await check('splash', messages.SYSOUT_BAD_CMD_OR_FILE_NAME);
     await enter('edit edited.txt');
     await keys('edited on cartridge\\x03y', 4000);
     await check('type edited.txt', 'edited on cartridge');
@@ -627,6 +627,8 @@ async function defaultFont(patch) {
     for (let row = 0; row < 8; row++) {
         expected[28 * 8 + row] = backslash[row];
         expected[156 * 8 + row] = backslash[row] ^ 255;
+        expected[31 * 8 + row] = row === 6 ? 0x7e : 0;
+        expected[159 * 8 + row] = expected[31 * 8 + row] ^ 255;
     }
     if (patch)
         for (let i = 0; i < patch[5]; i++) {

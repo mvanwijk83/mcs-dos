@@ -53,7 +53,6 @@ static int commandid(const char *s) {return !stricmp(s,"CLS")?2:!stricmp(s,"RUN"
 #define typecmd(n) ((void)0)
 #define renamecmd() ((void)0)
 
-#define diskidcmd() ((void)0)
 #define settingscmd(k,s) ((void)0)
 #define setcmd(s) ((void)0)
 #define keycmd(s) ((void)0)

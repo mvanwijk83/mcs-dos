@@ -34,7 +34,7 @@ require('./shell')('subst-session', async ({disk, command, enter, keys, until}) 
         ['diskinit d:', 'Cannot initialize a SUBSTed drive'],
         ['format d:', 'Cannot format a SUBSTed or ASSIGNed\ndrive'],
         ['label d:', 'Cannot label a SUBSTed or ASSIGNed drive'],
-        ['diskid d: ab', 'Cannot label a SUBSTed or ASSIGNed drive'],
+        ['label d: /i ab', 'Cannot label a SUBSTed or ASSIGNed drive'],
         ['mount anything.d64 d:', 'Cannot mount to a SUBSTed drive'],
         ['unmount d:', 'Cannot unmount a SUBSTed drive']
     ];

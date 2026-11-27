@@ -251,7 +251,7 @@ async function run() {
                 await check('copy sample 9:sample', messages.SYSOUT_ONE_FILE_COPIED.trim());
                 await check('type 9:sample', 'sample');
                 await check('label renamed', messages.SYSOUT_VOL_LABEL_CHANGED.trim());
-                await check('diskid xy', messages.SYSOUT_DISK_ID_CHANGED.trim());
+                await check('label /i xy', messages.SYSOUT_DISK_ID_CHANGED.trim());
                 await check('vol', 'Disk ID is XY');
                 await check('attrib +l sample', '8:\\>');
                 await check('attrib sample', 'L    SAMPLE');

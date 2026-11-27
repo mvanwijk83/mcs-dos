@@ -727,11 +727,11 @@ __noinline int bank_commandid(const char *s)
     if (!stricmp(s, "DELETE") || !stricmp(s, "ERASE"))
         return 4;
     if (!stricmp(s, "CHDIR"))
-        return 33;
+        return 31;
     if (!stricmp(s, "MKDIR"))
-        return 34;
+        return 32;
     if (!stricmp(s, "RMDIR"))
-        return 35;
+        return 33;
     if (!stricmp(s, "RENAME"))
         return 18;
     for (i = 0; i < COMMANDCOUNT; ++i)
@@ -753,21 +753,19 @@ static unsigned char can_redirect(int id, unsigned char kind)
     case 10: /* FORMAT */
     case 12: /* LABEL */
     case 16: /* PRINT already owns a printer stream */
-    case 23: /* DISKID */
-    case 27: /* SPLASH */
-    case 30: /* TAPECOPY */
-    case 34: /* MD can ask for a partition size */
-    case 36: /* MOUNT */
-    case 38: /* MAKEDISK */
+    case 28: /* TAPECOPY */
+    case 32: /* MD can ask for a partition size */
+    case 34: /* MOUNT */
+    case 36: /* MAKEDISK */
         return kind == OUTPUT_CONSOLE;
     case 3:  /* COPY */
     case 4:  /* DEL */
     case 6:  /* DISKCOPY */
     case 14: /* MOVE */
     case 18: /* REN */
-    case 29: /* DISKINIT */
-    case 35: /* RD */
-    case 37: /* UNMOUNT */
+    case 27: /* DISKINIT */
+    case 33: /* RD */
+    case 35: /* UNMOUNT */
         return kind != OUTPUT_FILE;
     }
     return 1;
@@ -857,15 +855,15 @@ __noinline void bank_execute(char *s)
         if (!argquoted[i] && !strcmp(args[i], "/?"))
             helping = 1;
         if ((id == 1 && (!stricmp(args[i], "/V") || !stricmp(args[i], "/C"))) ||
-            (id == 26 && (!stricmp(args[i], "+L") || !stricmp(args[i], "-L"))))
+            (id == 25 && (!stricmp(args[i], "+L") || !stricmp(args[i], "-L"))))
             modifies = 1;
     }
     /* Resolve file inputs before opening/truncating any destination. */
-    if (!helping && (id == 20 || id == 28)) {
+    if (!helping && (id == 20 || id == 26)) {
         unsigned char mode;
         unsigned long limit;
         char *needle;
-        if (id == 28) {
+        if (id == 26) {
             if (!findoptions(&mode, &needle))
                 return;
         } else {
@@ -917,7 +915,7 @@ __noinline void bank_execute(char *s)
             error(SYSOUT_INVALID_DEST);
             return;
         }
-        if (!helping && (id == 20 || id == 28) && sameplace(&p1, &outputpath) &&
+        if (!helping && (id == 20 || id == 26) && sameplace(&p1, &outputpath) &&
             !strcmp(p1.name, outputpath.name)) {
             error(id == 20 ? SYSOUT_CANNOT_REDIR_TYPE_ON_SELF : SYSOUT_CANNOT_REDIR_FIND_ON_SELF);
             return;

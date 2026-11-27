@@ -6,7 +6,7 @@ const {tool} = require('../setup');
 module.exports = async ({command, memory, keys, enter, check, defaultFont, root, disk}) => {
     await check('dir', 'CGA.CPI');
     await defaultFont();
-    await enter('splash');
+    await check('splash', 'Bad command or file name');
     await defaultFont();
     await enter('reboot');
     await defaultFont();
@@ -34,6 +34,18 @@ module.exports = async ({command, memory, keys, enter, check, defaultFont, root,
             await defaultFont(fs.readFileSync('build/' + name + '.CPI'));
             await command(`screenshot "${root}/build/easyflash/display-${name.toLowerCase()}.png" 2`);
         }
+        // Check every shipped alternate font, including inverse underscores.
+        for (const name of ['PET', 'AMIGA', 'ATARIST', 'ZXSPECTRUM']) {
+            const file = name === 'PET' ? 'disk-content/PET.CPI' : 'extras/' + name + '.CPI';
+            const font = fs.readFileSync(file);
+            execFileSync(tool('vice', 'c1541'),
+                ['-attach', disk, '-write', file, name.toLowerCase() + '.cpi,s'],
+                {stdio: 'pipe', windowsHide: true});
+            await command(`attach "${disk}" 8`);
+            await enter('chcp 8:' + name.toLowerCase() + '.cpi');
+            await defaultFont(font);
+        }
+        await enter('chcp vga.cpi');
         await check('chcp missing.cpi', 'Cannot load MISSING.CPI');
         await check('mode con', 'Character set:     VGA.CPI');
         await defaultFont(fs.readFileSync('build/VGA.CPI'));
@@ -66,6 +78,6 @@ module.exports = async ({command, memory, keys, enter, check, defaultFont, root,
         await defaultFont(valid);
         console.log('PASS live and batch display settings, external CPI loading and invalid CPI rollback');
     }
-    console.log('PASS default charset after boot, DIR, SPLASH and REBOOT');
+    console.log('PASS default charset after boot, DIR, removed SPLASH and REBOOT');
     return;
 };

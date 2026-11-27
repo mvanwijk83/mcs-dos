@@ -44,13 +44,13 @@ async function main(){
             await s.check('attrib renamed','L    RENAMED');
             await s.check('attrib -l renamed','9:>');
             await s.check('label updated',messages.SYSOUT_VOL_LABEL_CHANGED);
-            await s.check('diskid xy',messages.SYSOUT_DISK_ID_CHANGED);
+            await s.check('label /i xy',messages.SYSOUT_DISK_ID_CHANGED);
             await s.check('vol','Disk ID is XY');
             await s.check('chkdsk /v',messages.SYSOUT_DISK_VALIDATION_COMPLETE);
         }
         console.log('PASS file access, physical-drive copies, labels, IDs, attributes and validation on all emulation formats');
         await select(4);await flush();let before=snapshots();await attach();await select(4);
-        for(const cmd of ['format 9:','label rejected','diskid zz','chkdsk /v','diskcopy 9: 8:'])
+        for(const cmd of ['format 9:','label rejected','label /i zz','chkdsk /v','diskcopy 9: 8:'])
             await s.check(cmd,messages.SYSOUT_UNSUPPORTED_DISK_FORMAT);
         await flush();assert.deepEqual(snapshots(),before,'native partition rejects writes');await attach();
         console.log('PASS native format rejected before destructive commands');

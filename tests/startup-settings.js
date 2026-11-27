@@ -103,18 +103,18 @@ int main(void)
     setcmd("charset=anything");
     if (fg != 15 || bg || bd || *prompttext || driveids) return 4;
     argc = 3; args[2] = "COLOR=15, 6, 14";
-    settingscmd(44, "CON:");
+    settingscmd(42, "CON:");
     if (fg != 15 || bg != 6 || bd != 14) return 5;
     args[2] = "COLOR=1,2,16";
-    settingscmd(44, "con");
+    settingscmd(42, "con");
     if (errors != 3 || fg != 15 || bg != 6 || bd != 14) return 6;
-    args[2] = "COLOR=1,2,3,4"; settingscmd(44, "con");
-    args[2] = "COLOR=1,2"; settingscmd(44, "con");
+    args[2] = "COLOR=1,2,3,4"; settingscmd(42, "con");
+    args[2] = "COLOR=1,2"; settingscmd(42, "con");
     if (errors != 5) return 7;
-    args[2] = "COLOR=15,0,0"; settingscmd(44, "con");
-    settingscmd(43, "Ready.$R$D$C$G");
+    args[2] = "COLOR=15,0,0"; settingscmd(42, "con");
+    settingscmd(41, "Ready.$R$D$C$G");
     if (strcmp(prompttext, "Ready.$R$D$C$G")) return 10;
-    settingscmd(43, "");
+    settingscmd(41, "");
     if (strcmp(prompttext, "$p$g")) return 9;
     envused = 0;
     errors = 0;
@@ -128,12 +128,12 @@ int main(void)
     setcmd("/ENV");
     if (strcmp(output, "  256 bytes total environment size\\n  256 bytes used\\n    0 bytes free\\n"))
         return 20;
-    settingscmd(43, "full environment");
+    settingscmd(41, "full environment");
     if (strcmp(prompttext, "full environment") || envused != ENVSIZE) return 25;
-    settingscmd(43, "123456789012345678901234567890123");
+    settingscmd(41, "123456789012345678901234567890123");
     if (strcmp(prompttext, "full environment") || errors != 1) return 26;
     errors = 0;
-    settingscmd(43, "");
+    settingscmd(41, "");
     setcmd("edge=12345678901234567890123456789");
     if (envused != 256 || errors != 1 || strcmp(envget("EDGE"), "1234567890123456789012345678"))
         return 13;
@@ -154,30 +154,30 @@ int main(void)
     setcmd("/ENV");
     if (strcmp(output, "  256 bytes total environment size\\n   48 bytes used\\n  208 bytes free\\n"))
         return 16;
-    argc = 3; args[2] = "IDS=DOS"; settingscmd(44, "drv:");
+    argc = 3; args[2] = "IDS=DOS"; settingscmd(42, "drv:");
     if (strcmp(drivename(8), "A")) return 17;
-    args[2] = "IDS=C64"; settingscmd(44, "DRV");
+    args[2] = "IDS=C64"; settingscmd(42, "DRV");
     if (strcmp(drivename(8), "8")) return 19;
     memset((void *)0xd800, 7, 1001);
-    args[2] = "COLOR=0,15,15"; settingscmd(44, "CON");
+    args[2] = "COLOR=0,15,15"; settingscmd(42, "CON");
     for (j = 0; j < 1000; ++j)
         if (((unsigned char *)0xd800)[j] != 0)
             return 21;
     if (*(unsigned char *)0xdbe8 != 7)
         return 22;
-    args[2] = "COLOR=1,2,16"; settingscmd(44, "CON");
+    args[2] = "COLOR=1,2,16"; settingscmd(42, "CON");
     for (j = 0; j < 1000; ++j)
         if (((unsigned char *)0xd800)[j] != 0)
             return 23;
     errors = 0;
-    args[2] = "COLORS=1,2,3"; settingscmd(44, "CON");
+    args[2] = "COLORS=1,2,3"; settingscmd(42, "CON");
     if (errors != 1 || fg || bg != 15 || bd != 15) return 27;
     /* Equal text/background colors must silently preserve settings and screen RAM. */
     errors = colorcalls = 0;
     memset((void *)0xd800, 7, 1001);
     for (i = 0; i < 16; ++i) {
         sprintf(b, "COLOR=%u,%u,3", i, i);
-        args[2] = b; settingscmd(44, "CON");
+        args[2] = b; settingscmd(42, "CON");
         if (errors || colorcalls || fg || bg != 15 || bd != 15) return 28;
         for (j = 0; j < 1001; ++j)
             if (((unsigned char *)0xd800)[j] != 7) return 29;

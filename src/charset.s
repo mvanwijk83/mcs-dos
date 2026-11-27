@@ -41,12 +41,24 @@ _charset_prepare:
     sta $f4e0,x
     dex
     bpl @backslash
+    ; ASCII/PETSCII $5f occupies screen slot 31. Show an underscore,
+    ; including its inverse, instead of the ROM's left arrow.
+    ldx #7
+@underscore:
+    lda @underscore_glyph,x
+    sta $f0f8,x
+    eor #$ff
+    sta $f4f8,x
+    dex
+    bpl @underscore
     pla
     sta $01
     plp
     rts
 @backslash_glyph:
     .byte $c0,$60,$30,$18,$0c,$06,$03,$00
+@underscore_glyph:
+    .byte $00,$00,$00,$00,$00,$00,$7e,$00
 
 _charset_commit:
     php

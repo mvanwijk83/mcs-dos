@@ -353,7 +353,7 @@ __noinline unsigned char bank_setcharset(const char *value)
     if (!openread(&p1, 2))
         goto failed;
     if (readio(2, io, 6) != 6 || io[0] != 77 || io[1] != 67 || io[2] != 80 || io[3] != 73 ||
-        io[4] != 1 || !io[5] || io[5] > 88)
+        io[4] != 1 || !io[5] || io[5] > 89)
         goto failed;
     charset_prepare();
     count = io[5];
@@ -361,7 +361,7 @@ __noinline unsigned char bank_setcharset(const char *value)
         if (readio(2, io, 9) != 9)
             goto failed;
         code = io[0];
-        if ((i && code <= previous) || !(code <= 29 || (code >= 32 && code <= 63) ||
+        if ((i && code <= previous) || !(code <= 29 || code == 31 || (code >= 32 && code <= 63) ||
                                          (code >= 65 && code <= 90) || code == 96))
             goto failed;
         previous = code;
@@ -391,11 +391,11 @@ failed:
 #pragma code(boot_code)
 #pragma data(boot_data)
 
-/* Use the ROM font for the artwork; interactive SPLASH restores the shell.
+/* Use the ROM font for the startup artwork.
  *
  * Display the startup logo and manage the temporary screen and NMI state.
  *
- * wait: 0=interactive splash, 1=timed startup, 4=SYSINFO without the splash. */
+ * wait: 1=timed startup, 4=SYSINFO, 5=SYSINFO with device 14 probing. */
 __noinline void bank_bootsplash(unsigned char wait)
 {
     static const char product[] = SYSOUT_SPLASH_PRODUCT;
@@ -407,13 +407,6 @@ __noinline void bank_bootsplash(unsigned char wait)
     if (wait >= 4) {
         bank_sysinfo(wait == 5);
         return;
-    }
-    /* Interactive SPLASH temporarily uses the default screen, which now
-     * overlaps EasyAPI and the filesystem state. These scratch buffers are
-     * idle here, including when SPLASH is called from a batch file. */
-    if (!wait) {
-        memcpy(editbuf, (void *)0x0400, 768);
-        memcpy(io, (void *)0x0700, 240);
     }
     charset_default();
     bgcolor(COLOR_BLACK);
@@ -436,44 +429,32 @@ __noinline void bank_bootsplash(unsigned char wait)
     textcolor(COLOR_WHITE);
     gotoxy((40 - (sizeof(copyright) - 1)) / 2, 2 + LOGO_ROWS + 6);
     screen_puts(copyright);
-    if (wait) {
-        skipautoexec = 0;
-        oldlo = PEEK(0x0318);
-        oldhi = PEEK(0x0319);
-        started = splash_nmi_address();
-        POKE(0x0318, started & 255);
-        POKE(0x0319, started >> 8);
-        started = clock();
-        while (!skipautoexec && (clock_t)(clock() - started) < 5 * CLOCKS_PER_SEC) {
-            seconds = 5 - (clock_t)(clock() - started) / CLOCKS_PER_SEC;
-            if (seconds != remaining) {
-                remaining = seconds;
-                textcolor(15);
-                gotoxy(4, 23);
-                screen_puts("Press RESTORE for safe boot (");
-                screen_putc('0' + remaining);
-                screen_putc(')');
-            }
+    skipautoexec = 0;
+    oldlo = PEEK(0x0318);
+    oldhi = PEEK(0x0319);
+    started = splash_nmi_address();
+    POKE(0x0318, started & 255);
+    POKE(0x0319, started >> 8);
+    started = clock();
+    while (!skipautoexec && (clock_t)(clock() - started) < 5 * CLOCKS_PER_SEC) {
+        seconds = 5 - (clock_t)(clock() - started) / CLOCKS_PER_SEC;
+        if (seconds != remaining) {
+            remaining = seconds;
+            textcolor(15);
+            gotoxy(4, 23);
+            screen_puts("Press RESTORE for safe boot (");
+            screen_putc('0' + remaining);
+            screen_putc(')');
         }
-        fg = 15;
-        textcolor(fg);
-        clear();
-        bank_sysinfo(0);
-        newline();
-        say("Starting MCS-DOS...\n");
-        POKE(0x0318, oldlo);
-        POKE(0x0319, oldhi);
-    } else {
-        if (screenbase != 0x0400)
-            charset_enable();
-        memcpy((void *)0x0400, editbuf, 768);
-        memcpy((void *)0x0700, io, 240);
-        colors();
-        caret_init();
-        ox = 0;
-        oy = 2 + LOGO_ROWS + 8;
-        gotoxy(ox, oy);
     }
+    fg = 15;
+    textcolor(fg);
+    clear();
+    bank_sysinfo(0);
+    newline();
+    say("Starting MCS-DOS...\n");
+    POKE(0x0318, oldlo);
+    POKE(0x0319, oldhi);
 }
 
 /* List, validate, replace or remove a packed environment variable.
@@ -566,7 +547,7 @@ __noinline void bank_settingscmd(unsigned char kind, const char *s)
 {
     unsigned char con, drv;
     const char *value;
-    if (kind == 43) {
+    if (kind == 41) {
         if (strlen(s) > ENVVALUE) {
             error(SYSOUT_INVALID_PARAM);
             return;
@@ -574,7 +555,7 @@ __noinline void bank_settingscmd(unsigned char kind, const char *s)
         strcpy(prompttext, *s ? s : "$p$g");
         return;
     }
-    if (kind == 42) {
+    if (kind == 40) {
         if (argc > 2)
             error(SYSOUT_INVALID_PARAM);
         else
@@ -634,7 +615,7 @@ __noinline void bank_bootstart(void)
         cmddev[c] = 0;
     }
     drive = startupdevice;
-    quit = reboot = batching = aborted = editprompt = pagelines = 0;
+    quit = reboot = batching = batchstop = aborted = editprompt = pagelines = 0;
     envready = 1;
     envused = histcount = histnext = cachevalid = count = cmdslot = 0;
     environment[0] = line[0] = 0;
